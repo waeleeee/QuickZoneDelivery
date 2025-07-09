@@ -33,14 +33,21 @@ const options = {
   plugins: {
     legend: {
       position: 'bottom',
-      labels: { padding: 20, usePointStyle: true },
+      labels: {
+        padding: 20,
+        usePointStyle: true,
+        font: {
+          size: 16, // Increased font size
+          weight: 'bold' // Make it bold
+        }
+      },
     },
   },
 };
 
 export default function StatusChart() {
   return (
-    <div style={{ width: '100%', height: 300 }}>
+    <div style={{ width: '100%', height: 350 }}>
       <Doughnut data={data} options={options} />
     </div>
   );

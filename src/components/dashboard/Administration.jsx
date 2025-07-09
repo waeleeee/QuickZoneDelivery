@@ -10,6 +10,7 @@ const Administration = () => {
       email: "pierre.dubois@quickzone.com",
       role: "Administrateur système",
       phone: "+33 1 23 45 67 89",
+      address: "123 Rue de la Paix, 75001 Paris, France",
     },
     {
       id: 2,
@@ -17,6 +18,7 @@ const Administration = () => {
       email: "sarah.ahmed@quickzone.com",
       role: "Gestionnaire utilisateurs",
       phone: "+33 1 98 76 54 32",
+      address: "456 Avenue des Champs-Élysées, 75008 Paris, France",
     },
     {
       id: 3,
@@ -24,6 +26,7 @@ const Administration = () => {
       email: "mohamed.ali@quickzone.com",
       role: "Responsable sécurité",
       phone: "+33 1 11 22 33 44",
+      address: "789 Boulevard Saint-Germain, 75006 Paris, France",
     },
   ]);
 
@@ -34,18 +37,18 @@ const Administration = () => {
     id: "",
     name: "",
     email: "",
-    role: "",
     phone: "",
     address: "",
+    role: "admin"
   });
 
   const columns = [
     { key: "id", header: "ID" },
     { key: "name", header: "Nom" },
     { key: "email", header: "Email" },
-    { key: "role", header: "Rôle" },
     { key: "phone", header: "Téléphone" },
     { key: "address", header: "Adresse" },
+    { key: "role", header: "Rôle" },
   ];
 
   const handleAdd = () => {
@@ -54,9 +57,9 @@ const Administration = () => {
       id: "",
       name: "",
       email: "",
-      role: "",
       phone: "",
       address: "",
+      role: "admin"
     });
     setIsModalOpen(true);
   };
@@ -103,14 +106,14 @@ const Administration = () => {
       {/* Header harmonisé */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Gestion des administrateurs</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Gestion admin</h1>
           <p className="text-gray-600 mt-1">Gérez les utilisateurs ayant des droits d'administration</p>
         </div>
         <button
           onClick={handleAdd}
           className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
         >
-          Ajouter un administrateur
+          Ajouter admin
         </button>
       </div>
 
@@ -128,9 +131,10 @@ const Administration = () => {
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={editingAdmin ? "Modifier l'administrateur" : "Ajouter un administrateur"}
+        title={editingAdmin ? "Modifier admin" : "Ajouter admin"}
         size="md"
       >
+        <div className="mb-4 text-center text-lg text-gray-700 font-semibold">المعلومات اللازمة لاضافة مدير جديد</div>
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -207,11 +211,9 @@ const Administration = () => {
               onChange={handleInputChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
             >
-              <option value="">Sélectionner le rôle</option>
-              <option value="Administrateur système">Administrateur système</option>
+              <option value="admin">admin</option>
               <option value="Gestionnaire utilisateurs">Gestionnaire utilisateurs</option>
               <option value="Responsable sécurité">Responsable sécurité</option>
-              <option value="Gestionnaire contenu">Gestionnaire contenu</option>
             </select>
           </div>
         </div>

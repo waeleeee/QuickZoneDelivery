@@ -86,6 +86,47 @@ const CommercialDashboard = ({ commercial, expediteurs, commissionRate, onViewEx
     }
   ]);
 
+  // Add mock payments data here so it's defined in this scope
+  const payments = [
+    {
+      id: 1,
+      shipper: "Ahmed Mohamed",
+      amount: "250,00 €",
+      date: "2024-01-15",
+      method: "Virement bancaire",
+      reference: "REF-001",
+      status: "Payé",
+    },
+    {
+      id: 2,
+      shipper: "Sarah Ahmed",
+      amount: "180,00 €",
+      date: "2024-01-14",
+      method: "Espèces",
+      reference: "REF-002",
+      status: "Payé",
+    },
+    {
+      id: 3,
+      shipper: "Mohamed Ali",
+      amount: "320,00 €",
+      date: "2024-01-13",
+      method: "Chèque",
+      reference: "REF-003",
+      status: "En attente",
+    },
+    // Added payment for Pierre Dubois
+    {
+      id: 4,
+      shipper: "Pierre Dubois",
+      amount: "400,00 €",
+      date: "2024-01-20",
+      method: "Virement bancaire",
+      reference: "REF-004",
+      status: "Payé",
+    },
+  ];
+
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedExpediteur, setSelectedExpediteur] = useState(null);
   const [isExporting, setIsExporting] = useState(false);
@@ -148,7 +189,7 @@ const CommercialDashboard = ({ commercial, expediteurs, commissionRate, onViewEx
     },
     {
       key: "commissionEarned",
-      header: "Commission gagnée",
+      header: "Total gagné (€)",
       render: (value) => (
         <span className="font-semibold text-green-600">€{value.toFixed(2)}</span>
       )
@@ -170,27 +211,13 @@ const CommercialDashboard = ({ commercial, expediteurs, commissionRate, onViewEx
       render: (_, row) => (
         <div className="flex gap-2">
           <button
-            onClick={() => onViewExpediteur(row)}
+            onClick={() => setSelectedExpediteur(row)}
             className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-50 transition-colors"
             title="Voir les détails"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-            </svg>
-          </button>
-          <button
-            onClick={() => {
-              const successfulParcels = row.colis.filter(colis => colis.status === "Livés");
-              const totalAmount = successfulParcels.reduce((sum, colis) => sum + colis.amount, 0);
-              const commission = calculateCommission(totalAmount);
-              alert(`Commission pour ${row.name}:\nTotal colis réussis: ${successfulParcels.length}\nMontant total: €${totalAmount.toFixed(2)}\nCommission (${commercialData.commissionRate}%): €${commission.toFixed(2)}`);
-            }}
-            className="text-green-600 hover:text-green-800 p-1 rounded-full hover:bg-green-50 transition-colors"
-            title="Calculer commission"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
             </svg>
           </button>
         </div>
@@ -260,103 +287,148 @@ const CommercialDashboard = ({ commercial, expediteurs, commissionRate, onViewEx
           </div>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
-          <div className="bg-white p-4 rounded-lg shadow">
-            <div className="text-sm text-gray-500">Nom</div>
-            <div className="text-lg font-semibold">{commercialData.name}</div>
-            <div className="text-sm text-gray-400">{commercialData.email}</div>
-            <div className="text-sm text-gray-400">{commercialData.phone}</div>
+        {/* Stat Cards Row */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-8">
+          {/* 1. Jean Dupont Card */}
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-100 p-6 rounded-xl shadow-lg border border-blue-200 flex flex-col items-center justify-center h-full min-h-[240px]">
+            <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center mb-3">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+            </div>
+            <div className="text-center w-full">
+              <div className="text-lg font-bold text-gray-800 mb-1">{commercialData.name}</div>
+              <div className="inline-block text-xs font-semibold text-blue-700 bg-blue-100 rounded px-2 py-1 mb-2">Commercial ID: {commercialData.id}</div>
+              <div className="flex items-center justify-center text-sm text-gray-600 mb-1">
+                <svg className="w-4 h-4 mr-1 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                {commercialData.email}
+              </div>
+              <div className="flex items-center justify-center text-sm text-gray-600">
+                <svg className="w-4 h-4 mr-1 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                </svg>
+                {commercialData.phone}
+              </div>
+            </div>
           </div>
-          
-          <div className="bg-white p-4 rounded-lg shadow">
-            <div className="text-sm text-gray-500">Commission</div>
-            <div className="text-lg font-semibold text-green-600">{commercialData.commissionRate}%</div>
-            <div className="text-sm text-gray-400">par colis réussi</div>
+
+          {/* 2. Performance Card */}
+          <div className="bg-gradient-to-br from-purple-50 to-pink-100 p-6 rounded-xl shadow-lg border border-purple-200 flex flex-col items-center justify-center h-full min-h-[240px]">
+            <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-600 rounded-lg flex items-center justify-center mb-3">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+            </div>
+            <div className="text-center w-full">
+              <div className="text-lg font-bold text-gray-800 mb-1">Performance</div>
+              <div className="flex items-center justify-between text-sm text-gray-600 mb-1">
+                <span>Clients actifs</span>
+                <span className="font-bold text-purple-600">{commercialData.totalClients}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
+                <span>Taux de réussite</span>
+                <span className="font-bold text-green-600">{commercialData.successRate}%</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2 mb-1">
+                <div className="bg-gradient-to-r from-green-400 to-green-600 h-2 rounded-full" style={{width: `${commercialData.successRate}%`}}></div>
+              </div>
+            </div>
           </div>
-          
-          <div className="bg-white p-4 rounded-lg shadow">
-            <div className="text-sm text-gray-500">Gains totaux</div>
-            <div className="text-lg font-semibold text-green-600">€{commercialData.totalEarnings.toFixed(2)}</div>
-            <div className="text-sm text-gray-400">Commission en attente: €{commercialData.pendingCommission.toFixed(2)}</div>
+
+          {/* 3. Total de colis Card */}
+          <div className="bg-gradient-to-br from-orange-50 to-red-100 p-6 rounded-xl shadow-lg border border-orange-200 flex flex-col items-center justify-center h-full min-h-[240px]">
+            <div className="w-12 h-12 bg-gradient-to-r from-orange-500 to-red-600 rounded-lg flex items-center justify-center mb-3">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+              </svg>
+            </div>
+            <div className="text-center w-full">
+              <div className="text-lg font-bold text-gray-800 mb-1">Total de colis</div>
+              <div className="text-3xl font-bold text-orange-600 mb-2">{commercialData.totalParcels}</div>
+              <div className="text-sm text-gray-600 bg-orange-50 px-3 py-1 rounded-full inline-block">Colis au total</div>
+            </div>
           </div>
-          
-          <div className="bg-white p-4 rounded-lg shadow">
-            <div className="text-sm text-gray-500">Performance</div>
-            <div className="text-lg font-semibold">{commercialData.totalClients} clients</div>
-            <div className="text-sm text-gray-400">{commercialData.successRate}% de réussite</div>
+
+          {/* 4. Total de colis livrés Card */}
+          <div className="bg-gradient-to-br from-green-50 to-emerald-100 p-6 rounded-xl shadow-lg border border-green-200 flex flex-col items-center justify-center h-full min-h-[240px]">
+            <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg flex items-center justify-center mb-3">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div className="text-center w-full">
+              <div className="text-lg font-bold text-gray-800 mb-1">Colis livrés</div>
+              <div className="text-3xl font-bold text-green-600 mb-2">{commercialData.successfulParcels}</div>
+              <div className="text-sm text-gray-600 bg-green-50 px-3 py-1 rounded-full inline-block">Livrés avec succès</div>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Advanced Filters */}
-      <div className="bg-white p-4 rounded-lg shadow-sm border">
+      <div className="bg-white p-6 rounded-2xl shadow-lg border border-blue-100 mt-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold">Filtres avancés</h3>
+          <div className="flex items-center gap-2">
+            <svg className="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707l-6.414 6.414A2 2 0 0013 14.586V19a1 1 0 01-1.447.894l-2-1A1 1 0 019 18v-3.414a2 2 0 00-.586-1.414L2 6.707A1 1 0 012 6V4z" />
+            </svg>
+            <h3 className="text-lg font-semibold text-gray-800">Filtres avancés</h3>
+          </div>
           <button
             onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-            className="text-blue-600 hover:text-blue-800"
+            className={`px-4 py-2 rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400 ${showAdvancedFilters ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
           >
             {showAdvancedFilters ? "Masquer" : "Afficher"}
           </button>
         </div>
-        
         {showAdvancedFilters && (
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            <select
-              name="status"
-              value={advancedFilters.status}
-              onChange={handleAdvancedFilterChange}
-              className="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            >
-              <option value="">Tous les statuts</option>
-              <option value="active">Actif</option>
-              <option value="inactive">Inactif</option>
-            </select>
-            
-            <input
-              type="number"
-              name="minCommission"
-              value={advancedFilters.minCommission}
-              onChange={handleAdvancedFilterChange}
-              placeholder="Commission min (€)"
-              className="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
-            
-            <input
-              type="number"
-              name="maxCommission"
-              value={advancedFilters.maxCommission}
-              onChange={handleAdvancedFilterChange}
-              placeholder="Commission max (€)"
-              className="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
-            
-            <input
-              type="number"
-              name="successRate"
-              value={advancedFilters.successRate}
-              onChange={handleAdvancedFilterChange}
-              placeholder="Taux de réussite min (%)"
-              className="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
-            
-            <input
-              type="date"
-              name="dateFrom"
-              value={advancedFilters.dateFrom}
-              onChange={handleAdvancedFilterChange}
-              placeholder="Date de début"
-              className="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
-            
-            <input
-              type="date"
-              name="dateTo"
-              value={advancedFilters.dateTo}
-              onChange={handleAdvancedFilterChange}
-              placeholder="Date de fin"
-              className="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
+          <div className="flex flex-col md:flex-row md:items-end gap-4">
+            <div className="flex-1">
+              <label className="block text-sm font-semibold text-gray-800 mb-2 text-left">Statut</label>
+              <select
+                name="status"
+                value={advancedFilters.status}
+                onChange={handleAdvancedFilterChange}
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-gray-50"
+              >
+                <option value="">Tous les statuts</option>
+                <option value="active">Actif</option>
+                <option value="inactive">Inactif</option>
+              </select>
+            </div>
+            <div className="flex-1">
+              <label className="block text-sm font-semibold text-gray-800 mb-2 text-left">Taux de réussite min (%)</label>
+              <input
+                type="number"
+                name="successRate"
+                value={advancedFilters.successRate}
+                onChange={handleAdvancedFilterChange}
+                placeholder="Taux de réussite min (%)"
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-gray-50"
+              />
+            </div>
+            <div className="flex-1">
+              <label className="block text-sm font-semibold text-gray-800 mb-2 text-left">Date de début</label>
+              <input
+                type="date"
+                name="dateFrom"
+                value={advancedFilters.dateFrom}
+                onChange={handleAdvancedFilterChange}
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-gray-50"
+              />
+            </div>
+            <div className="flex-1">
+              <label className="block text-sm font-semibold text-gray-800 mb-2 text-left">Date de fin</label>
+              <input
+                type="date"
+                name="dateTo"
+                value={advancedFilters.dateTo}
+                onChange={handleAdvancedFilterChange}
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-gray-50"
+              />
+            </div>
           </div>
         )}
       </div>
@@ -482,6 +554,41 @@ const CommercialDashboard = ({ commercial, expediteurs, commissionRate, onViewEx
             </div>
 
             {/* Recent Parcels */}
+            <div className="bg-white p-6 rounded-xl border mb-6">
+              <h3 className="text-lg font-semibold mb-4">Paiements à cet expéditeur</h3>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Montant</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Méthode</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Référence</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {payments.filter(p => p.shipper === selectedExpediteur.name).length === 0 ? (
+                      <tr><td colSpan={5} className="text-center py-4 text-gray-400">Aucun paiement trouvé pour cet expéditeur.</td></tr>
+                    ) : (
+                      payments.filter(p => p.shipper === selectedExpediteur.name).map(payment => (
+                        <tr key={payment.id}>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{payment.date}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-green-700 font-semibold">{payment.amount}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{payment.method}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{payment.reference}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm">
+                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${payment.status === "Payé" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}`}>{payment.status}</span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Recent Parcels */}
             <div className="bg-white p-6 rounded-xl border">
               <h3 className="text-lg font-semibold mb-4">Colis récents</h3>
               <div className="overflow-x-auto">
@@ -574,8 +681,13 @@ const Commercial = () => {
     return (
       <div className="space-y-6">
         <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-gray-900">Gestion des Commerciaux</h1>
-          <button onClick={handleAddCommercial} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium">Ajouter un commercial</button>
+          <h1 className="text-2xl font-bold text-gray-900">Gestion Commerciaux</h1>
+          <button
+            onClick={handleAddCommercial}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+          >
+            Ajouter commercial
+          </button>
         </div>
         <DataTable
           data={commercials}
