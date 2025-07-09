@@ -146,29 +146,29 @@ const Finance = () => {
         <Modal isOpen={showEditModal} onClose={() => setShowEditModal(false)} size="md">
           <form onSubmit={handleSaveComptable} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium">Nom et prénom</label>
+              <label className="block text-sm font-medium text-left">Nom et prénom</label>
               <input type="text" className="border rounded px-2 py-1 w-full" value={editComptable.name || ''} onChange={e => setEditComptable({ ...editComptable, name: e.target.value })} required />
             </div>
             <div>
-              <label className="block text-sm font-medium">Email</label>
+              <label className="block text-sm font-medium text-left">Email</label>
               <input type="email" className="border rounded px-2 py-1 w-full" value={editComptable.email || ''} onChange={e => setEditComptable({ ...editComptable, email: e.target.value })} required />
             </div>
             <div>
-              <label className="block text-sm font-medium">Téléphone</label>
+              <label className="block text-sm font-medium text-left">Téléphone</label>
               <input type="text" className="border rounded px-2 py-1 w-full" value={editComptable.phone || ''} onChange={e => setEditComptable({ ...editComptable, phone: e.target.value })} required />
             </div>
             <div>
-              <label className="block text-sm font-medium">Adresse</label>
+              <label className="block text-sm font-medium text-left">Adresse</label>
               <input type="text" className="border rounded px-2 py-1 w-full" value={editComptable.address || ''} onChange={e => setEditComptable({ ...editComptable, address: e.target.value })} required />
             </div>
             <div>
-              <label className="block text-sm font-medium">Titre</label>
+              <label className="block text-sm font-medium text-left">Titre</label>
               <select className="border rounded px-2 py-1 w-full" value={editComptable.titre || 'comptable'} onChange={e => setEditComptable({ ...editComptable, titre: e.target.value })} required>
                 {titreOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium">Agence</label>
+              <label className="block text-sm font-medium text-left">Agence</label>
               <select className="border rounded px-2 py-1 w-full" value={editComptable.agence || 'Siège'} onChange={e => setEditComptable({ ...editComptable, agence: e.target.value })} required>
                 {agenceOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
               </select>

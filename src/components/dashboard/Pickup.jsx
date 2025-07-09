@@ -245,95 +245,46 @@ const Pickup = () => {
         title={editingMission ? "Modifier la mission" : "Nouvelle mission"}
         size="md"
       >
-        <div className="space-y-4">
+        <form onSubmit={e => { e.preventDefault(); handleSubmit(); }} className="space-y-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Livreur</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Nom du livreur</label>
             <select
               name="driverId"
               value={formData.driverId}
               onChange={handleInputChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              required
             >
-              <option value="">Sélectionner un livreur</option>
-              {mockDrivers.map((d) => (
-                <option key={d.id} value={d.id}>{d.name}</option>
+              <option value="">Sélectionner</option>
+              {mockDrivers.map(driver => (
+                <option key={driver.id} value={driver.id}>{driver.name}</option>
               ))}
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Expéditeur</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Nom du client</label>
             <select
               name="shipperId"
               value={formData.shipperId}
               onChange={handleInputChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              required
             >
-              <option value="">Sélectionner un expéditeur</option>
-              {mockShippers.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
+              <option value="">Sélectionner</option>
+              {mockShippers.map(shipper => (
+                <option key={shipper.id} value={shipper.id}>{shipper.name}</option>
               ))}
             </select>
           </div>
-          <div className="mb-4">
+          <div className="flex justify-end">
             <button
-              type="button"
-              onClick={() => setIsScanModalOpen(true)}
-              className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-md font-semibold mb-2"
+              type="submit"
+              className="px-6 py-2 bg-blue-600 text-white rounded-md font-semibold hover:bg-blue-700 transition"
             >
-              Ajouter des colis par scan
+              Assigner
             </button>
-            {/* Affichage des colis sélectionnés */}
-            {Array.isArray(formData.colisIds) && formData.colisIds.length > 0 ? (
-              <div className="mt-2">
-                <span className="text-sm font-semibold text-gray-700">Colis sélectionnés :</span>
-                <ul className="flex flex-wrap gap-2 mt-1">
-                  {formData.colisIds.map((id) => (
-                    <li key={id} className="bg-blue-50 text-blue-700 px-2 py-1 rounded text-xs font-mono border border-blue-200">{id}</li>
-                  ))}
-                </ul>
-              </div>
-            ) : (
-              <div className="mt-2 text-xs text-gray-400">Aucun colis sélectionné pour cette mission.</div>
-            )}
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Statut</label>
-            <select
-              name="status"
-              value={formData.status}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
-            >
-              {statusList.map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Date prévue</label>
-            <input
-              type="datetime-local"
-              name="scheduledTime"
-              value={formData.scheduledTime}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
-            />
-          </div>
-        </div>
-        <div className="mt-6 flex justify-end gap-2">
-          <button
-            onClick={() => setIsModalOpen(false)}
-            className="px-4 py-2 rounded-md text-gray-700 bg-gray-100 hover:bg-gray-200"
-          >
-            Annuler
-          </button>
-          <button
-            onClick={handleSubmit}
-            className="px-4 py-2 rounded-md text-white bg-blue-600 hover:bg-blue-700"
-          >
-            {editingMission ? "Enregistrer" : "Créer"}
-          </button>
-        </div>
+        </form>
       </Modal>
 
       {/* Modal vue détaillée mission */}

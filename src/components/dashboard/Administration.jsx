@@ -136,7 +136,7 @@ const Administration = () => {
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">
               ID
             </label>
             <input
@@ -149,7 +149,7 @@ const Administration = () => {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">
               Nom
             </label>
             <input
@@ -162,7 +162,7 @@ const Administration = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">
               Email
             </label>
             <input
@@ -175,7 +175,7 @@ const Administration = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">
               Téléphone
             </label>
             <input
@@ -188,7 +188,7 @@ const Administration = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">
               Adresse
             </label>
             <input
@@ -201,7 +201,7 @@ const Administration = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">
               Rôle
             </label>
             <select

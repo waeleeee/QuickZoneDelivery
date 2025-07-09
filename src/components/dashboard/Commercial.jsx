@@ -841,34 +841,34 @@ const Commercial = () => {
         <Modal isOpen={showEditModal} onClose={() => setShowEditModal(false)} size="md">
           <form onSubmit={handleSaveCommercial} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium">Nom</label>
+              <label className="block text-sm font-medium text-left">Nom</label>
               <input type="text" className="border rounded px-2 py-1 w-full" value={editCommercial.name || ''} onChange={e => setEditCommercial({ ...editCommercial, name: e.target.value })} required />
             </div>
             <div>
-              <label className="block text-sm font-medium">Email</label>
+              <label className="block text-sm font-medium text-left">Email</label>
               <input type="email" className="border rounded px-2 py-1 w-full" value={editCommercial.email || ''} onChange={e => setEditCommercial({ ...editCommercial, email: e.target.value })} required />
             </div>
             <div>
-              <label className="block text-sm font-medium">Téléphone</label>
+              <label className="block text-sm font-medium text-left">Téléphone</label>
               <input type="text" className="border rounded px-2 py-1 w-full" value={editCommercial.phone || ''} onChange={e => setEditCommercial({ ...editCommercial, phone: e.target.value })} required />
             </div>
             <div>
-              <label className="block text-sm font-medium">Adresse</label>
+              <label className="block text-sm font-medium text-left">Adresse</label>
               <input type="text" className="border rounded px-2 py-1 w-full" value={editCommercial.address || ''} onChange={e => setEditCommercial({ ...editCommercial, address: e.target.value })} required />
             </div>
             <div>
-              <label className="block text-sm font-medium">Titre</label>
+              <label className="block text-sm font-medium text-left">Titre</label>
               <select className="border rounded px-2 py-1 w-full" value={editCommercial.title || 'Commercial'} onChange={e => setEditCommercial({ ...editCommercial, title: e.target.value })} required>
                 <option value="Commercial">Commercial</option>
                 <option value="Senior Commercial">Senior Commercial</option>
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium">Clients</label>
+              <label className="block text-sm font-medium text-left">Clients</label>
               <input type="number" className="border rounded px-2 py-1 w-full" value={editCommercial.totalClients || ''} onChange={e => setEditCommercial({ ...editCommercial, totalClients: e.target.value })} required />
             </div>
             <div>
-              <label className="block text-sm font-medium">Expéditions reçues</label>
+              <label className="block text-sm font-medium text-left">Expéditions reçues</label>
               <input type="number" className="border rounded px-2 py-1 w-full" value={editCommercial.expeditionsRecues || ''} onChange={e => setEditCommercial({ ...editCommercial, expeditionsRecues: e.target.value })} required />
             </div>
             <div className="flex justify-end space-x-2">

@@ -9,6 +9,8 @@ const MembreAgence = () => {
       name: "Pierre Dubois",
       email: "pierre.membre@email.com",
       phone: "+33 1 23 45 67 89",
+      address: "12 Rue de Paris, Tunis",
+      agence: "Tunis",
       role: "Responsable d'agence",
     },
     {
@@ -16,6 +18,8 @@ const MembreAgence = () => {
       name: "Sarah Ahmed",
       email: "sarah.membre@email.com",
       phone: "+33 1 98 76 54 32",
+      address: "34 Avenue Habib Bourguiba, Sousse",
+      agence: "Sousse",
       role: "Agent d'accueil",
     },
     {
@@ -23,6 +27,8 @@ const MembreAgence = () => {
       name: "Mohamed Ali",
       email: "mohamed.membre@email.com",
       phone: "+33 1 11 22 33 44",
+      address: "56 Rue de la Liberté, Sfax",
+      agence: "Sfax",
       role: "Gestionnaire de stock",
     },
   ]);
@@ -34,13 +40,18 @@ const MembreAgence = () => {
     name: "",
     email: "",
     phone: "",
+    address: "",
+    agence: "Tunis",
     role: "",
   });
 
   const columns = [
-    { key: "name", header: "Nom" },
+    { key: "id", header: "ID" },
+    { key: "name", header: "Nom et prénom" },
     { key: "email", header: "Email" },
     { key: "phone", header: "Téléphone" },
+    { key: "address", header: "Adresse" },
+    { key: "agence", header: "Agence" },
     { key: "role", header: "Rôle" },
   ];
 
@@ -50,6 +61,8 @@ const MembreAgence = () => {
       name: "",
       email: "",
       phone: "",
+      address: "",
+      agence: "Tunis",
       role: "",
     });
     setIsModalOpen(true);
@@ -77,7 +90,7 @@ const MembreAgence = () => {
     } else {
       const newMember = {
         ...formData,
-        id: Math.max(...members.map((m) => m.id)) + 1,
+        id: members.length > 0 ? Math.max(...members.map((m) => m.id)) + 1 : 1,
       };
       setMembers([...members, newMember]);
     }
@@ -104,7 +117,7 @@ const MembreAgence = () => {
           onClick={handleAdd}
           className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
         >
-          Ajouter un membre
+          Ajouter membres d'agence
         </button>
       </div>
 
@@ -122,13 +135,13 @@ const MembreAgence = () => {
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={editingMember ? "Modifier le membre" : "Ajouter un membre"}
+        title={editingMember ? "Modifier le membre d'agence" : "Ajouter membres d'agence"}
         size="md"
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Nom
+            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">
+              Nom et prénom
             </label>
             <input
               type="text"
@@ -140,7 +153,7 @@ const MembreAgence = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">
               Email
             </label>
             <input
@@ -153,7 +166,7 @@ const MembreAgence = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">
               Téléphone
             </label>
             <input
@@ -166,7 +179,36 @@ const MembreAgence = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">
+              Adresse
+            </label>
+            <input
+              type="text"
+              name="address"
+              value={formData.address}
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">
+              Agence
+            </label>
+            <select
+              name="agence"
+              value={formData.agence}
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="Tunis">Tunis</option>
+              <option value="Sousse">Sousse</option>
+              <option value="Sfax">Sfax</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">
               Rôle
             </label>
             <input

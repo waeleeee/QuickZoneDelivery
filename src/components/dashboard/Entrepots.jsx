@@ -3,6 +3,55 @@ import DataTable from "./common/DataTable";
 import Modal from "./common/Modal";
 import html2pdf from "html2pdf.js";
 import ActionButtons from "./common/ActionButtons";
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
+
+// Statuses and their colors (matching the legend)
+const COLIS_STATUSES = [
+  { key: "En attente", label: "En attente", color: "#F59E42" },
+  { key: "À enlever", label: "À enlever", color: "#F59E42" },
+  { key: "Enlevé", label: "Enlevé", color: "#8B5CF6" },
+  { key: "Au dépôt", label: "Au dépôt", color: "#3B82F6" },
+  { key: "En cours", label: "En cours", color: "#A78BFA" },
+  { key: "Rtn dépôt", label: "RTN dépôt", color: "#FB923C" },
+  { key: "Livrés", label: "Livrés", color: "#22C55E" },
+  { key: "Livrés payés", label: "Livrés payés", color: "#16A34A" },
+  { key: "Retour définitif", label: "Retour définitif", color: "#EF4444" },
+  { key: "Rtn Client Agence", label: "RTN client agence", color: "#EC4899" },
+  { key: "Retour Expéditeur", label: "Retour Expéditeur", color: "#6B7280" },
+  { key: "Retour en cours d’expédition", label: "Retour En Cours d'expédition", color: "#6366F1" },
+  { key: "Retour reçu", label: "Retour reçu", color: "#06B6D4" },
+];
+
+// Mock colis data generator
+function generateMockColis(warehouseId) {
+  const clients = [
+    { name: "Pierre Dubois", phone: "+33 6 12 34 56 78" },
+    { name: "Marie Dupont", phone: "+33 6 98 76 54 32" },
+    { name: "Jean Martin", phone: "+33 6 55 44 33 22" },
+    { name: "Sophie Bernard", phone: "+33 6 77 66 55 44" },
+    { name: "Thomas Leroy", phone: "+33 6 11 22 33 44" },
+    { name: "Emma Rousseau", phone: "+33 6 99 88 77 66" },
+    { name: "Fatima Benali", phone: "+33 6 77 66 55 44" },
+  ];
+  let colis = [];
+  let id = 1;
+  COLIS_STATUSES.forEach((status, idx) => {
+    for (let i = 0; i < 3; i++) {
+      const client = clients[(idx + i) % clients.length];
+      colis.push({
+        id: `${warehouseId}-${status.key}-${i+1}`,
+        code: `QZ${warehouseId}${status.key.substring(0,2).toUpperCase()}${i+1}`,
+        client: client.name,
+        phone: client.phone,
+        date: `2023-03-${10 + idx + i}`,
+        status: status.key,
+      });
+      id++;
+    }
+  });
+  return colis;
+}
 
 const Entrepots = () => {
   const [warehouses, setWarehouses] = useState([
@@ -141,7 +190,7 @@ const Entrepots = () => {
         customerSatisfaction: "0/5"
       }
     },
-  ]);
+  ].map((w, idx) => ({ ...w, mockColis: generateMockColis(w.id) })));
 
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -154,6 +203,7 @@ const Entrepots = () => {
     manager: "",
     status: "Actif",
   });
+  const [colisModal, setColisModal] = useState({ open: false, status: null, colis: [] });
 
   const columns = [
     { key: "name", header: "Nom de l'entrepôt" },
@@ -259,26 +309,22 @@ const Entrepots = () => {
     }));
   };
 
-  const exportToPDF = () => {
+  const exportToExcel = () => {
     if (!selectedWarehouse) return;
-
-    const element = document.getElementById('warehouse-details');
-    const opt = {
-      margin: 1,
-      filename: `entrepot_${selectedWarehouse.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2 },
-      jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
-    };
-
-    // Masquer les boutons pour l'export
-    const buttons = element.querySelectorAll('button');
-    buttons.forEach(btn => btn.style.display = 'none');
-
-    html2pdf().set(opt).from(element).save().then(() => {
-      // Restaurer les boutons après l'export
-      buttons.forEach(btn => btn.style.display = '');
-    });
+    const allColis = selectedWarehouse.mockColis;
+    const data = allColis.map(colis => ({
+      Code: colis.code,
+      Client: colis.client,
+      Téléphone: colis.phone,
+      Date: colis.date,
+      Statut: colis.status,
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Colis");
+    const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+    const blob = new Blob([excelBuffer], { type: "application/octet-stream" });
+    saveAs(blob, `entrepot_${selectedWarehouse.name.replace(/\s+/g, '_')}_colis_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
   const renderUserTable = (users) => (
@@ -453,6 +499,7 @@ const Entrepots = () => {
       {/* Détails de l'entrepôt sélectionné */}
       {selectedWarehouse && (
         <div id="warehouse-details" className="bg-white rounded-lg shadow border p-6">
+          {/* Entrepôt info */}
           <div className="flex justify-between items-start mb-6">
             <div>
               <h2 className="text-xl font-bold text-gray-900 mb-2">{selectedWarehouse.name}</h2>
@@ -476,10 +523,10 @@ const Entrepots = () => {
             </div>
             <div className="flex space-x-3">
               <button
-                onClick={exportToPDF}
+                onClick={exportToExcel}
                 className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium"
               >
-                Exporter en PDF
+                Exporter en Excel
               </button>
               <button
                 onClick={() => setSelectedWarehouse(null)}
@@ -496,10 +543,23 @@ const Entrepots = () => {
             {renderStatistics(selectedWarehouse.statistics)}
           </div>
 
-          {/* Graphiques */}
-          <div className="mb-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Analyses et graphiques</h3>
-            {renderCharts(selectedWarehouse)}
+          {/* Status cards grid (moved here) */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-6">
+            {COLIS_STATUSES.map((status) => {
+              const count = selectedWarehouse.mockColis.filter(c => c.status === status.key).length;
+              return (
+                <div
+                  key={status.key}
+                  className="flex items-center space-x-3 bg-white border shadow rounded-lg p-3 cursor-pointer hover:shadow-lg transition"
+                  style={{ borderColor: status.color }}
+                  onClick={() => setColisModal({ open: true, status: status.key, colis: selectedWarehouse.mockColis.filter(c => c.status === status.key) })}
+                >
+                  <span className="inline-block w-4 h-4 rounded-full" style={{ background: status.color }}></span>
+                  <span className="font-medium text-gray-800">{status.label}</span>
+                  <span className="ml-auto text-xs font-bold" style={{ color: status.color }}>{count}</span>
+                </div>
+              );
+            })}
           </div>
 
           {/* Liste des utilisateurs */}
@@ -543,13 +603,38 @@ const Entrepots = () => {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Localisation
             </label>
-            <input
-              type="text"
+            <select
               name="location"
               value={formData.location}
               onChange={handleInputChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-            />
+            >
+              <option value="">Sélectionner</option>
+              <option value="Tunis">Tunis</option>
+              <option value="Ariana">Ariana</option>
+              <option value="Ben Arous">Ben Arous</option>
+              <option value="Manouba">Manouba</option>
+              <option value="Nabeul">Nabeul</option>
+              <option value="Zaghouan">Zaghouan</option>
+              <option value="Bizerte">Bizerte</option>
+              <option value="Béja">Béja</option>
+              <option value="Jendouba">Jendouba</option>
+              <option value="Kef">Kef</option>
+              <option value="Siliana">Siliana</option>
+              <option value="Sousse">Sousse</option>
+              <option value="Monastir">Monastir</option>
+              <option value="Mahdia">Mahdia</option>
+              <option value="Sfax">Sfax</option>
+              <option value="Kairouan">Kairouan</option>
+              <option value="Kasserine">Kasserine</option>
+              <option value="Sidi Bouzid">Sidi Bouzid</option>
+              <option value="Gabès">Gabès</option>
+              <option value="Medenine">Medenine</option>
+              <option value="Tataouine">Tataouine</option>
+              <option value="Gafsa">Gafsa</option>
+              <option value="Tozeur">Tozeur</option>
+              <option value="Kebili">Kebili</option>
+            </select>
           </div>
 
           <div>
@@ -608,6 +693,45 @@ const Entrepots = () => {
               {editingWarehouse ? "Mettre à jour" : "Ajouter"}
             </button>
           </div>
+        </div>
+      </Modal>
+
+      {/* Modal for colis by status */}
+      <Modal
+        isOpen={colisModal.open}
+        onClose={() => setColisModal({ open: false, status: null, colis: [] })}
+        title={colisModal.status ? `Colis - ${colisModal.status}` : "Colis"}
+        size="xl"
+      >
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Code</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Client</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Téléphone</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {colisModal.colis.length === 0 ? (
+                <tr><td colSpan={6} className="text-center py-8 text-gray-500">Aucun colis pour ce statut</td></tr>
+              ) : colisModal.colis.map((colis) => (
+                <tr key={colis.id}>
+                  <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{colis.code}</td>
+                  <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">{colis.client}</td>
+                  <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">{colis.phone}</td>
+                  <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">{colis.date}</td>
+                  <td className="px-4 py-2 whitespace-nowrap text-sm" style={{ color: COLIS_STATUSES.find(s => s.key === colis.status)?.color }}>{colis.status}</td>
+                  <td className="px-4 py-2 whitespace-nowrap text-sm">
+                    <button className="text-blue-600 hover:underline">Voir</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </Modal>
     </div>

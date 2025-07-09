@@ -52,6 +52,18 @@ const Expediteur = () => {
         customerRating: 4.8,
       },
       defaultLivreurId: 1,
+      code: "EXP001",
+      gouvernorat: "Tunis",
+      identityNumber: "123456789012345",
+      passportNumber: "A12345678",
+      fiscalNumber: "12345678901234",
+      agence: "Tunis Sud",
+      commercial: "Ahmed Ben Ali",
+      deliveryFee: 15.00,
+      returnFee: 10.00,
+      documents: ["Facture", "Bon de livraison"],
+      returnedShipments: 5,
+      status: "Actif",
     },
     {
       id: 2,
@@ -89,6 +101,18 @@ const Expediteur = () => {
         customerRating: 4.6,
       },
       defaultLivreurId: 2,
+      code: "EXP002",
+      gouvernorat: "Tunis",
+      identityNumber: "987654321098765",
+      passportNumber: "B87654321",
+      fiscalNumber: "98765432109876",
+      agence: "Tunis Nord",
+      commercial: "Fatima Ali",
+      deliveryFee: 12.00,
+      returnFee: 8.00,
+      documents: ["Facture", "Bon de livraison"],
+      returnedShipments: 3,
+      status: "Actif",
     },
     {
       id: 3,
@@ -125,6 +149,18 @@ const Expediteur = () => {
         customerRating: 4.2,
       },
       defaultLivreurId: 3,
+      code: "EXP003",
+      gouvernorat: "Tunis",
+      identityNumber: "112233445566778",
+      passportNumber: "C76543210",
+      fiscalNumber: "11223344556677",
+      agence: "Tunis Est",
+      commercial: "Marie Dubois",
+      deliveryFee: 18.00,
+      returnFee: 12.00,
+      documents: ["Facture", "Bon de livraison"],
+      returnedShipments: 2,
+      status: "Inactif",
     },
   ]);
 
@@ -174,28 +210,17 @@ const Expediteur = () => {
   });
 
   const columns = [
+    { key: "code", header: "Code" },
     { key: "name", header: "Nom" },
     { key: "email", header: "Email" },
     { key: "phone", header: "Téléphone" },
-    { key: "address", header: "Adresse" },
+    { key: "company", header: "Entreprise" },
     { key: "totalShipments", header: "Total colis" },
-    { key: "successfulShipments", header: "Colis réussis" },
-    {
-      key: "successRate",
-      header: "Taux de réussite",
-      render: (_, row) => {
-        const rate = ((row.successfulShipments / row.totalShipments) * 100).toFixed(1);
-        return (
-          <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-            rate >= 90 ? "bg-green-100 text-green-800" :
-            rate >= 80 ? "bg-yellow-100 text-yellow-800" :
-            "bg-red-100 text-red-800"
-          }`}>
-            {rate}%
-          </span>
-        );
-      }
-    },
+    { key: "successfulShipments", header: "Colis livrés" },
+    { key: "returnedShipments", header: "Colis retournés" },
+    { key: "deliveryFee", header: "Frais de livraison" },
+    { key: "returnFee", header: "Frais de retour" },
+    { key: "status", header: "Statut" },
     {
       key: "actions",
       header: "Actions",
@@ -302,7 +327,19 @@ const Expediteur = () => {
           averagePerShipment: 0,
           onTimeDelivery: 0,
           customerRating: 0,
-        }
+        },
+        code: `EXP${Date.now()}`,
+        gouvernorat: "",
+        identityNumber: "",
+        passportNumber: "",
+        fiscalNumber: "",
+        agence: "",
+        commercial: "",
+        deliveryFee: 0,
+        returnFee: 0,
+        documents: [],
+        returnedShipments: 0,
+        status: "Actif",
       };
       setShippers([...shippers, newShipper]);
     }
@@ -553,7 +590,19 @@ const Expediteur = () => {
       },
       colis: shipper.colis || [],
       payments: shipper.payments || [],
-      defaultLivreurId: shipper.defaultLivreurId || "Aucun"
+      defaultLivreurId: shipper.defaultLivreurId || "Aucun",
+      code: shipper.code || "Non renseigné",
+      gouvernorat: shipper.gouvernorat || "Non renseigné",
+      identityNumber: shipper.identityNumber || "Non renseigné",
+      passportNumber: shipper.passportNumber || "Non renseigné",
+      fiscalNumber: shipper.fiscalNumber || "Non renseigné",
+      agence: shipper.agence || "Non renseigné",
+      commercial: shipper.commercial || "Non renseigné",
+      deliveryFee: shipper.deliveryFee || 0,
+      returnFee: shipper.returnFee || 0,
+      documents: shipper.documents || [],
+      returnedShipments: shipper.returnedShipments || 0,
+      status: shipper.status || "Actif",
     };
   };
 
@@ -669,48 +718,83 @@ const Expediteur = () => {
                   <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
                     <span className="inline-block bg-blue-100 text-blue-700 rounded-full px-3 py-1 text-xs font-bold">Informations personnelles</span>
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-3">
-                      <div className="flex justify-between">
-                        <span className="font-semibold text-gray-700">Nom complet :</span>
-                        <span className="text-gray-900">{selectedShipper.name}</span>
+                  <div className="mb-6 flex flex-col md:flex-row md:items-center md:gap-6">
+                    <div className="flex-1">
+                      <div className="text-2xl font-extrabold text-blue-900 flex items-center gap-2">
+                        <span>{selectedShipper.name}</span>
+                        <span className="inline-block bg-blue-200 text-blue-800 rounded-full px-3 py-1 text-xs font-bold ml-2">{selectedShipper.company}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="font-semibold text-gray-700">Email :</span>
-                        <span className="text-gray-900">{selectedShipper.email}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="font-semibold text-gray-700">Téléphone :</span>
-                        <span className="text-gray-900">{selectedShipper.phone}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="font-semibold text-gray-700">Contact principal :</span>
-                        <span className="text-gray-900">{getSafeShipper(selectedShipper).contactPerson}</span>
-                      </div>
-                    </div>
-                    <div className="space-y-3">
-                      <div className="flex justify-between">
-                        <span className="font-semibold text-gray-700">Entreprise :</span>
-                        <span className="text-gray-900">{selectedShipper.company}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="font-semibold text-gray-700">SIRET :</span>
-                        <span className="text-gray-900">{selectedShipper.siret}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="font-semibold text-gray-700">Site web :</span>
-                        <span className="text-gray-900">{getSafeShipper(selectedShipper).website}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="font-semibold text-gray-700">Tél. contact :</span>
-                        <span className="text-gray-900">{getSafeShipper(selectedShipper).contactPhone}</span>
-                      </div>
+                      <div className="text-sm text-gray-500 mt-1">{selectedShipper.code}</div>
                     </div>
                   </div>
-                  <div className="mt-4 pt-4 border-t border-blue-200">
-                    <div className="flex justify-between">
-                      <span className="font-semibold text-gray-700">Adresse complète :</span>
-                      <span className="text-gray-900 text-right">{selectedShipper.address}</span>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 border-t border-blue-100 pt-4">
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-gray-700">Email :</span>
+                        <span className="text-gray-900 flex items-center gap-1"><svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12H8m8 0a4 4 0 11-8 0 4 4 0 018 0zm0 0v4m0-4V8" /></svg>{selectedShipper.email}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-gray-700">Téléphone :</span>
+                        <span className="text-gray-900 flex items-center gap-1"><svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H5a2 2 0 01-2-2V5zm0 12a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5a2 2 0 00-2 2v2zm12-12a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5a2 2 0 012-2h2zm0 12a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2a2 2 0 012-2h2z" /></svg>{selectedShipper.phone}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-gray-700">Adresse :</span>
+                        <span className="text-gray-900 flex items-center gap-1"><svg className="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 12.414a2 2 0 00-2.828 0l-4.243 4.243A8 8 0 1116 8a8 8 0 01-1.657 8.657z" /></svg>{selectedShipper.address}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-gray-700">Gouvernorat :</span>
+                        <span className="text-gray-900">{selectedShipper.gouvernorat}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-gray-700">Numéro d'identité :</span>
+                        <span className="text-gray-900">{selectedShipper.identityNumber}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-gray-700">Numéro de passeport :</span>
+                        <span className="text-gray-900">{selectedShipper.passportNumber}</span>
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-gray-700">Matricule fiscal :</span>
+                        <span className="text-gray-900">{selectedShipper.fiscalNumber}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-gray-700">Agence :</span>
+                        <span className="text-gray-900">{selectedShipper.agence}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-gray-700">Commercial :</span>
+                        <span className="text-gray-900">{selectedShipper.commercial}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-gray-700">Frais de livraison (€) :</span>
+                        <span className="text-gray-900">{selectedShipper.deliveryFee}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-gray-700">Frais de retour (€) :</span>
+                        <span className="text-gray-900">{selectedShipper.returnFee}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-gray-700">Documents :</span>
+                        <span className="text-gray-900">
+                          {getSafeShipper(selectedShipper).documents.map((doc, index) => (
+                            <span key={index} className="inline-block px-2 py-1 rounded-full border text-xs font-semibold mr-1 mb-1">
+                              {doc}
+                            </span>
+                          ))}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-gray-700">Réduction documents :</span>
+                        <span className="text-gray-900">
+                          {getSafeShipper(selectedShipper).documents.reduce((sum, doc) => {
+                            if (doc === "Carte d'identité") return sum + 3;
+                            if (doc === "Passeport") return sum + 3;
+                            return sum;
+                          }, 0)}%
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -930,16 +1014,38 @@ const Expediteur = () => {
         </div>
       )}
 
-      {/* Modal Ajout/Modification */}
+      {/* Form Add/Edit */}
       <Modal
         isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
+        onClose={() => {
+          setIsAddModalOpen(false);
+          setEditingShipper(null);
+          setFormData({
+            name: "",
+            email: "",
+            phone: "",
+            address: "",
+            company: "",
+            siret: "",
+            defaultLivreurId: "",
+          });
+        }}
         title={editingShipper ? "Modifier l'expéditeur" : "Nouvel expéditeur"}
         size="md"
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Nom complet *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Code</label>
+            <input
+              type="text"
+              name="code"
+              value={formData.code || ''}
+              readOnly
+              className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Nom et prénom *</label>
             <input
               type="text"
               name="name"
@@ -950,7 +1056,17 @@ const Expediteur = () => {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Entreprise</label>
+            <input
+              type="text"
+              name="company"
+              value={formData.company}
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Email *</label>
             <input
               type="email"
               name="email"
@@ -961,7 +1077,7 @@ const Expediteur = () => {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Téléphone *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Téléphone *</label>
             <input
               type="tel"
               name="phone"
@@ -972,7 +1088,7 @@ const Expediteur = () => {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Adresse *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Adresse *</label>
             <textarea
               name="address"
               value={formData.address}
@@ -983,53 +1099,204 @@ const Expediteur = () => {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Entreprise</label>
-            <input
-              type="text"
-              name="company"
-              value={formData.company}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">SIRET</label>
-            <input
-              type="text"
-              name="siret"
-              value={formData.siret}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Livreur par défaut</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Gouvernorat</label>
             <select
-              name="defaultLivreurId"
-              value={formData.defaultLivreurId}
+              name="gouvernorat"
+              value={formData.gouvernorat || ''}
               onChange={handleInputChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-md"
             >
-              <option value="">Aucun</option>
-              {mockDrivers.map((d) => (
-                <option key={d.id} value={d.id}>{d.name}</option>
-              ))}
+              <option value="">Sélectionner</option>
+              <option value="Tunis">Tunis</option>
+              <option value="Ariana">Ariana</option>
+              <option value="Ben Arous">Ben Arous</option>
+              <option value="Manouba">Manouba</option>
+              <option value="Nabeul">Nabeul</option>
+              <option value="Zaghouan">Zaghouan</option>
+              <option value="Bizerte">Bizerte</option>
+              <option value="Béja">Béja</option>
+              <option value="Jendouba">Jendouba</option>
+              <option value="Kef">Kef</option>
+              <option value="Siliana">Siliana</option>
+              <option value="Sousse">Sousse</option>
+              <option value="Monastir">Monastir</option>
+              <option value="Mahdia">Mahdia</option>
+              <option value="Sfax">Sfax</option>
+              <option value="Kairouan">Kairouan</option>
+              <option value="Kasserine">Kasserine</option>
+              <option value="Sidi Bouzid">Sidi Bouzid</option>
+              <option value="Gabès">Gabès</option>
+              <option value="Medenine">Medenine</option>
+              <option value="Tataouine">Tataouine</option>
+              <option value="Gafsa">Gafsa</option>
+              <option value="Tozeur">Tozeur</option>
+              <option value="Kebili">Kebili</option>
             </select>
           </div>
-        </div>
-        <div className="mt-6 flex justify-end gap-2">
-          <button
-            onClick={() => setIsAddModalOpen(false)}
-            className="px-4 py-2 rounded-md text-gray-700 bg-gray-100 hover:bg-gray-200"
-          >
-            Fermer
-          </button>
-          <button
-            onClick={handleSubmit}
-            className="px-4 py-2 rounded-md text-white bg-blue-600 hover:bg-blue-700"
-          >
-            {editingShipper ? "Enregistrer" : "Créer"}
-          </button>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Numéro d'identité</label>
+            <input
+              type="text"
+              name="identityNumber"
+              value={formData.identityNumber || ''}
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Numéro de passeport</label>
+            <input
+              type="text"
+              name="passportNumber"
+              value={formData.passportNumber || ''}
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Matricule fiscal</label>
+            <input
+              type="text"
+              name="fiscalNumber"
+              value={formData.fiscalNumber || ''}
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Agence</label>
+            <select
+              name="agence"
+              value={formData.agence || ''}
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            >
+              <option value="">Sélectionner</option>
+              <option value="Tunis">Tunis</option>
+              <option value="Sousse">Sousse</option>
+              <option value="Sfax">Sfax</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Commercial</label>
+            <input
+              type="text"
+              name="commercial"
+              value={formData.commercial || ''}
+              readOnly
+              className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Frais de livraison (€)</label>
+            <input
+              type="number"
+              name="deliveryFee"
+              value={formData.deliveryFee || 0}
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              min="0"
+              step="0.01"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Frais de retour (€)</label>
+            <input
+              type="number"
+              name="returnFee"
+              value={formData.returnFee || 0}
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              min="0"
+              step="0.01"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Documents</label>
+            <div className="flex flex-wrap gap-2">
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  name="documents"
+                  value="Carte d'identité"
+                  checked={formData.documents?.includes("Carte d'identité")}
+                  onChange={e => {
+                    const checked = e.target.checked;
+                    setFormData(prev => ({
+                      ...prev,
+                      documents: checked
+                        ? [...(prev.documents || []), "Carte d'identité"]
+                        : (prev.documents || []).filter(d => d !== "Carte d'identité")
+                    }));
+                  }}
+                />
+                Carte d'identité
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  name="documents"
+                  value="Passeport"
+                  checked={formData.documents?.includes("Passeport")}
+                  onChange={e => {
+                    const checked = e.target.checked;
+                    setFormData(prev => ({
+                      ...prev,
+                      documents: checked
+                        ? [...(prev.documents || []), "Passeport"]
+                        : (prev.documents || []).filter(d => d !== "Passeport")
+                    }));
+                  }}
+                />
+                Passeport
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  name="documents"
+                  value="Patente"
+                  checked={formData.documents?.includes("Patente")}
+                  onChange={e => {
+                    const checked = e.target.checked;
+                    setFormData(prev => ({
+                      ...prev,
+                      documents: checked
+                        ? [...(prev.documents || []), "Patente"]
+                        : (prev.documents || []).filter(d => d !== "Patente")
+                    }));
+                  }}
+                />
+                Patente
+              </label>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setIsAddModalOpen(false);
+                setEditingShipper(null);
+                setFormData({
+                  name: "",
+                  email: "",
+                  phone: "",
+                  address: "",
+                  company: "",
+                  siret: "",
+                  defaultLivreurId: "",
+                });
+              }}
+              className="px-4 py-2 rounded-md text-gray-700 bg-gray-100 hover:bg-gray-200"
+            >
+              Annuler
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 rounded-md text-white bg-blue-600 hover:bg-blue-700"
+            >
+              {editingShipper ? "Enregistrer" : "Créer"}
+            </button>
+          </div>
         </div>
       </Modal>
 
@@ -1042,7 +1309,7 @@ const Expediteur = () => {
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Destination *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Destination *</label>
             <input
               type="text"
               name="destination"
@@ -1053,7 +1320,7 @@ const Expediteur = () => {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Type</label>
             <select
               name="type"
               value={colisFormData.type}
@@ -1066,7 +1333,7 @@ const Expediteur = () => {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Poids (kg)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Poids (kg)</label>
             <input
               type="text"
               name="weight"
@@ -1077,7 +1344,7 @@ const Expediteur = () => {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Statut</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Statut</label>
             <select
               name="status"
               value={colisFormData.status}
@@ -1098,7 +1365,7 @@ const Expediteur = () => {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Montant (€)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Montant (€)</label>
             <input
               type="number"
               name="amount"
@@ -1135,7 +1402,7 @@ const Expediteur = () => {
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Référence</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Référence</label>
             <input
               type="text"
               name="reference"
@@ -1146,7 +1413,7 @@ const Expediteur = () => {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Méthode de paiement</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Méthode de paiement</label>
             <select
               name="method"
               value={paymentFormData.method}
@@ -1160,7 +1427,7 @@ const Expediteur = () => {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Statut</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Statut</label>
             <select
               name="status"
               value={paymentFormData.status}
@@ -1173,7 +1440,7 @@ const Expediteur = () => {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Montant (€)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Montant (€)</label>
             <input
               type="number"
               name="amount"

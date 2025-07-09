@@ -7,21 +7,21 @@ const Secteurs = () => {
     {
       id: 1,
       name: "Secteur Nord",
-      city: "Paris",
+      city: ["Paris", "Lyon"],
       manager: "Pierre Dubois",
       status: "Actif",
     },
     {
       id: 2,
       name: "Secteur Sud",
-      city: "Lyon",
+      city: ["Marseille", "Toulouse"],
       manager: "Sarah Ahmed",
       status: "Actif",
     },
     {
       id: 3,
       name: "Secteur Est",
-      city: "Marseille",
+      city: ["Nice", "Nantes"],
       manager: "Mohamed Ali",
       status: "Inactif",
     },
@@ -32,14 +32,14 @@ const Secteurs = () => {
   const [editingSector, setEditingSector] = useState(null);
   const [formData, setFormData] = useState({
     name: "",
-    city: "",
+    city: [],
     manager: "",
     status: "Actif",
   });
 
   const columns = [
     { key: "name", header: "Nom du secteur" },
-    { key: "city", header: "Ville" },
+    { key: "city", header: "Ville", render: (value) => Array.isArray(value) ? value.join(", ") : value },
     { key: "manager", header: "Responsable" },
     {
       key: "status",
@@ -62,7 +62,7 @@ const Secteurs = () => {
     setEditingSector(null);
     setFormData({
       name: "",
-      city: "",
+      city: [],
       manager: "",
       status: "Actif",
     });
@@ -154,16 +154,28 @@ const Secteurs = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Ville
-            </label>
-            <input
-              type="text"
-              name="city"
-              value={formData.city}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-            />
+            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Gouvernorat(s)</label>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              {["Ariana","Béja","Ben Arous","Bizerte","Gabès","Gafsa","Jendouba","Kairouan","Kasserine","Kebili","Kef","Mahdia","Manouba","Médenine","Monastir","Nabeul","Sfax","Sidi Bouzid","Siliana","Sousse","Tataouine","Tozeur","Tunis","Zaghouan"].map(gouv => (
+                <label key={gouv} className="flex items-center gap-2 text-sm font-normal text-gray-700">
+                  <input
+                    type="checkbox"
+                    value={gouv}
+                    checked={formData.city.includes(gouv)}
+                    onChange={e => {
+                      const checked = e.target.checked;
+                      setFormData(prev => ({
+                        ...prev,
+                        city: checked
+                          ? [...prev.city, gouv]
+                          : prev.city.filter(c => c !== gouv)
+                      }));
+                    }}
+                  />
+                  {gouv}
+                </label>
+              ))}
+            </div>
           </div>
 
           <div>

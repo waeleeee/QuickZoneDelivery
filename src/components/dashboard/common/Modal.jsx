@@ -8,6 +8,7 @@ const Modal = ({ isOpen, onClose, title, children, size = "md" }) => {
     md: "max-w-lg",
     lg: "max-w-2xl",
     xl: "max-w-4xl",
+    xxl: "max-w-screen-2xl w-full", // Make xxl truly massive, nearly full screen
   };
 
   return (

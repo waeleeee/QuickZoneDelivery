@@ -77,11 +77,44 @@ const Colis = () => {
     { key: "price", header: "Prix" },
   ];
 
+  // Mock data for parcels (colis)
+  const MOCK_PARCELS = [
+    {
+      id: "C-123456",
+      shipper: "EXPEDITEUR SARL",
+      destination: "Tunis",
+      status: "En attente",
+      weight: "2.5",
+      dateCreated: "2024-06-13",
+      estimatedDelivery: "2024-06-15",
+      price: "15.00",
+    },
+    {
+      id: "C-654321",
+      shipper: "EXPEDITEUR SARL",
+      destination: "Sousse",
+      status: "En cours",
+      weight: "5.0",
+      dateCreated: "2024-06-12",
+      estimatedDelivery: "2024-06-14",
+      price: "18.00",
+    },
+    {
+      id: "C-789012",
+      shipper: "EXPEDITEUR SARL",
+      destination: "Sfax",
+      status: "Livrés",
+      weight: "1.2",
+      dateCreated: "2024-06-10",
+      estimatedDelivery: "2024-06-12",
+      price: "12.00",
+    },
+  ];
+
   // Memoized filtered data for better performance
   const filteredParcels = useMemo(() => {
-    if (!parcelsData) return [];
-    
-    return parcelsData.filter((parcel) => {
+    const data = parcelsData && parcelsData.length > 0 ? parcelsData : MOCK_PARCELS;
+    return data.filter((parcel) => {
       // Recherche simple
       const matchesSearch = searchTerm === "" || 
         Object.values(parcel).some(value =>
@@ -140,8 +173,10 @@ const Colis = () => {
     }));
   };
 
+  // For tracking modal
+  const [trackingParcel, setTrackingParcel] = useState(null);
   const handleRowClick = (parcel) => {
-    setSelectedParcel(selectedParcel?.id === parcel.id ? null : parcel);
+    setTrackingParcel(parcel);
   };
 
   if (isLoading) {
@@ -167,13 +202,6 @@ const Colis = () => {
           >
             <span>+</span>
             <span>Créer un colis</span>
-          </button>
-          <button
-            onClick={handleAdd}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
-          >
-            <span>+</span>
-            <span>Ajouter</span>
           </button>
         </div>
       </div>
@@ -249,12 +277,16 @@ const Colis = () => {
       <DataTable
         data={filteredParcels}
         columns={columns}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
+        showActions={false}
         onRowClick={handleRowClick}
       />
+
+      {/* Tracking Modal */}
+      <Modal isOpen={!!trackingParcel} onClose={() => setTrackingParcel(null)} size="xl">
+        {trackingParcel && <ColisTimeline parcel={trackingParcel} onClose={() => setTrackingParcel(null)} />}
+      </Modal>
 
       {/* Parcel Details */}
       {selectedParcel && (
@@ -388,7 +420,7 @@ const Colis = () => {
       </Modal>
 
       {/* Create Modal */}
-      <Modal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)}>
+      <Modal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} size="xxl">
         <ColisCreate onClose={() => setIsCreateModalOpen(false)} />
       </Modal>
     </div>
