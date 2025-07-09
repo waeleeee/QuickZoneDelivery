@@ -134,7 +134,6 @@ const Administration = () => {
         title={editingAdmin ? "Modifier admin" : "Ajouter admin"}
         size="md"
       >
-        <div className="mb-4 text-center text-lg text-gray-700 font-semibold">المعلومات اللازمة لاضافة مدير جديد</div>
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">

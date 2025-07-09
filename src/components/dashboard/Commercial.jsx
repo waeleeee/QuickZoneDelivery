@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import DataTable from "./common/DataTable";
 import Modal from "./common/Modal";
 import html2pdf from "html2pdf.js";
-import ActionButtons from "./common/ActionButtons";
+import ActionButtons from "./common/ActionButtons"; // Assuming this component exists
 
 // Subcomponent for a single commercial's dashboard
 const CommercialDashboard = ({ commercial, expediteurs, commissionRate, onViewExpediteur }) => {
@@ -148,7 +148,7 @@ const CommercialDashboard = ({ commercial, expediteurs, commissionRate, onViewEx
 
   // Filter expediteurs based on search and advanced filters
   const filteredExpediteurs = expediteursData.filter(expediteur => {
-    const matchesSearch = searchTerm === "" || 
+    const matchesSearch = searchTerm === "" ||
       Object.values(expediteur).some(value =>
         value.toString().toLowerCase().includes(searchTerm.toLowerCase())
       );
@@ -156,7 +156,7 @@ const CommercialDashboard = ({ commercial, expediteurs, commissionRate, onViewEx
     const matchesStatus = advancedFilters.status === "" || expediteur.status === advancedFilters.status;
     const matchesMinCommission = advancedFilters.minCommission === "" || expediteur.commissionEarned >= parseFloat(advancedFilters.minCommission);
     const matchesMaxCommission = advancedFilters.maxCommission === "" || expediteur.commissionEarned <= parseFloat(advancedFilters.maxCommission);
-    
+
     const successRate = (expediteur.successfulShipments / expediteur.totalShipments) * 100;
     const matchesSuccessRate = advancedFilters.successRate === "" || successRate >= parseFloat(advancedFilters.successRate);
 
@@ -225,6 +225,66 @@ const CommercialDashboard = ({ commercial, expediteurs, commissionRate, onViewEx
     },
   ];
 
+  const expediteursColumns = [
+    { key: "id", header: "CODE" },
+    { key: "name", header: "NOM" },
+    { key: "email", header: "EMAIL" },
+    { key: "phone", header: "TÉLÉPHONE" },
+    { key: "company", header: "ENTREPRISE" },
+    { key: "totalShipments", header: "TOTAL COLIS" },
+    {
+      key: "colisLivres",
+      header: "COLIS LIVRÉ",
+      render: (_, row) => row.colis ? row.colis.filter(c => c.status === "Livés").length : 0
+    },
+    {
+      key: "colisRetournes",
+      header: "COLIS RETOURNÉ",
+      render: (_, row) => row.colis ? row.colis.filter(c => c.status === "Retour").length : 0
+    },
+    {
+      key: "fraisLivraison",
+      header: "FRAIS DE LIVRAISON",
+      render: (_, row) => {
+        const frais = row.colis ? row.colis.filter(c => c.status === "Livés").reduce((sum, c) => sum + (c.amount || 0), 0) : 0;
+        return `€${frais.toFixed(2)}`;
+      }
+    },
+    {
+      key: "fraisRetour",
+      header: "FRAIS DE RETOUR",
+      render: (_, row) => {
+        const frais = row.colis ? row.colis.filter(c => c.status === "Retour").reduce((sum, c) => sum + (c.amount || 0), 0) : 0;
+        return `€${frais.toFixed(2)}`;
+      }
+    },
+    {
+      key: "status",
+      header: "STATUT",
+      render: (value) => (
+        <span className={`px-2 py-1 text-xs font-medium rounded-full ${value === "active" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}`}>{value === "active" ? "Actif" : "Inactif"}</span>
+      )
+    },
+    {
+      key: "actions",
+      header: "ACTIONS",
+      render: (_, row) => (
+        <div className="flex gap-2">
+          <button
+            onClick={() => setSelectedExpediteur(row)}
+            className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-50 transition-colors"
+            title="Voir les détails"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+            </svg>
+          </button>
+        </div>
+      ),
+    },
+  ];
+
   const handleViewDetails = (expediteur) => {
     setSelectedExpediteur(expediteur);
   };
@@ -233,7 +293,7 @@ const CommercialDashboard = ({ commercial, expediteurs, commissionRate, onViewEx
     const successfulParcels = expediteur.colis.filter(colis => colis.status === "Livés");
     const totalAmount = successfulParcels.reduce((sum, colis) => sum + colis.amount, 0);
     const commission = calculateCommission(totalAmount);
-    
+
     alert(`Commission pour ${expediteur.name}:\nTotal colis réussis: ${successfulParcels.length}\nMontant total: €${totalAmount.toFixed(2)}\nCommission (${commercialData.commissionRate}%): €${commission.toFixed(2)}`);
   };
 
@@ -252,14 +312,14 @@ const CommercialDashboard = ({ commercial, expediteurs, commissionRate, onViewEx
         await html2pdf().set({
           margin: [0.3, 0.3, 0.3, 0.3],
           filename: `Commercial_${commercialData.name}_Expediteur_${selectedExpediteur.name}.pdf`,
-          html2canvas: { 
+          html2canvas: {
             scale: 2,
             useCORS: true,
             allowTaint: true
           },
-          jsPDF: { 
-            unit: "in", 
-            format: "a4", 
+          jsPDF: {
+            unit: "in",
+            format: "a4",
             orientation: "portrait"
           },
           pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
@@ -286,7 +346,7 @@ const CommercialDashboard = ({ commercial, expediteurs, commissionRate, onViewEx
             <div className="text-lg font-bold text-blue-600">{commercialData.id}</div>
           </div>
         </div>
-        
+
         {/* Stat Cards Row */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-8">
           {/* 1. Jean Dupont Card */}
@@ -314,7 +374,7 @@ const CommercialDashboard = ({ commercial, expediteurs, commissionRate, onViewEx
             </div>
           </div>
 
-          {/* 2. Performance Card */}
+          {/* 2. Expéditeurs Card */}
           <div className="bg-gradient-to-br from-purple-50 to-pink-100 p-6 rounded-xl shadow-lg border border-purple-200 flex flex-col items-center justify-center h-full min-h-[240px]">
             <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-600 rounded-lg flex items-center justify-center mb-3">
               <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -322,18 +382,11 @@ const CommercialDashboard = ({ commercial, expediteurs, commissionRate, onViewEx
               </svg>
             </div>
             <div className="text-center w-full">
-              <div className="text-lg font-bold text-gray-800 mb-1">Performance</div>
-              <div className="flex items-center justify-between text-sm text-gray-600 mb-1">
-                <span>Clients actifs</span>
-                <span className="font-bold text-purple-600">{commercialData.totalClients}</span>
+              <div className="text-lg font-bold text-gray-800 mb-1">Expéditeurs</div>
+              <div className="flex flex-col items-center justify-center text-3xl font-bold text-green-600 mb-2">
+                {commercialData.totalClients}
               </div>
-              <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
-                <span>Taux de réussite</span>
-                <span className="font-bold text-green-600">{commercialData.successRate}%</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2 mb-1">
-                <div className="bg-gradient-to-r from-green-400 to-green-600 h-2 rounded-full" style={{width: `${commercialData.successRate}%`}}></div>
-              </div>
+              <div className="text-sm text-gray-600 bg-purple-50 px-3 py-1 rounded-full inline-block">Nombre d’expéditeurs</div>
             </div>
           </div>
 
@@ -345,9 +398,9 @@ const CommercialDashboard = ({ commercial, expediteurs, commissionRate, onViewEx
               </svg>
             </div>
             <div className="text-center w-full">
-              <div className="text-lg font-bold text-gray-800 mb-1">Total de colis</div>
+              <div className="text-lg font-bold text-gray-800 mb-1">TOTAL EXPÉDITIONS</div>
               <div className="text-3xl font-bold text-orange-600 mb-2">{commercialData.totalParcels}</div>
-              <div className="text-sm text-gray-600 bg-orange-50 px-3 py-1 rounded-full inline-block">Colis au total</div>
+              <div className="text-sm text-gray-600 bg-orange-50 px-3 py-1 rounded-full inline-block">Expéditions au total</div>
             </div>
           </div>
 
@@ -359,9 +412,9 @@ const CommercialDashboard = ({ commercial, expediteurs, commissionRate, onViewEx
               </svg>
             </div>
             <div className="text-center w-full">
-              <div className="text-lg font-bold text-gray-800 mb-1">Colis livrés</div>
+              <div className="text-lg font-bold text-gray-800 mb-1">Expédition livrée</div>
               <div className="text-3xl font-bold text-green-600 mb-2">{commercialData.successfulParcels}</div>
-              <div className="text-sm text-gray-600 bg-green-50 px-3 py-1 rounded-full inline-block">Livrés avec succès</div>
+              <div className="text-sm text-gray-600 bg-green-50 px-3 py-1 rounded-full inline-block">Livrées avec succès</div>
             </div>
           </div>
         </div>
@@ -399,17 +452,6 @@ const CommercialDashboard = ({ commercial, expediteurs, commissionRate, onViewEx
               </select>
             </div>
             <div className="flex-1">
-              <label className="block text-sm font-semibold text-gray-800 mb-2 text-left">Taux de réussite min (%)</label>
-              <input
-                type="number"
-                name="successRate"
-                value={advancedFilters.successRate}
-                onChange={handleAdvancedFilterChange}
-                placeholder="Taux de réussite min (%)"
-                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-gray-50"
-              />
-            </div>
-            <div className="flex-1">
               <label className="block text-sm font-semibold text-gray-800 mb-2 text-left">Date de début</label>
               <input
                 type="date"
@@ -439,13 +481,13 @@ const CommercialDashboard = ({ commercial, expediteurs, commissionRate, onViewEx
           <h2 className="text-xl font-semibold">Mes Expéditeurs ({filteredExpediteurs.length})</h2>
           <p className="text-gray-600">Gérez vos expéditeurs et suivez leurs performances</p>
         </div>
-        
+
         <DataTable
           data={filteredExpediteurs}
-          columns={columns}
+          columns={expediteursColumns}
           searchTerm={searchTerm}
           onSearchChange={setSearchTerm}
-          showActions={false}
+          showActions={false} // This is already correctly set to false for the Expediteurs table
         />
       </div>
 
@@ -553,7 +595,7 @@ const CommercialDashboard = ({ commercial, expediteurs, commissionRate, onViewEx
               </div>
             </div>
 
-            {/* Recent Parcels */}
+            {/* Recent Payments */}
             <div className="bg-white p-6 rounded-xl border mb-6">
               <h3 className="text-lg font-semibold mb-4">Paiements à cet expéditeur</h3>
               <div className="overflow-x-auto">
@@ -633,116 +675,226 @@ const CommercialDashboard = ({ commercial, expediteurs, commissionRate, onViewEx
   );
 };
 
+// Main Commercial Component (Gestion Commerciaux)
 const Commercial = () => {
   const navigate = useNavigate();
-  const [currentUser, setCurrentUser] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedCommercial, setSelectedCommercial] = useState(null); // To manage details modal for commercials
   const [commercials, setCommercials] = useState([
     {
       id: "COM001",
       name: "Jean Dupont",
       email: "jean.dupont@quickzone.tn",
       phone: "+216 71 234 567",
+      address: "55", // Assuming 'Adresse' is an arbitrary number or string
+      title: "Commercial",
+      totalClients: 12, // Corresponds to 'CLIENTS' in screenshot
+      expeditionsRecues: 156, // Corresponds to 'EXPEDITIONS REÇUES'
       commissionRate: 5.5,
       totalEarnings: 2840.50,
       pendingCommission: 450.75,
-      totalClients: 12,
-      totalParcels: 156,
       successfulParcels: 142,
       successRate: 91.0,
-      expediteurs: [/* ... */],
+      expediteurs: [/* ... (you can populate this with mock data if needed for display within the modal) */],
     },
-    // ... other commercials
+    {
+      id: "COM002",
+      name: "Alice Smith",
+      email: "alice.smith@quickzone.tn",
+      phone: "+216 98 765 432",
+      address: "123",
+      title: "Senior Commercial",
+      totalClients: 20,
+      expeditionsRecues: 250,
+      commissionRate: 6.0,
+      totalEarnings: 5000.00,
+      pendingCommission: 700.00,
+      successfulParcels: 230,
+      successRate: 92.0,
+      expediteurs: [],
+    },
   ]);
-  const [selectedCommercial, setSelectedCommercial] = useState(null);
-  const [showCommercialModal, setShowCommercialModal] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
 
-  useEffect(() => {
-    const user = JSON.parse(localStorage.getItem('currentUser') || 'null');
-    setCurrentUser(user);
-  }, []);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editCommercial, setEditCommercial] = useState(null);
 
-  // Admin CRUD handlers (add, edit, delete)
-  const handleAddCommercial = () => { /* ... */ };
-  const handleEditCommercial = (commercial) => { /* ... */ };
-  const handleDeleteCommercial = (commercial) => { /* ... */ };
-
-  // Admin: open commercial dashboard modal
-  const handleViewCommercial = (commercial) => {
-    setSelectedCommercial(commercial);
-    setShowCommercialModal(true);
+  // Add Commercial handler
+  const handleAddCommercial = () => {
+    setEditCommercial({
+      id: '',
+      name: '',
+      email: '',
+      phone: '',
+      address: '',
+      title: 'Commercial',
+      totalClients: 0,
+      expeditionsRecues: 0,
+      commissionRate: '',
+      totalEarnings: 0,
+      pendingCommission: 0,
+      successfulParcels: 0,
+      successRate: 0,
+      expediteurs: [],
+    });
+    setShowEditModal(true);
   };
 
-  // Commercial: find own data
-  const myCommercial = commercials.find(c => c.email === currentUser?.email) || (currentUser?.role === "Commercial" ? commercials[0] : undefined);
+  // Edit Commercial handler
+  const handleEditCommercial = (commercial) => {
+    setEditCommercial({ ...commercial });
+    setShowEditModal(true);
+  };
 
-  // Admin view: table of all commercials
-  if (currentUser?.role === "Administration") {
-    return (
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-gray-900">Gestion Commerciaux</h1>
+  // Save Commercial handler
+  const handleSaveCommercial = (e) => {
+    e.preventDefault();
+    if (editCommercial.id) {
+      // Edit existing
+      setCommercials(commercials.map(c => c.id === editCommercial.id ? editCommercial : c));
+    } else {
+      // Add new
+      setCommercials([
+        ...commercials,
+        { ...editCommercial, id: `COM${commercials.length + 1}` }
+      ]);
+    }
+    setShowEditModal(false);
+    setEditCommercial(null);
+  };
+
+  const filteredCommercials = commercials.filter(commercial =>
+    Object.values(commercial).some(value =>
+      String(value).toLowerCase().includes(searchTerm.toLowerCase())
+    )
+  );
+
+  // Define columns for the main Commercials table
+  const commercialColumns = [
+    { key: "id", header: "ID" },
+    { key: "name", header: "NOM" },
+    { key: "email", header: "EMAIL" },
+    { key: "phone", header: "TÉLÉPHONE" },
+    { key: "address", header: "ADRESSE" },
+    { key: "title", header: "TITRE" },
+    { key: "totalClients", header: "CLIENTS" },
+    { key: "expeditionsRecues", header: "EXPÉDITIONS REÇUES" },
+    {
+      key: "actions",
+      header: "ACTIONS",
+      render: (_, row) => (
+        <div className="flex gap-2">
           <button
-            onClick={handleAddCommercial}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+            onClick={() => setSelectedCommercial(row)}
+            className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-50 transition-colors"
+            title="Voir le tableau de bord"
           >
-            Ajouter commercial
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+            </svg>
+          </button>
+          <button
+            onClick={() => handleEditCommercial(row)}
+            className="text-green-600 hover:text-green-800 p-1 rounded-full hover:bg-green-50 transition-colors"
+            title="Modifier"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+          </button>
+          <button
+            // onClick={() => handleDelete(row)}
+            className="text-red-600 hover:text-red-800 p-1 rounded-full hover:bg-red-50 transition-colors"
+            title="Supprimer"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
           </button>
         </div>
+      ),
+    },
+  ];
+
+  return (
+    <div className="p-6 bg-gray-100 min-h-screen">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold text-gray-800">Gestion Commerciaux</h1>
+        <button
+          onClick={handleAddCommercial}
+          className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out"
+        >
+          Ajouter commercial
+        </button>
+      </div>
+      <div className="bg-white rounded-lg shadow-sm border">
         <DataTable
-          data={commercials}
-          columns={[
-            { key: "id", header: "ID" },
-            { key: "name", header: "Nom" },
-            { key: "email", header: "Email" },
-            { key: "phone", header: "Téléphone" },
-            { key: "commissionRate", header: "% Commission" },
-            { key: "totalClients", header: "Clients" },
-            { key: "successRate", header: "Taux de réussite" },
-            {
-              key: "actions",
-              header: "Actions",
-              render: (_, row) => (
-                <ActionButtons
-                  onView={() => handleViewCommercial(row)}
-                  onEdit={() => handleEditCommercial(row)}
-                  onDelete={() => handleDeleteCommercial(row)}
-                />
-              ),
-            },
-          ]}
+          data={filteredCommercials}
+          columns={commercialColumns}
           searchTerm={searchTerm}
           onSearchChange={setSearchTerm}
+          showActions={false}
         />
-        {/* Modal for viewing/editing a commercial's dashboard */}
-        {showCommercialModal && selectedCommercial && (
-          <Modal isOpen={showCommercialModal} onClose={() => setShowCommercialModal(false)} size="xl">
-            <CommercialDashboard
-              commercial={selectedCommercial}
-              expediteurs={selectedCommercial.expediteurs}
-              commissionRate={selectedCommercial.commissionRate}
-              onViewExpediteur={() => {}}
-            />
-          </Modal>
-        )}
       </div>
-    );
-  }
-
-  // Commercial view: show only own dashboard
-  if (currentUser?.role === "Commercial" && myCommercial) {
-    return (
-      <CommercialDashboard
-        commercial={myCommercial}
-        expediteurs={myCommercial.expediteurs}
-        commissionRate={myCommercial.commissionRate}
-        onViewExpediteur={() => {}}
-      />
-    );
-  }
-
-  // Fallback: loading or unauthorized
-  return <div className="flex items-center justify-center h-64 text-gray-500">Chargement...</div>;
+      {/* Modal for Add/Edit Commercial */}
+      {showEditModal && (
+        <Modal isOpen={showEditModal} onClose={() => setShowEditModal(false)} size="md">
+          <form onSubmit={handleSaveCommercial} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium">Nom</label>
+              <input type="text" className="border rounded px-2 py-1 w-full" value={editCommercial.name || ''} onChange={e => setEditCommercial({ ...editCommercial, name: e.target.value })} required />
+            </div>
+            <div>
+              <label className="block text-sm font-medium">Email</label>
+              <input type="email" className="border rounded px-2 py-1 w-full" value={editCommercial.email || ''} onChange={e => setEditCommercial({ ...editCommercial, email: e.target.value })} required />
+            </div>
+            <div>
+              <label className="block text-sm font-medium">Téléphone</label>
+              <input type="text" className="border rounded px-2 py-1 w-full" value={editCommercial.phone || ''} onChange={e => setEditCommercial({ ...editCommercial, phone: e.target.value })} required />
+            </div>
+            <div>
+              <label className="block text-sm font-medium">Adresse</label>
+              <input type="text" className="border rounded px-2 py-1 w-full" value={editCommercial.address || ''} onChange={e => setEditCommercial({ ...editCommercial, address: e.target.value })} required />
+            </div>
+            <div>
+              <label className="block text-sm font-medium">Titre</label>
+              <select className="border rounded px-2 py-1 w-full" value={editCommercial.title || 'Commercial'} onChange={e => setEditCommercial({ ...editCommercial, title: e.target.value })} required>
+                <option value="Commercial">Commercial</option>
+                <option value="Senior Commercial">Senior Commercial</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium">Clients</label>
+              <input type="number" className="border rounded px-2 py-1 w-full" value={editCommercial.totalClients || ''} onChange={e => setEditCommercial({ ...editCommercial, totalClients: e.target.value })} required />
+            </div>
+            <div>
+              <label className="block text-sm font-medium">Expéditions reçues</label>
+              <input type="number" className="border rounded px-2 py-1 w-full" value={editCommercial.expeditionsRecues || ''} onChange={e => setEditCommercial({ ...editCommercial, expeditionsRecues: e.target.value })} required />
+            </div>
+            <div className="flex justify-end space-x-2">
+              <button type="button" className="px-4 py-2 bg-gray-200 rounded" onClick={() => setShowEditModal(false)}>Annuler</button>
+              <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded">Enregistrer</button>
+            </div>
+          </form>
+        </Modal>
+      )}
+      {/* Modal for Commercial Dashboard */}
+      {selectedCommercial && (
+        <Modal
+          isOpen={!!selectedCommercial}
+          onClose={() => setSelectedCommercial(null)}
+          size="xl"
+        >
+          <CommercialDashboard
+            commercial={selectedCommercial}
+            expediteurs={selectedCommercial.expediteurs || []}
+            commissionRate={selectedCommercial.commissionRate}
+            onViewExpediteur={() => {}}
+          />
+        </Modal>
+      )}
+    </div>
+  );
 };
 
-export default Commercial; 
+export default Commercial;
