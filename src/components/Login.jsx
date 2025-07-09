@@ -67,7 +67,6 @@ const Login = () => {
           <div className="flex justify-center mb-4">
             <img src="/images/quickzonelogo.png" alt="QuickZone" className="h-16 w-auto" />
           </div>
-          <h2 className="text-3xl font-bold text-gray-900">QuickZone</h2>
           <p className="mt-2 text-gray-600">Système de Gestion</p>
         </div>
 
@@ -172,7 +171,7 @@ const Login = () => {
 
         {/* Footer */}
         <div className="text-center text-sm text-gray-500">
-          <p>© 2024 QuickZone. Tous droits réservés.</p>
+          <p>© 2025 QuickZone. Tous droits réservés.</p>
         </div>
       </div>
     </div>
