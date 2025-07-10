@@ -2,6 +2,14 @@ import React, { useState } from "react";
 import DataTable from "./common/DataTable";
 import Modal from "./common/Modal";
 
+// List of Tunisian governorates
+const gouvernorats = [
+  "Ariana", "Béja", "Ben Arous", "Bizerte", "Gabès", "Gafsa", "Jendouba", 
+  "Kairouan", "Kasserine", "Kébili", "Kef", "Mahdia", "Manouba", "Médenine", 
+  "Monastir", "Nabeul", "Sfax", "Sidi Bouzid", "Siliana", "Sousse", "Tataouine", 
+  "Tozeur", "Tunis", "Zaghouan"
+];
+
 const initialComptables = [
   {
     id: "COMP001",
@@ -11,6 +19,7 @@ const initialComptables = [
     address: "12 Rue de la Liberté, Tunis",
     titre: "comptable",
     agence: "Siège",
+    gouvernorat: "Tunis",
   },
   {
     id: "COMP002",
@@ -20,6 +29,7 @@ const initialComptables = [
     address: "45 Avenue Habib Bourguiba, Sousse",
     titre: "senior comptable",
     agence: "Sousse",
+    gouvernorat: "Sousse",
   },
 ];
 
@@ -51,6 +61,7 @@ const Finance = () => {
       address: '',
       titre: 'comptable',
       agence: 'Siège',
+      gouvernorat: 'Tunis',
     });
     setShowEditModal(true);
   };
@@ -83,6 +94,7 @@ const Finance = () => {
     { key: "name", header: "Nom et prénom" },
     { key: "email", header: "Email" },
     { key: "phone", header: "Téléphone" },
+    { key: "gouvernorat", header: "Gouvernorat" },
     { key: "address", header: "Adresse" },
     { key: "titre", header: "Titre", render: value => titreOptions.find(o => o.value === value)?.label || value },
     { key: "agence", header: "Agence" },
@@ -156,6 +168,14 @@ const Finance = () => {
             <div>
               <label className="block text-sm font-medium text-left">Téléphone</label>
               <input type="text" className="border rounded px-2 py-1 w-full" value={editComptable.phone || ''} onChange={e => setEditComptable({ ...editComptable, phone: e.target.value })} required />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-left">Gouvernorat</label>
+              <select className="border rounded px-2 py-1 w-full" value={editComptable.gouvernorat || 'Tunis'} onChange={e => setEditComptable({ ...editComptable, gouvernorat: e.target.value })} required>
+                {gouvernorats.map(gov => (
+                  <option key={gov} value={gov}>{gov}</option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-left">Adresse</label>

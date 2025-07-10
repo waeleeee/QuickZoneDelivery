@@ -333,7 +333,7 @@ const CommercialDashboard = ({ commercial, expediteurs, commissionRate, onViewEx
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 h-full overflow-y-auto">
       {/* Commercial Profile Header */}
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-xl border border-blue-200">
         <div className="flex justify-between items-start">
@@ -680,6 +680,14 @@ const Commercial = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCommercial, setSelectedCommercial] = useState(null); // To manage details modal for commercials
+  // List of Tunisian governorates
+  const gouvernorats = [
+    "Ariana", "Béja", "Ben Arous", "Bizerte", "Gabès", "Gafsa", "Jendouba", 
+    "Kairouan", "Kasserine", "Kébili", "Kef", "Mahdia", "Manouba", "Médenine", 
+    "Monastir", "Nabeul", "Sfax", "Sidi Bouzid", "Siliana", "Sousse", "Tataouine", 
+    "Tozeur", "Tunis", "Zaghouan"
+  ];
+
   const [commercials, setCommercials] = useState([
     {
       id: "COM001",
@@ -688,6 +696,7 @@ const Commercial = () => {
       phone: "+216 71 234 567",
       address: "55", // Assuming 'Adresse' is an arbitrary number or string
       title: "Commercial",
+      gouvernorat: "Tunis",
       totalClients: 12, // Corresponds to 'CLIENTS' in screenshot
       expeditionsRecues: 156, // Corresponds to 'EXPEDITIONS REÇUES'
       commissionRate: 5.5,
@@ -704,6 +713,7 @@ const Commercial = () => {
       phone: "+216 98 765 432",
       address: "123",
       title: "Senior Commercial",
+      gouvernorat: "Sousse",
       totalClients: 20,
       expeditionsRecues: 250,
       commissionRate: 6.0,
@@ -727,6 +737,7 @@ const Commercial = () => {
       phone: '',
       address: '',
       title: 'Commercial',
+      gouvernorat: 'Tunis',
       totalClients: 0,
       expeditionsRecues: 0,
       commissionRate: '',
@@ -774,6 +785,7 @@ const Commercial = () => {
     { key: "name", header: "NOM" },
     { key: "email", header: "EMAIL" },
     { key: "phone", header: "TÉLÉPHONE" },
+    { key: "gouvernorat", header: "GOUVERNORAT" },
     { key: "address", header: "ADRESSE" },
     { key: "title", header: "TITRE" },
     { key: "totalClients", header: "CLIENTS" },
@@ -853,6 +865,14 @@ const Commercial = () => {
               <input type="text" className="border rounded px-2 py-1 w-full" value={editCommercial.phone || ''} onChange={e => setEditCommercial({ ...editCommercial, phone: e.target.value })} required />
             </div>
             <div>
+              <label className="block text-sm font-medium text-left">Gouvernorat</label>
+              <select className="border rounded px-2 py-1 w-full" value={editCommercial.gouvernorat || 'Tunis'} onChange={e => setEditCommercial({ ...editCommercial, gouvernorat: e.target.value })} required>
+                {gouvernorats.map(gov => (
+                  <option key={gov} value={gov}>{gov}</option>
+                ))}
+              </select>
+            </div>
+            <div>
               <label className="block text-sm font-medium text-left">Adresse</label>
               <input type="text" className="border rounded px-2 py-1 w-full" value={editCommercial.address || ''} onChange={e => setEditCommercial({ ...editCommercial, address: e.target.value })} required />
             </div>
@@ -883,7 +903,7 @@ const Commercial = () => {
         <Modal
           isOpen={!!selectedCommercial}
           onClose={() => setSelectedCommercial(null)}
-          size="xl"
+          size="75"
         >
           <CommercialDashboard
             commercial={selectedCommercial}

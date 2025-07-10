@@ -1,6 +1,6 @@
 import React from "react";
 
-const Modal = ({ isOpen, onClose, title, children, size = "md" }) => {
+const Modal = ({ isOpen, onClose, title, children, size = "md", className = "" }) => {
   if (!isOpen) return null;
 
   const sizeClasses = {
@@ -9,6 +9,7 @@ const Modal = ({ isOpen, onClose, title, children, size = "md" }) => {
     lg: "max-w-2xl",
     xl: "max-w-4xl",
     xxl: "max-w-screen-2xl w-full", // Make xxl truly massive, nearly full screen
+    "75": "w-3/4 h-3/4 max-w-none max-h-none", // 75% of screen size
   };
 
   return (
@@ -21,9 +22,9 @@ const Modal = ({ isOpen, onClose, title, children, size = "md" }) => {
         ></div>
 
         {/* Modal panel */}
-        <div className={`inline-block align-bottom bg-white rounded-lg text-right overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:w-full ${sizeClasses[size]}`}>
+        <div className={`inline-block align-bottom bg-white text-right overflow-hidden shadow-xl transform transition-all sm:align-middle sm:w-full ${sizeClasses[size]} ${size === '75' ? 'rounded-lg my-4' : 'rounded-lg sm:my-8'} ${className}`}>
           {/* Header */}
-          <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+          <div className={`bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4 ${size === '75' ? 'h-full overflow-y-auto' : ''}`}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg leading-6 font-medium text-gray-900">
                 {title}

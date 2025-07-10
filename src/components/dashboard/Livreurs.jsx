@@ -2,6 +2,14 @@ import React, { useState } from "react";
 import DataTable from "./common/DataTable";
 import Modal from "./common/Modal";
 
+// List of Tunisian governorates
+const gouvernorats = [
+  "Ariana", "Béja", "Ben Arous", "Bizerte", "Gabès", "Gafsa", "Jendouba", 
+  "Kairouan", "Kasserine", "Kébili", "Kef", "Mahdia", "Manouba", "Médenine", 
+  "Monastir", "Nabeul", "Sfax", "Sidi Bouzid", "Siliana", "Sousse", "Tataouine", 
+  "Tozeur", "Tunis", "Zaghouan"
+];
+
 const Livreurs = () => {
   const [drivers, setDrivers] = useState([
     {
@@ -9,21 +17,27 @@ const Livreurs = () => {
       name: "Pierre Dubois",
       email: "pierre.livreur@email.com",
       phone: "+33 1 23 45 67 89",
+      address: "12 Rue de Paris, Tunis",
       vehicle: "Renault Kangoo",
+      gouvernorat: "Tunis",
     },
     {
       id: 2,
       name: "Sarah Ahmed",
       email: "sarah.livreur@email.com",
       phone: "+33 1 98 76 54 32",
+      address: "34 Avenue Habib Bourguiba, Sousse",
       vehicle: "Peugeot Partner",
+      gouvernorat: "Sousse",
     },
     {
       id: 3,
       name: "Mohamed Ali",
       email: "mohamed.livreur@email.com",
       phone: "+33 1 11 22 33 44",
+      address: "56 Rue de la Liberté, Sfax",
       vehicle: "Citroën Berlingo",
+      gouvernorat: "Sfax",
     },
   ]);
 
@@ -34,13 +48,17 @@ const Livreurs = () => {
     name: "",
     email: "",
     phone: "",
+    address: "",
     vehicle: "",
+    gouvernorat: "Tunis",
   });
 
   const columns = [
     { key: "name", header: "Nom" },
     { key: "email", header: "Email" },
     { key: "phone", header: "Téléphone" },
+    { key: "gouvernorat", header: "Gouvernorat" },
+    { key: "address", header: "Adresse" },
     { key: "vehicle", header: "Véhicule" },
   ];
 
@@ -50,7 +68,9 @@ const Livreurs = () => {
       name: "",
       email: "",
       phone: "",
+      address: "",
       vehicle: "",
+      gouvernorat: "Tunis",
     });
     setIsModalOpen(true);
   };
@@ -160,6 +180,35 @@ const Livreurs = () => {
               type="tel"
               name="phone"
               value={formData.phone}
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Gouvernorat
+            </label>
+            <select
+              name="gouvernorat"
+              value={formData.gouvernorat}
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+            >
+              {gouvernorats.map(gov => (
+                <option key={gov} value={gov}>{gov}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Adresse
+            </label>
+            <input
+              type="text"
+              name="address"
+              value={formData.address}
               onChange={handleInputChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
             />

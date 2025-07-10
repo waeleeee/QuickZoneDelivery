@@ -2,6 +2,14 @@ import React, { useState } from "react";
 import DataTable from "./common/DataTable";
 import Modal from "./common/Modal";
 
+// List of Tunisian governorates
+const gouvernorats = [
+  "Ariana", "Béja", "Ben Arous", "Bizerte", "Gabès", "Gafsa", "Jendouba", 
+  "Kairouan", "Kasserine", "Kébili", "Kef", "Mahdia", "Manouba", "Médenine", 
+  "Monastir", "Nabeul", "Sfax", "Sidi Bouzid", "Siliana", "Sousse", "Tataouine", 
+  "Tozeur", "Tunis", "Zaghouan"
+];
+
 const MembreAgence = () => {
   const [members, setMembers] = useState([
     {
@@ -12,6 +20,7 @@ const MembreAgence = () => {
       address: "12 Rue de Paris, Tunis",
       agence: "Tunis",
       role: "Responsable d'agence",
+      gouvernorat: "Tunis",
     },
     {
       id: 2,
@@ -21,6 +30,7 @@ const MembreAgence = () => {
       address: "34 Avenue Habib Bourguiba, Sousse",
       agence: "Sousse",
       role: "Agent d'accueil",
+      gouvernorat: "Sousse",
     },
     {
       id: 3,
@@ -30,6 +40,7 @@ const MembreAgence = () => {
       address: "56 Rue de la Liberté, Sfax",
       agence: "Sfax",
       role: "Gestionnaire de stock",
+      gouvernorat: "Sfax",
     },
   ]);
 
@@ -43,6 +54,7 @@ const MembreAgence = () => {
     address: "",
     agence: "Tunis",
     role: "",
+    gouvernorat: "Tunis",
   });
 
   const columns = [
@@ -50,6 +62,7 @@ const MembreAgence = () => {
     { key: "name", header: "Nom et prénom" },
     { key: "email", header: "Email" },
     { key: "phone", header: "Téléphone" },
+    { key: "gouvernorat", header: "Gouvernorat" },
     { key: "address", header: "Adresse" },
     { key: "agence", header: "Agence" },
     { key: "role", header: "Rôle" },
@@ -64,6 +77,7 @@ const MembreAgence = () => {
       address: "",
       agence: "Tunis",
       role: "",
+      gouvernorat: "Tunis",
     });
     setIsModalOpen(true);
   };
@@ -176,6 +190,22 @@ const MembreAgence = () => {
               onChange={handleInputChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">
+              Gouvernorat
+            </label>
+            <select
+              name="gouvernorat"
+              value={formData.gouvernorat}
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+            >
+              {gouvernorats.map(gov => (
+                <option key={gov} value={gov}>{gov}</option>
+              ))}
+            </select>
           </div>
 
           <div>

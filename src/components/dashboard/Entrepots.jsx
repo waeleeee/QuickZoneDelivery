@@ -5,6 +5,60 @@ import html2pdf from "html2pdf.js";
 import ActionButtons from "./common/ActionButtons";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
+import FactureColis from "./FactureColis";
+import BonLivraisonColis from "./BonLivraisonColis";
+
+// List of Tunisian governorates
+const gouvernorats = [
+  "Ariana", "Béja", "Ben Arous", "Bizerte", "Gabès", "Gafsa", "Jendouba", 
+  "Kairouan", "Kasserine", "Kébili", "Kef", "Mahdia", "Manouba", "Médenine", 
+  "Monastir", "Nabeul", "Sfax", "Sidi Bouzid", "Siliana", "Sousse", "Tataouine", 
+  "Tozeur", "Tunis", "Zaghouan"
+];
+
+// Mock data for chef d'agence (chefs d'agence)
+const chefsAgence = [
+  {
+    id: 1,
+    name: "Pierre Dubois",
+    email: "pierre.chef@email.com",
+    phone: "+33 1 23 45 67 89",
+    gouvernorat: "Tunis",
+    agence: "Tunis",
+  },
+  {
+    id: 2,
+    name: "Sarah Ahmed",
+    email: "sarah.chef@email.com",
+    phone: "+33 1 98 76 54 32",
+    gouvernorat: "Sousse",
+    agence: "Sousse",
+  },
+  {
+    id: 3,
+    name: "Mohamed Ali",
+    email: "mohamed.chef@email.com",
+    phone: "+33 1 11 22 33 44",
+    gouvernorat: "Sfax",
+    agence: "Sfax",
+  },
+  {
+    id: 4,
+    name: "Leila Trabelsi",
+    email: "leila.chef@email.com",
+    phone: "+33 1 44 55 66 77",
+    gouvernorat: "Monastir",
+    agence: "Monastir",
+  },
+  {
+    id: 5,
+    name: "Sami Ben Ali",
+    email: "sami.chef@email.com",
+    phone: "+33 1 88 99 00 11",
+    gouvernorat: "Gabès",
+    agence: "Gabès",
+  },
+];
 
 // Statuses and their colors (matching the legend)
 const COLIS_STATUSES = [
@@ -57,15 +111,15 @@ const Entrepots = () => {
   const [warehouses, setWarehouses] = useState([
     {
       id: 1,
-      name: "Entrepôt Paris Central",
-      location: "Paris",
-      capacity: "1000 m²",
+      name: "Entrepôt Tunis Central",
+      location: "Tunis",
+      gouvernorat: "Tunis",
       manager: "Pierre Dubois",
       currentStock: "75%",
       status: "Actif",
-      address: "123 Rue de la Paix, 75001 Paris",
-      phone: "+33 1 23 45 67 89",
-      email: "paris@quickzone.fr",
+      address: "123 Rue de la Paix, 1000 Tunis",
+      phone: "+216 71 234 567",
+      email: "tunis@quickzone.tn",
       createdAt: "2023-01-15",
       users: [
         {
@@ -113,15 +167,15 @@ const Entrepots = () => {
     },
     {
       id: 2,
-      name: "Entrepôt Lyon",
-      location: "Lyon",
-      capacity: "800 m²",
+      name: "Entrepôt Sousse",
+      location: "Sousse",
+      gouvernorat: "Sousse",
       manager: "Sarah Ahmed",
       currentStock: "60%",
       status: "Actif",
-      address: "456 Avenue des Alpes, 69001 Lyon",
-      phone: "+33 4 78 90 12 34",
-      email: "lyon@quickzone.fr",
+      address: "456 Avenue Habib Bourguiba, 4000 Sousse",
+      phone: "+216 73 456 789",
+      email: "sousse@quickzone.tn",
       createdAt: "2023-03-10",
       users: [
         {
@@ -158,15 +212,15 @@ const Entrepots = () => {
     },
     {
       id: 3,
-      name: "Entrepôt Marseille",
-      location: "Marseille",
-      capacity: "600 m²",
+      name: "Entrepôt Sfax",
+      location: "Sfax",
+      gouvernorat: "Sfax",
       manager: "Mohamed Ali",
       currentStock: "90%",
       status: "Inactif",
-      address: "789 Boulevard de la Mer, 13001 Marseille",
-      phone: "+33 4 91 23 45 67",
-      email: "marseille@quickzone.fr",
+      address: "789 Rue de la Liberté, 3000 Sfax",
+      phone: "+216 74 789 012",
+      email: "sfax@quickzone.tn",
       createdAt: "2023-02-20",
       users: [
         {
@@ -198,17 +252,17 @@ const Entrepots = () => {
   const [selectedWarehouse, setSelectedWarehouse] = useState(null);
   const [formData, setFormData] = useState({
     name: "",
-    location: "",
-    capacity: "",
+    gouvernorat: "Tunis",
     manager: "",
     status: "Actif",
   });
   const [colisModal, setColisModal] = useState({ open: false, status: null, colis: [] });
+  const [factureColis, setFactureColis] = useState(null);
+  const [bonLivraisonColis, setBonLivraisonColis] = useState(null);
 
   const columns = [
     { key: "name", header: "Nom de l'entrepôt" },
-    { key: "location", header: "Localisation" },
-    { key: "capacity", header: "Capacité" },
+    { key: "gouvernorat", header: "Gouvernorat" },
     { key: "manager", header: "Responsable" },
     {
       key: "currentStock",
@@ -243,8 +297,7 @@ const Entrepots = () => {
     setEditingWarehouse(null);
     setFormData({
       name: "",
-      location: "",
-      capacity: "",
+      gouvernorat: "Tunis",
       manager: "",
       status: "Actif",
     });
@@ -599,69 +652,41 @@ const Entrepots = () => {
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Localisation
-            </label>
-            <select
-              name="location"
-              value={formData.location}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="">Sélectionner</option>
-              <option value="Tunis">Tunis</option>
-              <option value="Ariana">Ariana</option>
-              <option value="Ben Arous">Ben Arous</option>
-              <option value="Manouba">Manouba</option>
-              <option value="Nabeul">Nabeul</option>
-              <option value="Zaghouan">Zaghouan</option>
-              <option value="Bizerte">Bizerte</option>
-              <option value="Béja">Béja</option>
-              <option value="Jendouba">Jendouba</option>
-              <option value="Kef">Kef</option>
-              <option value="Siliana">Siliana</option>
-              <option value="Sousse">Sousse</option>
-              <option value="Monastir">Monastir</option>
-              <option value="Mahdia">Mahdia</option>
-              <option value="Sfax">Sfax</option>
-              <option value="Kairouan">Kairouan</option>
-              <option value="Kasserine">Kasserine</option>
-              <option value="Sidi Bouzid">Sidi Bouzid</option>
-              <option value="Gabès">Gabès</option>
-              <option value="Medenine">Medenine</option>
-              <option value="Tataouine">Tataouine</option>
-              <option value="Gafsa">Gafsa</option>
-              <option value="Tozeur">Tozeur</option>
-              <option value="Kebili">Kebili</option>
-            </select>
-          </div>
+
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Capacité
+              Gouvernorat
             </label>
-            <input
-              type="text"
-              name="capacity"
-              value={formData.capacity}
+            <select
+              name="gouvernorat"
+              value={formData.gouvernorat}
               onChange={handleInputChange}
-              placeholder="Ex : 1000 m²"
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-            />
+            >
+              {gouvernorats.map(gov => (
+                <option key={gov} value={gov}>{gov}</option>
+              ))}
+            </select>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Responsable
             </label>
-            <input
-              type="text"
+            <select
               name="manager"
               value={formData.manager}
               onChange={handleInputChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-            />
+            >
+              <option value="">Sélectionner un chef d'agence</option>
+              {chefsAgence.map(chef => (
+                <option key={chef.id} value={chef.name}>
+                  {chef.name} - {chef.agence} ({chef.gouvernorat})
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>
@@ -726,13 +751,98 @@ const Entrepots = () => {
                   <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">{colis.date}</td>
                   <td className="px-4 py-2 whitespace-nowrap text-sm" style={{ color: COLIS_STATUSES.find(s => s.key === colis.status)?.color }}>{colis.status}</td>
                   <td className="px-4 py-2 whitespace-nowrap text-sm">
-                    <button className="text-blue-600 hover:underline">Voir</button>
+                    <button
+                      className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-50 transition-colors"
+                      title="Voir Bon de Livraison"
+                      onClick={() => setBonLivraisonColis(colis)}
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    </button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+      </Modal>
+
+      {/* Modal for FactureColis (single colis invoice) */}
+      <Modal
+        isOpen={!!factureColis}
+        onClose={() => setFactureColis(null)}
+        size="xl"
+      >
+        {factureColis && (
+          <FactureColis
+            colis={{
+              code: factureColis.code,
+              nom: factureColis.code || "Colis démo",
+              adresse: factureColis.client ? `Livraison: ${factureColis.client}` : "-",
+              poids: 1.0,
+            }}
+            client={{
+              nom: factureColis.client || "-",
+              tel: factureColis.phone || "-",
+            }}
+            expediteur={{
+              nif: "1904056B/NM/000",
+              tel: "+216 23 613 518",
+              societe: "Roura ever shop",
+              nom: "Sarah Mathlouthi",
+              adresse: "33 rue Rabta beb jdidi Tunis",
+            }}
+            prix={{
+              livraisonBase: "8.00 DT",
+              suppPoids: "0.00 DT",
+              suppRapide: "0.00 DT",
+              totalLivraison: "8.00 DT",
+              ht: "29.17 DT",
+              tva: "5.83 DT",
+              prixColis: "250,00 DT",
+              ttc: "43.00 DT",
+            }}
+            note={"Le jeudi svp"}
+          />
+        )}
+      </Modal>
+
+      {/* Modal for BonLivraisonColis (single colis delivery slip) */}
+      <Modal
+        isOpen={!!bonLivraisonColis}
+        onClose={() => setBonLivraisonColis(null)}
+        size="xl"
+      >
+        {bonLivraisonColis && (
+          <BonLivraisonColis
+            colis={{
+              code: bonLivraisonColis.code,
+            }}
+            expediteur={{
+              nom: "Bon Prix Sousse",
+              adresse: "sousse",
+              tel: "23814555",
+              nif: "1678798WNM000",
+            }}
+            destinataire={{
+              nom: bonLivraisonColis.client || "Safa ben yedder",
+              tel: bonLivraisonColis.phone || "50255473",
+              adresse: "Jerba roubana Djerba - Midoun ROBBANA Médenine",
+            }}
+            route={"Sousse >> ---- Dispatch ---- >> Mednine"}
+            date={"2025-06-13"}
+            docNumber={bonLivraisonColis.code || "518138215801"}
+            instructions={"Burkini noir flowers 34 ????? ?????? ??????"}
+            montant={"68,000 DT"}
+            tva={"0.471 DT"}
+            quantite={1}
+            designation={"Coli"}
+            pageCount={2}
+            pageIndex={1}
+          />
+        )}
       </Modal>
     </div>
   );

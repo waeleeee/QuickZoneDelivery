@@ -2,6 +2,14 @@ import React, { useState } from "react";
 import DataTable from "./common/DataTable";
 import Modal from "./common/Modal";
 
+// List of Tunisian governorates
+const gouvernorats = [
+  "Ariana", "Béja", "Ben Arous", "Bizerte", "Gabès", "Gafsa", "Jendouba", 
+  "Kairouan", "Kasserine", "Kébili", "Kef", "Mahdia", "Manouba", "Médenine", 
+  "Monastir", "Nabeul", "Sfax", "Sidi Bouzid", "Siliana", "Sousse", "Tataouine", 
+  "Tozeur", "Tunis", "Zaghouan"
+];
+
 const initialChefs = [
   {
     id: "CHEF001",
@@ -10,6 +18,7 @@ const initialChefs = [
     phone: "+216 20 123 456",
     address: "Rue de la République, Tunis",
     agence: "Tunis",
+    gouvernorat: "Tunis",
   },
   {
     id: "CHEF002",
@@ -18,6 +27,7 @@ const initialChefs = [
     phone: "+216 98 654 321",
     address: "Avenue de la Liberté, Sousse",
     agence: "Sousse",
+    gouvernorat: "Sousse",
   },
 ];
 
@@ -58,6 +68,7 @@ const ChefAgence = () => {
       phone: '',
       address: '',
       agence: 'Tunis',
+      gouvernorat: 'Tunis',
     });
     setShowEditModal(true);
   };
@@ -116,6 +127,7 @@ const ChefAgence = () => {
     { key: "name", header: "Nom et prénom" },
     { key: "email", header: "Email" },
     { key: "phone", header: "Téléphone" },
+    { key: "gouvernorat", header: "Gouvernorat" },
     { key: "address", header: "Adresse" },
     { key: "agence", header: "Agence" },
     {
@@ -200,6 +212,14 @@ const ChefAgence = () => {
               <input type="text" className="border rounded px-2 py-1 w-full" value={editChef.phone || ''} onChange={e => setEditChef({ ...editChef, phone: e.target.value })} required />
             </div>
             <div>
+              <label className="block text-sm font-medium text-left">Gouvernorat</label>
+              <select className="border rounded px-2 py-1 w-full" value={editChef.gouvernorat || 'Tunis'} onChange={e => setEditChef({ ...editChef, gouvernorat: e.target.value })} required>
+                {gouvernorats.map(gov => (
+                  <option key={gov} value={gov}>{gov}</option>
+                ))}
+              </select>
+            </div>
+            <div>
               <label className="block text-sm font-medium text-left">Adresse</label>
               <input type="text" className="border rounded px-2 py-1 w-full" value={editChef.address || ''} onChange={e => setEditChef({ ...editChef, address: e.target.value })} required />
             </div>
@@ -218,7 +238,7 @@ const ChefAgence = () => {
       )}
       {/* Modal for Members of Agency */}
       {showMembersModal && selectedChef && (
-        <Modal isOpen={showMembersModal} onClose={() => { setShowMembersModal(false); setEditingMemberId(null); setAddingMember(false); }} size="xxl">
+        <Modal isOpen={showMembersModal} onClose={() => { setShowMembersModal(false); setEditingMemberId(null); setAddingMember(false); }} size="75">
           <div className="space-y-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-2xl font-bold text-blue-800">Membres de l'agence {selectedChef.agence}</h2>
@@ -300,7 +320,7 @@ const ChefAgence = () => {
           </div>
           {/* Modal for Add/Edit Member */}
           {showMemberModal && (
-            <Modal isOpen={showMemberModal} onClose={() => setShowMemberModal(false)} size="xxl">
+            <Modal isOpen={showMemberModal} onClose={() => setShowMemberModal(false)} size="75">
               <form onSubmit={handleSaveMember} className="space-y-6 bg-white rounded-2xl shadow-2xl p-8 border-t-8 border-blue-600">
                 <div className="mb-6">
                   <h2 className="text-2xl font-bold text-blue-700 mb-2">{memberModalMode === 'edit' ? 'Modifier le membre d\'agence' : 'Ajouter membres d\'agence'}</h2>
@@ -318,6 +338,14 @@ const ChefAgence = () => {
                   <div>
                     <label className="block text-sm font-semibold text-blue-700 mb-1 text-left">Téléphone</label>
                     <input type="text" className="border-2 border-blue-200 rounded-lg px-4 py-2 w-full focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-lg transition" value={memberForm.phone || ''} onChange={e => setMemberForm({ ...memberForm, phone: e.target.value })} required />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-blue-700 mb-1 text-left">Gouvernorat</label>
+                    <select className="border-2 border-blue-200 rounded-lg px-4 py-2 w-full focus:border-blue-500 focus:ring-2 focus:ring-blue-200 text-lg transition" value={memberForm.gouvernorat || 'Tunis'} onChange={e => setMemberForm({ ...memberForm, gouvernorat: e.target.value })} required>
+                      {gouvernorats.map(gov => (
+                        <option key={gov} value={gov}>{gov}</option>
+                      ))}
+                    </select>
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-blue-700 mb-1 text-left">Adresse</label>

@@ -2,6 +2,14 @@ import React, { useState } from "react";
 import DataTable from "./common/DataTable";
 import Modal from "./common/Modal";
 
+// List of Tunisian governorates
+const gouvernorats = [
+  "Ariana", "Béja", "Ben Arous", "Bizerte", "Gabès", "Gafsa", "Jendouba", 
+  "Kairouan", "Kasserine", "Kébili", "Kef", "Mahdia", "Manouba", "Médenine", 
+  "Monastir", "Nabeul", "Sfax", "Sidi Bouzid", "Siliana", "Sousse", "Tataouine", 
+  "Tozeur", "Tunis", "Zaghouan"
+];
+
 const Administration = () => {
   const [administrators, setAdministrators] = useState([
     {
@@ -11,6 +19,7 @@ const Administration = () => {
       role: "Administrateur système",
       phone: "+33 1 23 45 67 89",
       address: "123 Rue de la Paix, 75001 Paris, France",
+      gouvernorat: "Tunis",
     },
     {
       id: 2,
@@ -19,6 +28,7 @@ const Administration = () => {
       role: "Gestionnaire utilisateurs",
       phone: "+33 1 98 76 54 32",
       address: "456 Avenue des Champs-Élysées, 75008 Paris, France",
+      gouvernorat: "Sousse",
     },
     {
       id: 3,
@@ -27,6 +37,7 @@ const Administration = () => {
       role: "Responsable sécurité",
       phone: "+33 1 11 22 33 44",
       address: "789 Boulevard Saint-Germain, 75006 Paris, France",
+      gouvernorat: "Sfax",
     },
   ]);
 
@@ -39,7 +50,8 @@ const Administration = () => {
     email: "",
     phone: "",
     address: "",
-    role: "admin"
+    role: "admin",
+    gouvernorat: "Tunis"
   });
 
   const columns = [
@@ -47,6 +59,7 @@ const Administration = () => {
     { key: "name", header: "Nom" },
     { key: "email", header: "Email" },
     { key: "phone", header: "Téléphone" },
+    { key: "gouvernorat", header: "Gouvernorat" },
     { key: "address", header: "Adresse" },
     { key: "role", header: "Rôle" },
   ];
@@ -59,7 +72,8 @@ const Administration = () => {
       email: "",
       phone: "",
       address: "",
-      role: "admin"
+      role: "admin",
+      gouvernorat: "Tunis"
     });
     setIsModalOpen(true);
   };
@@ -185,6 +199,22 @@ const Administration = () => {
               onChange={handleInputChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">
+              Gouvernorat
+            </label>
+            <select
+              name="gouvernorat"
+              value={formData.gouvernorat}
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+            >
+              {gouvernorats.map(gov => (
+                <option key={gov} value={gov}>{gov}</option>
+              ))}
+            </select>
           </div>
 
           <div>
