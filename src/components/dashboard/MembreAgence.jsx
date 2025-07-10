@@ -13,7 +13,7 @@ const gouvernorats = [
 const MembreAgence = () => {
   const [members, setMembers] = useState([
     {
-      id: 1,
+      id: "MEM001",
       name: "Pierre Dubois",
       email: "pierre.membre@email.com",
       phone: "+33 1 23 45 67 89",
@@ -23,7 +23,7 @@ const MembreAgence = () => {
       gouvernorat: "Tunis",
     },
     {
-      id: 2,
+      id: "MEM002",
       name: "Sarah Ahmed",
       email: "sarah.membre@email.com",
       phone: "+33 1 98 76 54 32",
@@ -33,7 +33,7 @@ const MembreAgence = () => {
       gouvernorat: "Sousse",
     },
     {
-      id: 3,
+      id: "MEM003",
       name: "Mohamed Ali",
       email: "mohamed.membre@email.com",
       phone: "+33 1 11 22 33 44",
@@ -104,7 +104,7 @@ const MembreAgence = () => {
     } else {
       const newMember = {
         ...formData,
-        id: members.length > 0 ? Math.max(...members.map((m) => m.id)) + 1 : 1,
+        id: `MEM${String(members.length + 1).padStart(3, '0')}`,
       };
       setMembers([...members, newMember]);
     }

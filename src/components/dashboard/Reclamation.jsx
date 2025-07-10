@@ -5,21 +5,21 @@ import Modal from "./common/Modal";
 const Reclamation = () => {
   const [reclamations, setReclamations] = useState([
     {
-      id: 1,
+      id: "REC001",
       client: "Pierre Dubois",
       subject: "Colis endommagé",
       date: "2024-01-15",
       status: "En attente",
     },
     {
-      id: 2,
+      id: "REC002",
       client: "Sarah Ahmed",
       subject: "Retard de livraison",
       date: "2024-01-14",
       status: "Traitée",
     },
     {
-      id: 3,
+      id: "REC003",
       client: "Mohamed Ali",
       subject: "Erreur d'adresse",
       date: "2024-01-13",
@@ -44,6 +44,7 @@ const Reclamation = () => {
   ];
 
   const columns = [
+    { key: "id", header: "ID" },
     { key: "client", header: "Client" },
     { key: "subject", header: "Objet" },
     { key: "date", header: "Date" },
@@ -98,7 +99,7 @@ const Reclamation = () => {
     } else {
       const newReclamation = {
         ...formData,
-        id: Math.max(...reclamations.map((r) => r.id)) + 1,
+        id: `REC${String(reclamations.length + 1).padStart(3, '0')}`,
       };
       setReclamations([...reclamations, newReclamation]);
     }

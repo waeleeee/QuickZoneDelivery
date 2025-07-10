@@ -13,7 +13,7 @@ const gouvernorats = [
 const Administration = () => {
   const [administrators, setAdministrators] = useState([
     {
-      id: 1,
+      id: "ADM001",
       name: "Pierre Dubois",
       email: "pierre.dubois@quickzone.com",
       role: "Administrateur système",
@@ -22,7 +22,7 @@ const Administration = () => {
       gouvernorat: "Tunis",
     },
     {
-      id: 2,
+      id: "ADM002",
       name: "Sarah Ahmed",
       email: "sarah.ahmed@quickzone.com",
       role: "Gestionnaire utilisateurs",
@@ -31,7 +31,7 @@ const Administration = () => {
       gouvernorat: "Sousse",
     },
     {
-      id: 3,
+      id: "ADM003",
       name: "Mohamed Ali",
       email: "mohamed.ali@quickzone.com",
       role: "Responsable sécurité",
@@ -100,7 +100,7 @@ const Administration = () => {
     } else {
       const newAdmin = {
         ...formData,
-        id: Math.max(...administrators.map((a) => a.id)) + 1,
+        id: `ADM${String(administrators.length + 1).padStart(3, '0')}`,
       };
       setAdministrators([...administrators, newAdmin]);
     }

@@ -110,7 +110,7 @@ function generateMockColis(warehouseId) {
 const Entrepots = () => {
   const [warehouses, setWarehouses] = useState([
     {
-      id: 1,
+      id: "ENT001",
       name: "Entrepôt Tunis Central",
       location: "Tunis",
       gouvernorat: "Tunis",
@@ -166,7 +166,7 @@ const Entrepots = () => {
       }
     },
     {
-      id: 2,
+      id: "ENT002",
       name: "Entrepôt Sousse",
       location: "Sousse",
       gouvernorat: "Sousse",
@@ -211,7 +211,7 @@ const Entrepots = () => {
       }
     },
     {
-      id: 3,
+      id: "ENT003",
       name: "Entrepôt Sfax",
       location: "Sfax",
       gouvernorat: "Sfax",
@@ -261,6 +261,7 @@ const Entrepots = () => {
   const [bonLivraisonColis, setBonLivraisonColis] = useState(null);
 
   const columns = [
+    { key: "id", header: "ID" },
     { key: "name", header: "Nom de l'entrepôt" },
     { key: "gouvernorat", header: "Gouvernorat" },
     { key: "manager", header: "Responsable" },
@@ -333,7 +334,7 @@ const Entrepots = () => {
     } else {
       const newWarehouse = {
         ...formData,
-        id: Math.max(...warehouses.map((w) => w.id)) + 1,
+        id: `ENT${String(warehouses.length + 1).padStart(3, '0')}`,
         currentStock: "0%",
         address: "",
         phone: "",

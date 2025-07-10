@@ -13,7 +13,7 @@ const gouvernorats = [
 const Livreurs = () => {
   const [drivers, setDrivers] = useState([
     {
-      id: 1,
+      id: "LIV001",
       name: "Pierre Dubois",
       email: "pierre.livreur@email.com",
       phone: "+33 1 23 45 67 89",
@@ -22,7 +22,7 @@ const Livreurs = () => {
       gouvernorat: "Tunis",
     },
     {
-      id: 2,
+      id: "LIV002",
       name: "Sarah Ahmed",
       email: "sarah.livreur@email.com",
       phone: "+33 1 98 76 54 32",
@@ -31,7 +31,7 @@ const Livreurs = () => {
       gouvernorat: "Sousse",
     },
     {
-      id: 3,
+      id: "LIV003",
       name: "Mohamed Ali",
       email: "mohamed.livreur@email.com",
       phone: "+33 1 11 22 33 44",
@@ -54,6 +54,7 @@ const Livreurs = () => {
   });
 
   const columns = [
+    { key: "id", header: "ID" },
     { key: "name", header: "Nom" },
     { key: "email", header: "Email" },
     { key: "phone", header: "Téléphone" },
@@ -97,7 +98,7 @@ const Livreurs = () => {
     } else {
       const newDriver = {
         ...formData,
-        id: Math.max(...drivers.map((d) => d.id)) + 1,
+        id: `LIV${String(drivers.length + 1).padStart(3, '0')}`,
       };
       setDrivers([...drivers, newDriver]);
     }

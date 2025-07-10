@@ -5,21 +5,21 @@ import Modal from "./common/Modal";
 const Secteurs = () => {
   const [sectors, setSectors] = useState([
     {
-      id: 1,
+      id: "SEC001",
       name: "Secteur Nord",
       city: ["Paris", "Lyon"],
       manager: "Pierre Dubois",
       status: "Actif",
     },
     {
-      id: 2,
+      id: "SEC002",
       name: "Secteur Sud",
       city: ["Marseille", "Toulouse"],
       manager: "Sarah Ahmed",
       status: "Actif",
     },
     {
-      id: 3,
+      id: "SEC003",
       name: "Secteur Est",
       city: ["Nice", "Nantes"],
       manager: "Mohamed Ali",
@@ -38,6 +38,7 @@ const Secteurs = () => {
   });
 
   const columns = [
+    { key: "id", header: "ID" },
     { key: "name", header: "Nom du secteur" },
     { key: "city", header: "Ville", render: (value) => Array.isArray(value) ? value.join(", ") : value },
     { key: "manager", header: "Responsable" },
@@ -91,7 +92,7 @@ const Secteurs = () => {
     } else {
       const newSector = {
         ...formData,
-        id: Math.max(...sectors.map((s) => s.id)) + 1,
+        id: `SEC${String(sectors.length + 1).padStart(3, '0')}`,
       };
       setSectors([...sectors, newSector]);
     }

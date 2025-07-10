@@ -6,7 +6,7 @@ import FactureColis from "./FactureColis";
 const PaimentExpediteur = () => {
   const [payments, setPayments] = useState([
     {
-      id: 1,
+      id: "PAY001",
       shipper: "Ahmed Mohamed",
       amount: "250,00 €",
       date: "2024-01-15",
@@ -15,7 +15,7 @@ const PaimentExpediteur = () => {
       status: "Payé",
     },
     {
-      id: 2,
+      id: "PAY002",
       shipper: "Sarah Ahmed",
       amount: "180,00 €",
       date: "2024-01-14",
@@ -24,7 +24,7 @@ const PaimentExpediteur = () => {
       status: "Payé",
     },
     {
-      id: 3,
+      id: "PAY003",
       shipper: "Mohamed Ali",
       amount: "320,00 €",
       date: "2024-01-13",
@@ -50,6 +50,7 @@ const PaimentExpediteur = () => {
   const [facturePayment, setFacturePayment] = useState(null);
 
   const columns = [
+    { key: "id", header: "ID" },
     { key: "shipper", header: "Expéditeur" },
     { key: "amount", header: "Montant" },
     { key: "date", header: "Date" },
@@ -119,7 +120,7 @@ const PaimentExpediteur = () => {
     } else {
       const newPayment = {
         ...formData,
-        id: Math.max(...payments.map((p) => p.id)) + 1,
+        id: `PAY${String(payments.length + 1).padStart(3, '0')}`,
       };
       setPayments([...payments, newPayment]);
     }

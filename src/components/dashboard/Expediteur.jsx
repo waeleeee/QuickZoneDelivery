@@ -313,7 +313,7 @@ const Expediteur = () => {
     } else {
       // Ajout
       const newShipper = {
-        id: Math.max(...shippers.map(s => s.id)) + 1,
+        id: `EXP${String(shippers.length + 1).padStart(3, '0')}`,
         ...formData,
         defaultLivreurId: formData.defaultLivreurId,
         totalShipments: 0,
@@ -328,7 +328,7 @@ const Expediteur = () => {
           onTimeDelivery: 0,
           customerRating: 0,
         },
-        code: `EXP${Date.now()}`,
+        code: `EXP${String(shippers.length + 1).padStart(3, '0')}`,
         gouvernorat: "",
         identityNumber: "",
         passportNumber: "",
@@ -398,7 +398,7 @@ const Expediteur = () => {
       ? { ...colisFormData, id: editingColis.id, date: editingColis.date }
       : { 
           ...colisFormData, 
-          id: `COL${Date.now()}`, 
+          id: `COL${String(selectedShipper.colis.length + 1).padStart(3, '0')}`, 
           date: new Date().toISOString().slice(0, 10),
           amount: parseFloat(colisFormData.amount) || 0
         };
@@ -462,7 +462,7 @@ const Expediteur = () => {
       ? { ...paymentFormData, id: editingPayment.id, date: editingPayment.date }
       : { 
           ...paymentFormData, 
-          id: `PAY${Date.now()}`, 
+          id: `PAY${String(selectedShipper.payments.length + 1).padStart(3, '0')}`, 
           date: new Date().toISOString().slice(0, 10),
           amount: parseFloat(paymentFormData.amount) || 0
         };

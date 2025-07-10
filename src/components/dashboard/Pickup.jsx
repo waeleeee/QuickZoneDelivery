@@ -6,13 +6,13 @@ import MissionColisScan from "./MissionColisScan";
 
 // Mock data
 const mockDrivers = [
-  { id: 1, name: "Pierre Dubois", phone: "+33 1 23 45 67 89" },
-  { id: 2, name: "Sarah Ahmed", phone: "+33 1 98 76 54 32" },
-  { id: 3, name: "Mohamed Ali", phone: "+33 1 11 22 33 44" },
+  { id: "LIV001", name: "Pierre Dubois", phone: "+33 1 23 45 67 89" },
+  { id: "LIV002", name: "Sarah Ahmed", phone: "+33 1 98 76 54 32" },
+  { id: "LIV003", name: "Mohamed Ali", phone: "+33 1 11 22 33 44" },
 ];
 const mockShippers = [
-  { id: 1, name: "Expéditeur A", contact: "+33 6 12 34 56 78", defaultLivreurId: 1 },
-  { id: 2, name: "Expéditeur B", contact: "+33 6 87 65 43 21", defaultLivreurId: 2 },
+  { id: "EXP001", name: "Expéditeur A", contact: "+33 6 12 34 56 78", defaultLivreurId: "LIV001" },
+  { id: "EXP002", name: "Expéditeur B", contact: "+33 6 87 65 43 21", defaultLivreurId: "LIV002" },
 ];
 const mockColis = [
   { id: "COL001", exp: 1, dest: "Paris", status: "En attente" },
@@ -53,11 +53,11 @@ const Pickup = () => {
   // Missions de pick up
   const [missions, setMissions] = useState([
     {
-      id: 1,
+      id: "PIK001",
       driver: "Pierre Dubois",
-      driverId: 1,
+      driverId: "LIV001",
       shipper: "Expéditeur A",
-      shipperId: 1,
+      shipperId: "EXP001",
       colis: [mockColis[0], mockColis[1]],
       status: "En attente",
       createdAt: "2024-01-15 09:00",
@@ -70,11 +70,11 @@ const Pickup = () => {
       pdfFile: null,
     },
     {
-      id: 2,
+      id: "PIK002",
       driver: "Sarah Ahmed",
-      driverId: 2,
+      driverId: "LIV002",
       shipper: "Expéditeur B",
-      shipperId: 2,
+      shipperId: "EXP002",
       colis: [mockColis[2], mockColis[3]],
       status: "Livés",
       createdAt: "2024-01-16 08:00",
@@ -105,8 +105,8 @@ const Pickup = () => {
   const [scannedColis, setScannedColis] = useState([]);
 
   // Helpers
-  const getDriverName = (id) => mockDrivers.find(d => d.id === Number(id))?.name || "";
-  const getShipperName = (id) => mockShippers.find(s => s.id === Number(id))?.name || "";
+  const getDriverName = (id) => mockDrivers.find(d => d.id === id)?.name || "";
+  const getShipperName = (id) => mockShippers.find(s => s.id === id)?.name || "";
   const getColisByIds = (ids) => mockColis.filter(c => ids.includes(c.id));
 
   // Actions
@@ -133,8 +133,8 @@ const Pickup = () => {
     }
   };
   const handleSubmit = () => {
-    const driver = mockDrivers.find(d => d.id === Number(formData.driverId));
-    const shipper = mockShippers.find(s => s.id === Number(formData.shipperId));
+    const driver = mockDrivers.find(d => d.id === formData.driverId);
+    const shipper = mockShippers.find(s => s.id === formData.shipperId);
     const colis = getColisByIds(formData.colisIds);
     if (editingMission) {
       setMissions(missions.map(m => m.id === editingMission.id ? {
@@ -153,7 +153,7 @@ const Pickup = () => {
       setMissions([
         ...missions,
         {
-          id: Math.max(...missions.map(m => m.id)) + 1,
+          id: `PIK${String(missions.length + 1).padStart(3, '0')}`,
           driver: driver?.name,
           driverId: driver?.id,
           shipper: shipper?.name,
@@ -173,7 +173,7 @@ const Pickup = () => {
     const { name, value, type, checked, files } = e.target;
     if (name === "shipperId") {
       // When shipper changes, auto-select default livreur if available
-      const shipper = mockShippers.find(s => s.id === Number(value));
+      const shipper = mockShippers.find(s => s.id === value);
       setFormData((prev) => ({
         ...prev,
         shipperId: value,
