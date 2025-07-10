@@ -41,13 +41,13 @@ const DataTable = ({
               {columns.map((column, index) => (
                 <th
                   key={index}
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider text-left"
                 >
                   {column.header}
                 </th>
               ))}
               {showActions && (
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider text-left">
                   Actions
                 </th>
               )}
@@ -63,13 +63,13 @@ const DataTable = ({
                 {columns.map((column, colIndex) => (
                   <td
                     key={colIndex}
-                    className="px-6 py-4 whitespace-nowrap text-sm text-gray-900"
+                    className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-left"
                   >
                     {column.render ? column.render(item[column.key], item) : item[column.key]}
                   </td>
                 ))}
                 {showActions && (
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-left">
                     <ActionButtons
                       onView={onRowClick ? (e) => { e.stopPropagation(); onRowClick(item); } : undefined}
                       onEdit={onEdit ? (e) => { e.stopPropagation(); onEdit(item); } : undefined}

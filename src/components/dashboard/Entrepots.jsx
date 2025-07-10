@@ -639,87 +639,46 @@ const Entrepots = () => {
         title={editingWarehouse ? "Modifier l'entrepôt" : "Ajouter un entrepôt"}
         size="md"
       >
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Nom de l'entrepôt
-            </label>
-            <input
-              type="text"
-              name="name"
-              value={formData.name}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-            />
+        <form onSubmit={e => { e.preventDefault(); handleSubmit(); }}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-left">Nom de l'entrepôt</label>
+              <input type="text" name="name" value={formData.name} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-left">Gouvernorat</label>
+              <select name="gouvernorat" value={formData.gouvernorat} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                {gouvernorats.map(gov => (
+                  <option key={gov} value={gov}>{gov}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-left">Responsable</label>
+              <select name="manager" value={formData.manager} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                <option value="">Sélectionner un chef d'agence</option>
+                {chefsAgence.map(chef => (
+                  <option key={chef.id} value={chef.name}>{chef.name} - {chef.agence} ({chef.gouvernorat})</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-left">Statut</label>
+              <select name="status" value={formData.status} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                <option value="Actif">Actif</option>
+                <option value="Inactif">Inactif</option>
+              </select>
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-left">Adresse</label>
+              <input type="text" name="address" value={formData.address} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500" />
+            </div>
           </div>
-
-
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Gouvernorat
-            </label>
-            <select
-              name="gouvernorat"
-              value={formData.gouvernorat}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-            >
-              {gouvernorats.map(gov => (
-                <option key={gov} value={gov}>{gov}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Responsable
-            </label>
-            <select
-              name="manager"
-              value={formData.manager}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="">Sélectionner un chef d'agence</option>
-              {chefsAgence.map(chef => (
-                <option key={chef.id} value={chef.name}>
-                  {chef.name} - {chef.agence} ({chef.gouvernorat})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Statut
-            </label>
-            <select
-              name="status"
-              value={formData.status}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="Actif">Actif</option>
-              <option value="Inactif">Inactif</option>
-            </select>
-          </div>
-
           <div className="flex justify-end space-x-3 space-x-reverse pt-4">
-            <button
-              onClick={() => setIsModalOpen(false)}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
-            >
-              Annuler
-            </button>
-            <button
-              onClick={handleSubmit}
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md"
-            >
-              {editingWarehouse ? "Mettre à jour" : "Ajouter"}
-            </button>
+            <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md">Annuler</button>
+            <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md">{editingWarehouse ? "Mettre à jour" : "Ajouter"}</button>
           </div>
-        </div>
+        </form>
       </Modal>
 
       {/* Modal for colis by status */}

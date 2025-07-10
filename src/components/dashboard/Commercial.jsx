@@ -331,14 +331,13 @@ const CommercialDashboard = ({ commercial, expediteurs, onViewExpediteur }) => {
     <div className="space-y-6 h-full overflow-y-auto">
       {/* Commercial Profile Header */}
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-xl border border-blue-200">
-        <div className="flex justify-between items-start">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Gestion des expéditeurs</h1>
-            <p className="text-gray-600 mt-1">Gestion des expéditeurs et analyse des performances</p>
-          </div>
-          <div className="text-right">
-            <div className="text-sm text-gray-500">Commercial ID</div>
-            <div className="text-lg font-bold text-blue-600">{commercialData.id}</div>
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900">Gestion des expéditeurs</h1>
+          <p className="text-gray-600 mt-1">Gestion des expéditeurs et analyse des performances</p>
+          <div className="mt-3">
+            <span className="inline-block bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
+              Commercial ID: {commercialData.id}
+            </span>
           </div>
         </div>
 
@@ -517,7 +516,7 @@ const CommercialDashboard = ({ commercial, expediteurs, onViewExpediteur }) => {
             </div>
 
             {/* Performance Summary */}
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-xl border border-blue-200 mb-6">
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-xl border border-blue-200 mb-6 text-center">
               <h3 className="text-xl font-bold text-gray-900 mb-4">Résumé des Performances</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="text-center">
@@ -844,7 +843,7 @@ const Commercial = () => {
           onClick={handleAddCommercial}
           className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out"
         >
-          Ajouter commercial
+          Ajouter Commercial
         </button>
       </div>
       <div className="bg-white rounded-lg shadow-sm border">
@@ -860,66 +859,44 @@ const Commercial = () => {
       {showEditModal && (
         <Modal isOpen={showEditModal} onClose={() => setShowEditModal(false)} size="md">
           <form onSubmit={handleSaveCommercial} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-left">Nom</label>
-              <input type="text" className="border rounded px-2 py-1 w-full" value={editCommercial.name || ''} onChange={e => setEditCommercial({ ...editCommercial, name: e.target.value })} required />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-left">ID</label>
+                <input type="text" className="border rounded px-2 py-1 w-full bg-gray-100" value={editCommercial.id || ''} readOnly disabled />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-left">Nom</label>
+                <input type="text" className="border rounded px-2 py-1 w-full" value={editCommercial.name || ''} onChange={e => setEditCommercial({ ...editCommercial, name: e.target.value })} required />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-left">Email</label>
+                <input type="email" className="border rounded px-2 py-1 w-full" value={editCommercial.email || ''} onChange={e => setEditCommercial({ ...editCommercial, email: e.target.value })} required />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-left">Téléphone</label>
+                <input type="text" className="border rounded px-2 py-1 w-full" value={editCommercial.phone || ''} onChange={e => setEditCommercial({ ...editCommercial, phone: e.target.value })} required />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-left">Gouvernorat</label>
+                <select className="border rounded px-2 py-1 w-full" value={editCommercial.gouvernorat || 'Tunis'} onChange={e => setEditCommercial({ ...editCommercial, gouvernorat: e.target.value })} required>
+                  {gouvernorats.map(gov => (
+                    <option key={gov} value={gov}>{gov}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-left">Adresse</label>
+                <input type="text" className="border rounded px-2 py-1 w-full" value={editCommercial.address || ''} onChange={e => setEditCommercial({ ...editCommercial, address: e.target.value })} required />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-left">Titre</label>
+                <select className="border rounded px-2 py-1 w-full" value={editCommercial.title || 'Commercial'} onChange={e => setEditCommercial({ ...editCommercial, title: e.target.value })} required>
+                  <option value="Commercial">Commercial</option>
+                  <option value="Senior Commercial">Senior Commercial</option>
+                </select>
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-left">Email</label>
-              <input type="email" className="border rounded px-2 py-1 w-full" value={editCommercial.email || ''} onChange={e => setEditCommercial({ ...editCommercial, email: e.target.value })} required />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-left">Téléphone</label>
-              <input type="text" className="border rounded px-2 py-1 w-full" value={editCommercial.phone || ''} onChange={e => setEditCommercial({ ...editCommercial, phone: e.target.value })} required />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-left">Gouvernorat</label>
-              <select className="border rounded px-2 py-1 w-full" value={editCommercial.gouvernorat || 'Tunis'} onChange={e => setEditCommercial({ ...editCommercial, gouvernorat: e.target.value })} required>
-                {gouvernorats.map(gov => (
-                  <option key={gov} value={gov}>{gov}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-left">Adresse</label>
-              <input type="text" className="border rounded px-2 py-1 w-full" value={editCommercial.address || ''} onChange={e => setEditCommercial({ ...editCommercial, address: e.target.value })} required />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-left">Titre</label>
-              <select className="border rounded px-2 py-1 w-full" value={editCommercial.title || 'Commercial'} onChange={e => setEditCommercial({ ...editCommercial, title: e.target.value })} required>
-                <option value="Commercial">Commercial</option>
-                <option value="Senior Commercial">Senior Commercial</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-left">Clients</label>
-              <input type="number" className="border rounded px-2 py-1 w-full" value={editCommercial.totalClients || ''} onChange={e => setEditCommercial({ ...editCommercial, totalClients: e.target.value })} required />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-left">Expéditions reçues</label>
-              <input type="number" className="border rounded px-2 py-1 w-full" value={editCommercial.expeditionsRecues || ''} onChange={e => setEditCommercial({ ...editCommercial, expeditionsRecues: e.target.value })} required />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-left">Chiffre d'affaires</label>
-              <input type="number" className="border rounded px-2 py-1 w-full" value={editCommercial.totalSales || ''} onChange={e => setEditCommercial({ ...editCommercial, totalSales: e.target.value })} required />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-left">Objectif mensuel</label>
-              <input type="number" className="border rounded px-2 py-1 w-full" value={editCommercial.monthlyTarget || ''} onChange={e => setEditCommercial({ ...editCommercial, monthlyTarget: e.target.value })} required />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-left">Colis réussis</label>
-              <input type="number" className="border rounded px-2 py-1 w-full" value={editCommercial.successfulParcels || ''} onChange={e => setEditCommercial({ ...editCommercial, successfulParcels: e.target.value })} required />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-left">Taux de réussite</label>
-              <input type="number" className="border rounded px-2 py-1 w-full" value={editCommercial.successRate || ''} onChange={e => setEditCommercial({ ...editCommercial, successRate: e.target.value })} required />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-left">Score de performance</label>
-              <input type="number" className="border rounded px-2 py-1 w-full" value={editCommercial.performanceScore || ''} onChange={e => setEditCommercial({ ...editCommercial, performanceScore: e.target.value })} required />
-            </div>
-            <div className="flex justify-end space-x-2">
+            <div className="flex justify-end space-x-2 mt-4">
               <button type="button" className="px-4 py-2 bg-gray-200 rounded" onClick={() => setShowEditModal(false)}>Annuler</button>
               <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded">Enregistrer</button>
             </div>

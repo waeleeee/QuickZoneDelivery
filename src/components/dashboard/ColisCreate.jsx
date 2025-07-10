@@ -22,7 +22,8 @@ const MOCK_EXPEDITEUR = {
   expediteurNom: "Ahmed Ben Salah",
   expediteurTel: "+216 20 123 456",
   expediteurGouv: "Tunis",
-  expediteurAdresse: "12 Rue de la Liberté, Tunis"
+  expediteurAdresse: "12 Rue de la Liberté, Tunis",
+  baseFraisLivraison: 8 // Base delivery fee in DT
 };
 
 const initialColis = {
@@ -43,7 +44,7 @@ const initialColis = {
   // Colis
   articleNom: "",
   articlePrix: "",
-  fraisLivraison: "",
+  fraisLivraison: MOCK_EXPEDITEUR.baseFraisLivraison.toFixed(2),
   service: "Livraison",
   poids: "",
   nbPiece: "",
@@ -51,11 +52,11 @@ const initialColis = {
   code: generateCode(),
 };
 
-function calcFraisLivraison(prixBase, poids) {
+function calcFraisLivraison(baseFrais, poids) {
   const p = parseFloat(poids);
-  const base = parseFloat(prixBase);
-  if (!base || !p) return "";
-  if (p <= 10) return base.toFixed(2);
+  const base = parseFloat(baseFrais);
+  if (!base) return "";
+  if (!p || p <= 10) return base.toFixed(2);
   if (p > 10 && p <= 15) return (base + (p - 10) * 0.9).toFixed(2);
   if (p >= 16) return (base * 2).toFixed(2);
   return base.toFixed(2);
@@ -69,8 +70,8 @@ const ColisCreate = () => {
     setColis((prev) => {
       let next = { ...prev, [name]: value };
       // Auto-calc frais de livraison
-      if (name === "poids" || name === "articlePrix") {
-        next.fraisLivraison = calcFraisLivraison(next.articlePrix, next.poids);
+      if (name === "poids") {
+        next.fraisLivraison = calcFraisLivraison(MOCK_EXPEDITEUR.baseFraisLivraison, next.poids);
       }
       return next;
     });
@@ -89,10 +90,10 @@ const ColisCreate = () => {
       <h2 className="text-4xl font-extrabold text-blue-900 mb-6 text-center tracking-tight drop-shadow">Créer un nouveau colis</h2>
       <form className="grid grid-cols-1 lg:grid-cols-3 gap-10" onSubmit={handleSave}>
         {/* EXPEDITEUR */}
-        <div className="bg-white rounded-2xl shadow-lg border border-blue-100 p-8 space-y-6 flex flex-col justify-between min-h-[600px]">
-          <div>
-            <h3 className="font-bold text-2xl mb-6 text-blue-700 tracking-wide">EXPÉDITEUR</h3>
-            <div className="space-y-4">
+        <div className="bg-white rounded-2xl shadow-lg border border-blue-100 p-8 space-y-6 flex flex-col items-center justify-between min-h-[600px]">
+          <div className="w-full flex flex-col items-center">
+            <h3 className="font-bold text-2xl mb-6 text-blue-700 tracking-wide text-center">EXPÉDITEUR</h3>
+            <div className="space-y-4 w-full">
               <div>
                 <label className="block text-base font-semibold text-gray-700 mb-1 text-left">Date de collecte *</label>
                 <input type="date" name="dateCollecte" value={colis.dateCollecte} onChange={handleChange} className="w-full px-4 py-3 border border-gray-300 rounded-lg text-lg" required />
@@ -128,10 +129,10 @@ const ColisCreate = () => {
           </div>
         </div>
         {/* CLIENT */}
-        <div className="bg-white rounded-2xl shadow-lg border border-blue-100 p-8 space-y-6 flex flex-col justify-between min-h-[600px]">
-          <div>
-            <h3 className="font-bold text-2xl mb-6 text-blue-700 tracking-wide">CLIENT</h3>
-            <div className="space-y-4">
+        <div className="bg-white rounded-2xl shadow-lg border border-blue-100 p-8 space-y-6 flex flex-col items-center justify-between min-h-[600px]">
+          <div className="w-full flex flex-col items-center">
+            <h3 className="font-bold text-2xl mb-6 text-blue-700 tracking-wide text-center">CLIENT</h3>
+            <div className="space-y-4 w-full">
               <div>
                 <label className="block text-base font-semibold text-gray-700 mb-1 text-left">Nom & Prénom *</label>
                 <input type="text" name="clientNom" value={colis.clientNom} onChange={handleChange} className="w-full px-4 py-3 border border-gray-300 rounded-lg text-lg" required />
@@ -155,14 +156,22 @@ const ColisCreate = () => {
                 <label className="block text-base font-semibold text-gray-700 mb-1 text-left">Adresse</label>
                 <input type="text" name="clientAdresse" value={colis.clientAdresse} onChange={handleChange} className="w-full px-4 py-3 border border-gray-300 rounded-lg text-lg" />
               </div>
+              {/* Barcode section moved here and centered */}
+              <div className="flex flex-col items-center space-y-4 mt-8">
+                <span className="text-base text-gray-700 font-semibold">Code-barres du colis :</span>
+                <div className="bg-white rounded-xl shadow border border-blue-200 p-6 flex flex-col items-center">
+                  <Barcode value={colis.code} width={2.5} height={90} fontSize={22} margin={0} />
+                  <span className="mt-2 text-lg font-mono tracking-widest text-blue-700">{colis.code}</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
         {/* COLIS */}
-        <div className="bg-white rounded-2xl shadow-lg border border-blue-100 p-8 space-y-6 flex flex-col justify-between min-h-[600px]">
-          <div>
-            <h3 className="font-bold text-2xl mb-6 text-blue-700 tracking-wide">COLIS</h3>
-            <div className="space-y-4">
+        <div className="bg-white rounded-2xl shadow-lg border border-blue-100 p-8 space-y-6 flex flex-col items-center justify-between min-h-[600px]">
+          <div className="w-full flex flex-col items-center">
+            <h3 className="font-bold text-2xl mb-6 text-blue-700 tracking-wide text-center">COLIS</h3>
+            <div className="space-y-4 w-full">
               <div>
                 <label className="block text-base font-semibold text-gray-700 mb-1 text-left">Nom de l’article</label>
                 <input type="text" name="articleNom" value={colis.articleNom} onChange={handleChange} className="w-full px-4 py-3 border border-gray-300 rounded-lg text-lg" />
@@ -174,7 +183,7 @@ const ColisCreate = () => {
               <div>
                 <label className="block text-base font-semibold text-gray-700 mb-1 text-left">Frais de livraison (TND) *</label>
                 <input type="number" name="fraisLivraison" value={colis.fraisLivraison} onChange={handleChange} className="w-full px-4 py-3 border border-gray-300 rounded-lg text-lg" min="0" step="0.01" required readOnly />
-                <small className="text-xs text-gray-500">Calcul automatique selon le poids</small>
+                <small className="text-xs text-gray-500">Le prix de base est défini par l'expéditeur. Surcharges automatiques selon le poids.</small>
               </div>
               <div>
                 <label className="block text-base font-semibold text-gray-700 mb-1 text-left">Service</label>
@@ -198,13 +207,6 @@ const ColisCreate = () => {
               <div>
                 <label className="block text-base font-semibold text-gray-700 mb-1 text-left">Code du colis</label>
                 <input type="text" name="code" value={colis.code} readOnly className="w-full px-4 py-3 border border-gray-200 bg-gray-50 rounded-lg text-gray-500 text-lg" />
-              </div>
-              <div className="flex flex-col items-center space-y-4 mt-6">
-                <span className="text-base text-gray-700 font-semibold">Code-barres du colis :</span>
-                <div className="bg-white rounded-xl shadow border border-blue-200 p-6 flex flex-col items-center">
-                  <Barcode value={colis.code} width={2.5} height={90} fontSize={22} margin={0} />
-                  <span className="mt-2 text-lg font-mono tracking-widest text-blue-700">{colis.code}</span>
-                </div>
               </div>
             </div>
           </div>

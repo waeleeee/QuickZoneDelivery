@@ -207,6 +207,16 @@ const Expediteur = () => {
     company: "",
     siret: "",
     defaultLivreurId: "",
+    code: "",
+    gouvernorat: "Tunis",
+    identityNumber: "",
+    passportNumber: "",
+    fiscalNumber: "",
+    agence: "",
+    commercial: "",
+    deliveryFee: 0,
+    returnFee: 0,
+    documents: [],
   });
 
   const columns = [
@@ -273,6 +283,16 @@ const Expediteur = () => {
       company: "",
       siret: "",
       defaultLivreurId: "",
+      code: "",
+      gouvernorat: "Tunis",
+      identityNumber: "",
+      passportNumber: "",
+      fiscalNumber: "",
+      agence: "",
+      commercial: "",
+      deliveryFee: 0,
+      returnFee: 0,
+      documents: [],
     });
     setIsAddModalOpen(true);
   };
@@ -287,7 +307,17 @@ const Expediteur = () => {
       company: shipper.company,
       siret: shipper.siret,
       status: shipper.status,
-      defaultLivreurId: shipper.defaultLivreurId || ""
+      defaultLivreurId: shipper.defaultLivreurId || "",
+      code: shipper.code || "",
+      gouvernorat: shipper.gouvernorat || "Tunis",
+      identityNumber: shipper.identityNumber || "",
+      passportNumber: shipper.passportNumber || "",
+      fiscalNumber: shipper.fiscalNumber || "",
+      agence: shipper.agence || "",
+      commercial: shipper.commercial || "",
+      deliveryFee: shipper.deliveryFee || 0,
+      returnFee: shipper.returnFee || 0,
+      documents: shipper.documents || [],
     });
     setIsAddModalOpen(true);
   };
@@ -352,6 +382,16 @@ const Expediteur = () => {
       company: "",
       siret: "",
       defaultLivreurId: "",
+      code: "",
+      gouvernorat: "Tunis",
+      identityNumber: "",
+      passportNumber: "",
+      fiscalNumber: "",
+      agence: "",
+      commercial: "",
+      deliveryFee: 0,
+      returnFee: 0,
+      documents: [],
     });
     setEditingShipper(null);
   };
@@ -1028,276 +1068,118 @@ const Expediteur = () => {
             company: "",
             siret: "",
             defaultLivreurId: "",
+            code: "",
+            gouvernorat: "Tunis",
+            identityNumber: "",
+            passportNumber: "",
+            fiscalNumber: "",
+            agence: "",
+            commercial: "",
+            deliveryFee: 0,
+            returnFee: 0,
+            documents: [],
           });
         }}
         title={editingShipper ? "Modifier l'expéditeur" : "Nouvel expéditeur"}
         size="md"
       >
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Code</label>
-            <input
-              type="text"
-              name="code"
-              value={formData.code || ''}
-              readOnly
-              className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Nom et prénom *</label>
-            <input
-              type="text"
-              name="name"
-              value={formData.name}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Entreprise</label>
-            <input
-              type="text"
-              name="company"
-              value={formData.company}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Email *</label>
-            <input
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Téléphone *</label>
-            <input
-              type="tel"
-              name="phone"
-              value={formData.phone}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Adresse *</label>
-            <textarea
-              name="address"
-              value={formData.address}
-              onChange={handleInputChange}
-              rows="2"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Gouvernorat</label>
-            <select
-              name="gouvernorat"
-              value={formData.gouvernorat || ''}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
-            >
-              <option value="">Sélectionner</option>
-              <option value="Tunis">Tunis</option>
-              <option value="Ariana">Ariana</option>
-              <option value="Ben Arous">Ben Arous</option>
-              <option value="Manouba">Manouba</option>
-              <option value="Nabeul">Nabeul</option>
-              <option value="Zaghouan">Zaghouan</option>
-              <option value="Bizerte">Bizerte</option>
-              <option value="Béja">Béja</option>
-              <option value="Jendouba">Jendouba</option>
-              <option value="Kef">Kef</option>
-              <option value="Siliana">Siliana</option>
-              <option value="Sousse">Sousse</option>
-              <option value="Monastir">Monastir</option>
-              <option value="Mahdia">Mahdia</option>
-              <option value="Sfax">Sfax</option>
-              <option value="Kairouan">Kairouan</option>
-              <option value="Kasserine">Kasserine</option>
-              <option value="Sidi Bouzid">Sidi Bouzid</option>
-              <option value="Gabès">Gabès</option>
-              <option value="Medenine">Medenine</option>
-              <option value="Tataouine">Tataouine</option>
-              <option value="Gafsa">Gafsa</option>
-              <option value="Tozeur">Tozeur</option>
-              <option value="Kebili">Kebili</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Numéro d'identité</label>
-            <input
-              type="text"
-              name="identityNumber"
-              value={formData.identityNumber || ''}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Numéro de passeport</label>
-            <input
-              type="text"
-              name="passportNumber"
-              value={formData.passportNumber || ''}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Matricule fiscal</label>
-            <input
-              type="text"
-              name="fiscalNumber"
-              value={formData.fiscalNumber || ''}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Agence</label>
-            <select
-              name="agence"
-              value={formData.agence || ''}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
-            >
-              <option value="">Sélectionner</option>
-              <option value="Tunis">Tunis</option>
-              <option value="Sousse">Sousse</option>
-              <option value="Sfax">Sfax</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Commercial</label>
-            <input
-              type="text"
-              name="commercial"
-              value={formData.commercial || ''}
-              readOnly
-              className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Frais de livraison (€)</label>
-            <input
-              type="number"
-              name="deliveryFee"
-              value={formData.deliveryFee || 0}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
-              min="0"
-              step="0.01"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Frais de retour (€)</label>
-            <input
-              type="number"
-              name="returnFee"
-              value={formData.returnFee || 0}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
-              min="0"
-              step="0.01"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Documents</label>
-            <div className="flex flex-wrap gap-2">
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  name="documents"
-                  value="Carte d'identité"
-                  checked={formData.documents?.includes("Carte d'identité")}
-                  onChange={e => {
-                    const checked = e.target.checked;
-                    setFormData(prev => ({
-                      ...prev,
-                      documents: checked
-                        ? [...(prev.documents || []), "Carte d'identité"]
-                        : (prev.documents || []).filter(d => d !== "Carte d'identité")
-                    }));
-                  }}
-                />
-                Carte d'identité
-              </label>
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  name="documents"
-                  value="Passeport"
-                  checked={formData.documents?.includes("Passeport")}
-                  onChange={e => {
-                    const checked = e.target.checked;
-                    setFormData(prev => ({
-                      ...prev,
-                      documents: checked
-                        ? [...(prev.documents || []), "Passeport"]
-                        : (prev.documents || []).filter(d => d !== "Passeport")
-                    }));
-                  }}
-                />
-                Passeport
-              </label>
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  name="documents"
-                  value="Patente"
-                  checked={formData.documents?.includes("Patente")}
-                  onChange={e => {
-                    const checked = e.target.checked;
-                    setFormData(prev => ({
-                      ...prev,
-                      documents: checked
-                        ? [...(prev.documents || []), "Patente"]
-                        : (prev.documents || []).filter(d => d !== "Patente")
-                    }));
-                  }}
-                />
-                Patente
-              </label>
+        <form onSubmit={e => { e.preventDefault(); handleSubmit(); }}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-left">Code</label>
+              <input type="text" name="code" value={formData.code || ''} readOnly className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-500" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-left">Nom et prénom *</label>
+              <input type="text" name="name" value={formData.name} onChange={handleInputChange} required className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-left">Entreprise</label>
+              <input type="text" name="company" value={formData.company} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-left">Email *</label>
+              <input type="email" name="email" value={formData.email} onChange={handleInputChange} required className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-left">Téléphone *</label>
+              <input type="tel" name="phone" value={formData.phone} onChange={handleInputChange} required className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-left">Adresse *</label>
+              <input type="text" name="address" value={formData.address} onChange={handleInputChange} required className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-left">Gouvernorat</label>
+              <select name="gouvernorat" value={formData.gouvernorat || 'Tunis'} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                {["Ariana","Béja","Ben Arous","Bizerte","Gabès","Gafsa","Jendouba","Kairouan","Kasserine","Kébili","Kef","Mahdia","Manouba","Médenine","Monastir","Nabeul","Sfax","Sidi Bouzid","Siliana","Sousse","Tataouine","Tozeur","Tunis","Zaghouan"].map(gov => (
+                  <option key={gov} value={gov}>{gov}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-left">Numéro d'identité</label>
+              <input type="text" name="identityNumber" value={formData.identityNumber || ''} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-left">Numéro de passeport</label>
+              <input type="text" name="passportNumber" value={formData.passportNumber || ''} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-left">Matricule fiscal</label>
+              <input type="text" name="fiscalNumber" value={formData.fiscalNumber || ''} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-left">Agence</label>
+              <select name="agence" value={formData.agence || ''} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="">Sélectionner</option>
+                <option value="Tunis Sud">Tunis Sud</option>
+                <option value="Tunis Nord">Tunis Nord</option>
+                <option value="Tunis Est">Tunis Est</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-left">Commercial</label>
+              <input type="text" name="commercial" value={formData.commercial || ''} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-left">Frais de livraison (€)</label>
+              <input type="number" name="deliveryFee" value={formData.deliveryFee || 0} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-left">Frais de retour (€)</label>
+              <input type="number" name="returnFee" value={formData.returnFee || 0} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-left">Documents</label>
+              <div className="flex flex-wrap gap-4">
+                {['Carte d\'identité', 'Passeport', 'Patente'].map(doc => (
+                  <label key={doc} className="flex items-center gap-2 text-sm font-normal text-gray-700 text-left">
+                    <input
+                      type="checkbox"
+                      value={doc}
+                      checked={formData.documents && formData.documents.includes(doc)}
+                      onChange={e => {
+                        const checked = e.target.checked;
+                        setFormData(prev => ({
+                          ...prev,
+                          documents: checked
+                            ? [...(prev.documents || []), doc]
+                            : (prev.documents || []).filter(d => d !== doc)
+                        }));
+                      }}
+                    />
+                    {doc}
+                  </label>
+                ))}
+              </div>
             </div>
           </div>
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setIsAddModalOpen(false);
-                setEditingShipper(null);
-                setFormData({
-                  name: "",
-                  email: "",
-                  phone: "",
-                  address: "",
-                  company: "",
-                  siret: "",
-                  defaultLivreurId: "",
-                });
-              }}
-              className="px-4 py-2 rounded-md text-gray-700 bg-gray-100 hover:bg-gray-200"
-            >
-              Annuler
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 rounded-md text-white bg-blue-600 hover:bg-blue-700"
-            >
-              {editingShipper ? "Enregistrer" : "Créer"}
-            </button>
+          <div className="flex justify-end space-x-3 space-x-reverse pt-4">
+            <button type="button" onClick={() => setIsAddModalOpen(false)} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md">Fermer</button>
+            <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md">{editingShipper ? "Mettre à jour" : "Ajouter"}</button>
           </div>
-        </div>
+        </form>
       </Modal>
 
       {/* Modal Ajout/Modification Colis */}

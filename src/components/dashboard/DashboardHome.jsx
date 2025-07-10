@@ -26,7 +26,8 @@ const DashboardHome = () => {
         subtitle: "Statistiques globales de QuickZone",
         cards: [
           { title: "Total Utilisateurs", value: "1,247", change: "+12%", color: "blue", icon: "👥" },
-          { title: "Colis Actifs", value: "8,934", change: "+8%", color: "green", icon: "📦" },
+          { title: "Colis Reçus", value: "1,200", change: "+8%", color: "green", icon: "📦" }, // Monthly received parcels (placeholder)
+          { title: "Colis Livrés", value: "950", change: "+5%", color: "purple", icon: "✅" }, // Monthly delivered parcels (placeholder)
           { title: "Expéditeurs", value: "456", change: "+15%", color: "purple", icon: "🧑‍💼" },
           { title: "Revenus Mensuels", value: "€125,430", change: "+23%", color: "orange", icon: "💰" }
         ]
@@ -141,7 +142,7 @@ const DashboardHome = () => {
       </div>
 
       {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-6">
         {roleSpecificStats.cards?.map((card, index) => (
           <div key={index} className="bg-white p-6 rounded-xl shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
             <div className="flex items-center justify-between">
