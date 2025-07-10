@@ -6,25 +6,25 @@ import html2pdf from "html2pdf.js";
 import ActionButtons from "./common/ActionButtons"; // Assuming this component exists
 
 // Subcomponent for a single commercial's dashboard
-const CommercialDashboard = ({ commercial, expediteurs, commissionRate, onViewExpediteur }) => {
+const CommercialDashboard = ({ commercial, expediteurs, onViewExpediteur }) => {
   const navigate = useNavigate();
   const [commercialData, setCommercialData] = useState({
     id: "COM001",
     name: "Jean Dupont",
     email: "jean.dupont@quickzone.tn",
     phone: "+216 71 234 567",
-    commissionRate: 5.5, // 5.5% commission per successful parcel
-    totalEarnings: 2840.50,
-    pendingCommission: 450.75,
+    totalSales: 2840.50,
+    monthlyTarget: 3000.00,
     totalClients: 12,
     totalParcels: 156,
     successfulParcels: 142,
-    successRate: 91.0
+    successRate: 91.0,
+    performanceScore: 85.5
   });
 
   const [expediteursData, setExpediteursData] = useState([
     {
-      id: 1,
+      id: "EXP001",
       name: "Pierre Dubois",
       email: "pierre.dubois@email.com",
       phone: "+33 1 23 45 67 89",
@@ -35,7 +35,7 @@ const CommercialDashboard = ({ commercial, expediteurs, commissionRate, onViewEx
       lastActivity: "2024-01-20",
       company: "Dubois Logistics",
       siret: "12345678901234",
-      commissionEarned: 115.50, // 5.5% of successful parcels
+      totalRevenue: 1150.50,
       status: "active",
       colis: [
         { id: "COL001", status: "Livés", date: "2024-01-18", amount: 25.50, destination: "Paris", weight: "2.5kg", type: "Standard" },
@@ -46,7 +46,7 @@ const CommercialDashboard = ({ commercial, expediteurs, commissionRate, onViewEx
       ]
     },
     {
-      id: 2,
+      id: "EXP002",
       name: "Sarah Ahmed",
       email: "sarah.ahmed@email.com",
       phone: "+33 1 98 76 54 32",
@@ -57,7 +57,7 @@ const CommercialDashboard = ({ commercial, expediteurs, commissionRate, onViewEx
       lastActivity: "2024-01-19",
       company: "Ahmed Trading",
       siret: "98765432109876",
-      commissionEarned: 87.25,
+      totalRevenue: 872.50,
       status: "active",
       colis: [
         { id: "COL006", status: "Livés", date: "2024-01-19", amount: 22.00, destination: "Paris", weight: "2.1kg", type: "Standard" },
@@ -66,7 +66,7 @@ const CommercialDashboard = ({ commercial, expediteurs, commissionRate, onViewEx
       ]
     },
     {
-      id: 3,
+      id: "EXP003",
       name: "Mohamed Ali",
       email: "mohamed.ali@email.com",
       phone: "+33 1 11 22 33 44",
@@ -77,7 +77,7 @@ const CommercialDashboard = ({ commercial, expediteurs, commissionRate, onViewEx
       lastActivity: "2023-12-15",
       company: "Ali Import Export",
       siret: "11223344556677",
-      commissionEarned: 66.00,
+      totalRevenue: 660.00,
       status: "inactive",
       colis: [
         { id: "COL009", status: "Livés", date: "2023-12-10", amount: 45.00, destination: "Paris", weight: "4.5kg", type: "Standard" },
@@ -135,16 +135,11 @@ const CommercialDashboard = ({ commercial, expediteurs, commissionRate, onViewEx
     status: "",
     dateFrom: "",
     dateTo: "",
-    minCommission: "",
-    maxCommission: "",
+    minRevenue: "",
+    maxRevenue: "",
     successRate: ""
   });
   const detailRef = useRef();
-
-  // Calculate commission for a given amount
-  const calculateCommission = (amount) => {
-    return (amount * commercialData.commissionRate) / 100;
-  };
 
   // Filter expediteurs based on search and advanced filters
   const filteredExpediteurs = expediteursData.filter(expediteur => {
@@ -154,13 +149,13 @@ const CommercialDashboard = ({ commercial, expediteurs, commissionRate, onViewEx
       );
 
     const matchesStatus = advancedFilters.status === "" || expediteur.status === advancedFilters.status;
-    const matchesMinCommission = advancedFilters.minCommission === "" || expediteur.commissionEarned >= parseFloat(advancedFilters.minCommission);
-    const matchesMaxCommission = advancedFilters.maxCommission === "" || expediteur.commissionEarned <= parseFloat(advancedFilters.maxCommission);
+    const matchesMinRevenue = advancedFilters.minRevenue === "" || expediteur.totalRevenue >= parseFloat(advancedFilters.minRevenue);
+    const matchesMaxRevenue = advancedFilters.maxRevenue === "" || expediteur.totalRevenue <= parseFloat(advancedFilters.maxRevenue);
 
     const successRate = (expediteur.successfulShipments / expediteur.totalShipments) * 100;
     const matchesSuccessRate = advancedFilters.successRate === "" || successRate >= parseFloat(advancedFilters.successRate);
 
-    return matchesSearch && matchesStatus && matchesMinCommission && matchesMaxCommission && matchesSuccessRate;
+    return matchesSearch && matchesStatus && matchesMinRevenue && matchesMaxRevenue && matchesSuccessRate;
   });
 
   const columns = [
@@ -188,8 +183,8 @@ const CommercialDashboard = ({ commercial, expediteurs, commissionRate, onViewEx
       }
     },
     {
-      key: "commissionEarned",
-      header: "Total gagné (€)",
+      key: "totalRevenue",
+      header: "Chiffre d'affaires (€)",
       render: (value) => (
         <span className="font-semibold text-green-600">€{value.toFixed(2)}</span>
       )
@@ -286,15 +281,15 @@ const CommercialDashboard = ({ commercial, expediteurs, commissionRate, onViewEx
   ];
 
   const handleViewDetails = (expediteur) => {
-    setSelectedExpediteur(expediteur);
+    setSelectedExpediteur(selectedExpediteur?.id === expediteur.id ? null : expediteur);
   };
 
-  const handleCalculateCommission = (expediteur) => {
-    const successfulParcels = expediteur.colis.filter(colis => colis.status === "Livés");
-    const totalAmount = successfulParcels.reduce((sum, colis) => sum + colis.amount, 0);
-    const commission = calculateCommission(totalAmount);
-
-    alert(`Commission pour ${expediteur.name}:\nTotal colis réussis: ${successfulParcels.length}\nMontant total: €${totalAmount.toFixed(2)}\nCommission (${commercialData.commissionRate}%): €${commission.toFixed(2)}`);
+  const handleCalculatePerformance = (expediteur) => {
+    const successfulParcels = expediteur.colis.filter(c => c.status === "Livés");
+    const totalAmount = successfulParcels.reduce((sum, c) => sum + c.amount, 0);
+    const performanceScore = ((expediteur.successfulShipments / expediteur.totalShipments) * 100).toFixed(1);
+    
+    alert(`Performance pour ${expediteur.name}:\nTotal colis réussis: ${successfulParcels.length}\nChiffre d'affaires: €${totalAmount.toFixed(2)}\nScore de performance: ${performanceScore}%`);
   };
 
   const handleAdvancedFilterChange = (e) => {
@@ -338,8 +333,8 @@ const CommercialDashboard = ({ commercial, expediteurs, commissionRate, onViewEx
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-xl border border-blue-200">
         <div className="flex justify-between items-start">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Dashboard Commercial</h1>
-            <p className="text-gray-600 mt-1">Gestion des expéditeurs et calcul des commissions</p>
+            <h1 className="text-2xl font-bold text-gray-900">Gestion des expéditeurs</h1>
+            <p className="text-gray-600 mt-1">Gestion des expéditeurs et analyse des performances</p>
           </div>
           <div className="text-right">
             <div className="text-sm text-gray-500">Commercial ID</div>
@@ -521,21 +516,21 @@ const CommercialDashboard = ({ commercial, expediteurs, commissionRate, onViewEx
               </div>
             </div>
 
-            {/* Commission Summary */}
-            <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-6 rounded-xl border border-green-200 mb-6">
-              <h3 className="text-xl font-bold text-gray-900 mb-4">Résumé des Commissions</h3>
+            {/* Performance Summary */}
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-xl border border-blue-200 mb-6">
+              <h3 className="text-xl font-bold text-gray-900 mb-4">Résumé des Performances</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-green-600">€{selectedExpediteur.commissionEarned.toFixed(2)}</div>
-                  <div className="text-sm text-gray-600">Commission totale</div>
+                  <div className="text-2xl font-bold text-blue-600">€{selectedExpediteur.totalRevenue.toFixed(2)}</div>
+                  <div className="text-sm text-gray-600">Chiffre d'affaires total</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-blue-600">{selectedExpediteur.successfulShipments}</div>
+                  <div className="text-2xl font-bold text-green-600">{selectedExpediteur.successfulShipments}</div>
                   <div className="text-sm text-gray-600">Colis réussis</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-purple-600">{commercialData.commissionRate}%</div>
-                  <div className="text-sm text-gray-600">Taux de commission</div>
+                  <div className="text-2xl font-bold text-purple-600">{((selectedExpediteur.successfulShipments / selectedExpediteur.totalShipments) * 100).toFixed(1)}%</div>
+                  <div className="text-sm text-gray-600">Taux de réussite</div>
                 </div>
               </div>
             </div>
@@ -584,8 +579,8 @@ const CommercialDashboard = ({ commercial, expediteurs, commissionRate, onViewEx
                     <span className="text-blue-600">{((selectedExpediteur.successfulShipments / selectedExpediteur.totalShipments) * 100).toFixed(1)}%</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="font-medium">Commission gagnée:</span>
-                    <span className="text-green-600 font-semibold">€{selectedExpediteur.commissionEarned.toFixed(2)}</span>
+                    <span className="font-medium">Chiffre d'affaires:</span>
+                    <span className="text-green-600 font-semibold">€{selectedExpediteur.totalRevenue.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="font-medium">Date d'inscription:</span>
@@ -641,7 +636,6 @@ const CommercialDashboard = ({ commercial, expediteurs, commissionRate, onViewEx
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Montant</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commission</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -659,9 +653,6 @@ const CommercialDashboard = ({ commercial, expediteurs, commissionRate, onViewEx
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{colis.date}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">€{colis.amount.toFixed(2)}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600">
-                          {colis.status === "Livés" ? `€${calculateCommission(colis.amount).toFixed(2)}` : "€0.00"}
-                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -694,17 +685,17 @@ const Commercial = () => {
       name: "Jean Dupont",
       email: "jean.dupont@quickzone.tn",
       phone: "+216 71 234 567",
-      address: "55", // Assuming 'Adresse' is an arbitrary number or string
+      address: "55",
       title: "Commercial",
       gouvernorat: "Tunis",
-      totalClients: 12, // Corresponds to 'CLIENTS' in screenshot
-      expeditionsRecues: 156, // Corresponds to 'EXPEDITIONS REÇUES'
-      commissionRate: 5.5,
-      totalEarnings: 2840.50,
-      pendingCommission: 450.75,
+      totalClients: 12,
+      expeditionsRecues: 156,
+      totalSales: 2840.50,
+      monthlyTarget: 3000.00,
       successfulParcels: 142,
       successRate: 91.0,
-      expediteurs: [/* ... (you can populate this with mock data if needed for display within the modal) */],
+      performanceScore: 85.5,
+      expediteurs: [],
     },
     {
       id: "COM002",
@@ -716,11 +707,28 @@ const Commercial = () => {
       gouvernorat: "Sousse",
       totalClients: 20,
       expeditionsRecues: 250,
-      commissionRate: 6.0,
-      totalEarnings: 5000.00,
-      pendingCommission: 700.00,
-      successfulParcels: 230,
-      successRate: 92.0,
+      totalSales: 4200.00,
+      monthlyTarget: 4000.00,
+      successfulParcels: 235,
+      successRate: 94.0,
+      performanceScore: 92.5,
+      expediteurs: [],
+    },
+    {
+      id: "COM003",
+      name: "Mohamed Ben Ali",
+      email: "mohamed.benali@quickzone.tn",
+      phone: "+216 95 123 456",
+      address: "78",
+      title: "Commercial",
+      gouvernorat: "Sfax",
+      totalClients: 8,
+      expeditionsRecues: 89,
+      totalSales: 1200.00,
+      monthlyTarget: 2000.00,
+      successfulParcels: 78,
+      successRate: 87.6,
+      performanceScore: 72.0,
       expediteurs: [],
     },
   ]);
@@ -740,11 +748,11 @@ const Commercial = () => {
       gouvernorat: 'Tunis',
       totalClients: 0,
       expeditionsRecues: 0,
-      commissionRate: '',
-      totalEarnings: 0,
-      pendingCommission: 0,
+      totalSales: 0,
+      monthlyTarget: 0,
       successfulParcels: 0,
       successRate: 0,
+      performanceScore: 0,
       expediteurs: [],
     });
     setShowEditModal(true);
@@ -891,6 +899,26 @@ const Commercial = () => {
               <label className="block text-sm font-medium text-left">Expéditions reçues</label>
               <input type="number" className="border rounded px-2 py-1 w-full" value={editCommercial.expeditionsRecues || ''} onChange={e => setEditCommercial({ ...editCommercial, expeditionsRecues: e.target.value })} required />
             </div>
+            <div>
+              <label className="block text-sm font-medium text-left">Chiffre d'affaires</label>
+              <input type="number" className="border rounded px-2 py-1 w-full" value={editCommercial.totalSales || ''} onChange={e => setEditCommercial({ ...editCommercial, totalSales: e.target.value })} required />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-left">Objectif mensuel</label>
+              <input type="number" className="border rounded px-2 py-1 w-full" value={editCommercial.monthlyTarget || ''} onChange={e => setEditCommercial({ ...editCommercial, monthlyTarget: e.target.value })} required />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-left">Colis réussis</label>
+              <input type="number" className="border rounded px-2 py-1 w-full" value={editCommercial.successfulParcels || ''} onChange={e => setEditCommercial({ ...editCommercial, successfulParcels: e.target.value })} required />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-left">Taux de réussite</label>
+              <input type="number" className="border rounded px-2 py-1 w-full" value={editCommercial.successRate || ''} onChange={e => setEditCommercial({ ...editCommercial, successRate: e.target.value })} required />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-left">Score de performance</label>
+              <input type="number" className="border rounded px-2 py-1 w-full" value={editCommercial.performanceScore || ''} onChange={e => setEditCommercial({ ...editCommercial, performanceScore: e.target.value })} required />
+            </div>
             <div className="flex justify-end space-x-2">
               <button type="button" className="px-4 py-2 bg-gray-200 rounded" onClick={() => setShowEditModal(false)}>Annuler</button>
               <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded">Enregistrer</button>
@@ -907,8 +935,7 @@ const Commercial = () => {
         >
           <CommercialDashboard
             commercial={selectedCommercial}
-            expediteurs={selectedCommercial.expediteurs || []}
-            commissionRate={selectedCommercial.commissionRate}
+            expediteurs={selectedCommercial.expediteurs}
             onViewExpediteur={() => {}}
           />
         </Modal>
