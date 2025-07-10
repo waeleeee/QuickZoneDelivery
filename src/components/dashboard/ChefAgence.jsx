@@ -278,68 +278,46 @@ const ChefAgence = () => {
             </div>
             {/* Card-style Table Container */}
             <div className="bg-white rounded-2xl shadow-lg border border-blue-100 p-6">
-              <div className="overflow-x-auto rounded-lg">
-                <table className="min-w-full divide-y divide-blue-200">
-                  <thead className="bg-blue-100">
-                    <tr>
-                      <th className="px-8 py-4 text-left text-base font-bold text-blue-700 uppercase tracking-wider">ID</th>
-                      <th className="px-8 py-4 text-left text-base font-bold text-blue-700 uppercase tracking-wider">Nom et prénom</th>
-                      <th className="px-8 py-4 text-left text-base font-bold text-blue-700 uppercase tracking-wider">Email</th>
-                      <th className="px-8 py-4 text-left text-base font-bold text-blue-700 uppercase tracking-wider">Téléphone</th>
-                      <th className="px-8 py-4 text-left text-base font-bold text-blue-700 uppercase tracking-wider">Adresse</th>
-                      <th className="px-8 py-4 text-left text-base font-bold text-blue-700 uppercase tracking-wider">Agence</th>
-                      <th className="px-8 py-4 text-left text-base font-bold text-blue-700 uppercase tracking-wider">Rôle</th>
-                      <th className="px-8 py-4 text-left text-base font-bold text-blue-700 uppercase tracking-wider">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-blue-100">
-                    {members.filter(m => m.agence === selectedChef.agence && (
-                      m.name.toLowerCase().includes(searchMember.toLowerCase()) ||
-                      m.email.toLowerCase().includes(searchMember.toLowerCase()) ||
-                      m.role.toLowerCase().includes(searchMember.toLowerCase())
-                    )).length === 0 ? (
-                      <tr><td colSpan={8} className="text-center py-12 text-blue-400 text-xl">Aucun membre trouvé pour cette agence.</td></tr>
-                    ) : null}
-                    {members.filter(m => m.agence === selectedChef.agence && (
-                      m.name.toLowerCase().includes(searchMember.toLowerCase()) ||
-                      m.email.toLowerCase().includes(searchMember.toLowerCase()) ||
-                      m.role.toLowerCase().includes(searchMember.toLowerCase())
-                    )).map(member => (
-                      <tr key={member.id} className="hover:bg-blue-50">
-                        <td className="px-8 py-6 whitespace-nowrap text-lg text-gray-700 text-left font-medium">{member.id}</td>
-                        <td className="px-8 py-6 whitespace-nowrap text-xl font-semibold text-gray-900 text-left">{member.name}</td>
-                        <td className="px-8 py-6 whitespace-nowrap text-lg text-gray-700 text-left">{member.email}</td>
-                        <td className="px-8 py-6 whitespace-nowrap text-lg text-gray-700 text-left">{member.phone}</td>
-                        <td className="px-8 py-6 whitespace-nowrap text-lg text-gray-700 text-left">{member.address || "Non renseignée"}</td>
-                        <td className="px-8 py-6 whitespace-nowrap text-lg text-gray-700 text-left">{member.agence}</td>
-                        <td className="px-8 py-6 whitespace-nowrap text-lg text-gray-700 text-left">
-                          <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-base font-medium">
-                            {member.role}
-                          </span>
-                        </td>
-                        <td className="px-8 py-6 flex gap-3">
-                          <button
-                            onClick={() => handleEditMember(member)}
-                            className="text-green-600 hover:text-green-800 p-2 rounded-full hover:bg-green-50 transition-colors"
-                            title="Modifier"
-                          >
-                            {/* Edit SVG */}
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                          </button>
-                          <button
-                            onClick={() => setMembers(members.filter(m => m.id !== member.id))}
-                            className="text-red-600 hover:text-red-800 p-2 rounded-full hover:bg-red-50 transition-colors"
-                            title="Supprimer"
-                          >
-                            {/* Delete SVG */}
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                data={members.filter(m => m.agence === selectedChef.agence && (
+                  m.name.toLowerCase().includes(searchMember.toLowerCase()) ||
+                  m.email.toLowerCase().includes(searchMember.toLowerCase()) ||
+                  m.role.toLowerCase().includes(searchMember.toLowerCase())
+                ))}
+                columns={[
+                  { key: "id", header: "ID" },
+                  { key: "name", header: "Nom et prénom" },
+                  { key: "email", header: "Email" },
+                  { key: "phone", header: "Téléphone" },
+                  { key: "gouvernorat", header: "Gouvernorat" },
+                  { key: "address", header: "Adresse" },
+                  { key: "agence", header: "Agence" },
+                  { key: "role", header: "Rôle" },
+                  {
+                    key: "actions",
+                    header: "Actions",
+                    render: (_, member) => (
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => handleEditMember(member)}
+                          className="text-green-600 hover:text-green-800 p-2 rounded-full hover:bg-green-50 transition-colors"
+                          title="Modifier"
+                        >
+                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                        </button>
+                        <button
+                          onClick={() => setMembers(members.filter(m => m.id !== member.id))}
+                          className="text-red-600 hover:text-red-800 p-2 rounded-full hover:bg-red-50 transition-colors"
+                          title="Supprimer"
+                        >
+                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        </button>
+                      </div>
+                    )
+                  }
+                ]}
+                showActions={false}
+              />
             </div>
           </div>
         </Modal>

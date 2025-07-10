@@ -564,7 +564,6 @@ const Entrepots = () => {
                 <p><strong>Responsable:</strong> {selectedWarehouse.manager}</p>
                 <p><strong>Téléphone:</strong> {selectedWarehouse.phone || "Non renseigné"}</p>
                 <p><strong>Email:</strong> {selectedWarehouse.email || "Non renseigné"}</p>
-                <p><strong>Capacité:</strong> {selectedWarehouse.capacity}</p>
                 <p><strong>Stock actuel:</strong> {selectedWarehouse.currentStock}</p>
                 <p><strong>Date de création:</strong> {selectedWarehouse.createdAt}</p>
                 <p><strong>Statut:</strong> 
