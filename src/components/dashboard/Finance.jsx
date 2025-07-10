@@ -134,7 +134,7 @@ const Finance = () => {
     <div className="p-6 bg-gray-100 min-h-screen">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-800">Gestion comptables</h1>
+          <h1 className="text-3xl font-bold text-gray-800">Gestion des comptables</h1>
           <p className="text-gray-600 mt-1">Gérez les comptables et leurs informations</p>
         </div>
         <button

@@ -471,7 +471,7 @@ const CommercialDashboard = ({ commercial, expediteurs, onViewExpediteur }) => {
 
       {/* Expéditeurs Table */}
       <div className="bg-white rounded-lg shadow-sm border">
-        <div className="p-4 border-b">
+        <div className="p-4 border-b flex flex-col items-center justify-center text-center">
           <h2 className="text-xl font-semibold">Mes Expéditeurs ({filteredExpediteurs.length})</h2>
           <p className="text-gray-600">Gérez vos expéditeurs et suivez leurs performances</p>
         </div>
