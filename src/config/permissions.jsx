@@ -25,18 +25,18 @@ export const ROLE_PERMISSIONS = {
     dashboard: true,
     personnel: {
       administration: false,
-      commercial: true, // Can manage their own team
+      commercial: false, // Remove personnel management
       finance: false,
       chef_agence: false,
       membre_agence: false,
       livreurs: false
     },
     expediteur: true, // Full access to manage clients
-    colis: true, // Can manage parcels for their clients
-    pickup: true, // Can view pickup missions
-    secteurs: true, // Can view sectors they work in
+    colis: false, // Remove parcel management
+    pickup: false, // Remove pickup missions
+    secteurs: false, // Remove sectors access
     entrepots: false, // Limited access
-    paiment_expediteur: false, // Limited access
+    paiment_expediteur: true, // Add payment access for Commercial
     reclamation: true // Can manage client complaints
   },
 
@@ -333,8 +333,11 @@ export const getFilteredMenu = (userRole) => {
   }
 
   if (permissions.paiment_expediteur) {
+    // For Commercial users, show "Mes Paiements" instead of "Paiement Expéditeur"
+    // For Expéditeur users, also show "Mes Paiements"
+    const paymentLabel = userRole === 'Commercial' || userRole === 'Expéditeur' ? 'Mes Paiements' : 'Paiement Expéditeur';
     baseMenu.push({
-      label: "Paiement Expéditeur",
+      label: paymentLabel,
       key: "paiment_expediteur",
       icon: (
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

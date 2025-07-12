@@ -7,7 +7,9 @@ import Commercial from "./dashboard/Commercial";
 import Finance from "./dashboard/Finance";
 import ChefAgence from "./dashboard/ChefAgence";
 import MembreAgence from "./dashboard/MembreAgence";
+import MembreAgenceManagement from "./dashboard/MembreAgenceManagement";
 import Livreurs from "./dashboard/Livreurs";
+import LivreurDashboard from "./dashboard/LivreurDashboard";
 import Expediteur from "./dashboard/Expediteur";
 import Colis from "./dashboard/Colis";
 import ColisClient from "./dashboard/ColisClient";
@@ -15,6 +17,8 @@ import Pickup from "./dashboard/Pickup";
 import Secteurs from "./dashboard/Secteurs";
 import Entrepots from "./dashboard/Entrepots";
 import PaimentExpediteur from "./dashboard/PaimentExpediteur";
+import CommercialPayments from "./dashboard/CommercialPayments";
+import ClientPayments from "./dashboard/ClientPayments";
 import Reclamation from "./dashboard/Reclamation";
 
 const Dashboard = ({ selectedKey = "dashboard" }) => {
@@ -35,6 +39,13 @@ const Dashboard = ({ selectedKey = "dashboard" }) => {
   const renderContent = () => {
     // Dashboard home - accessible to all roles
     if (selectedKey === "dashboard") {
+      // Show specialized dashboards for specific roles
+      if (currentUser?.role === "Livreurs") {
+        return <LivreurDashboard />;
+      }
+      if (currentUser?.role === "Membre de l'agence") {
+        return <MembreAgence />;
+      }
       return <DashboardHome />;
     }
 
@@ -52,7 +63,12 @@ const Dashboard = ({ selectedKey = "dashboard" }) => {
       return <ChefAgence />;
     }
     if (selectedKey === "membre_agence" && checkAccess("personnel", "membre_agence")) {
-      return <MembreAgence />;
+      // Admin and Chef d'agence get the management component, Membre de l'agence gets their dashboard
+      if (currentUser?.role === "Administration" || currentUser?.role === "Admin" || currentUser?.role === "Chef d'agence") {
+        return <MembreAgenceManagement />;
+      } else {
+        return <MembreAgence />;
+      }
     }
     if (selectedKey === "livreurs" && checkAccess("personnel", "livreurs")) {
       return <Livreurs />;
@@ -79,6 +95,12 @@ const Dashboard = ({ selectedKey = "dashboard" }) => {
       return <Entrepots />;
     }
     if (selectedKey === "paiment_expediteur" && checkAccess("paiment_expediteur")) {
+      if (currentUser?.role === "Commercial") {
+        return <CommercialPayments />;
+      }
+      if (currentUser?.role === "Expéditeur") {
+        return <ClientPayments />;
+      }
       return <PaimentExpediteur />;
     }
     if (selectedKey === "reclamation" && checkAccess("reclamation")) {

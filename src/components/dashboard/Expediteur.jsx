@@ -12,6 +12,16 @@ const mockDrivers = [
 
 const Expediteur = () => {
   const navigate = useNavigate();
+  
+  // Get current user to check role
+  const [currentUser] = useState(() => {
+    const user = JSON.parse(localStorage.getItem('currentUser') || 'null');
+    return user;
+  });
+  
+  // Check if user is Commercial (read-only access)
+  const isCommercialUser = currentUser?.role === 'Commercial';
+
   const [shippers, setShippers] = useState([
     {
       id: 1,
@@ -180,6 +190,10 @@ const Expediteur = () => {
   });
   const detailRef = useRef();
   
+  // Search states for parcel and payment history
+  const [colisSearchTerm, setColisSearchTerm] = useState("");
+  const [paymentSearchTerm, setPaymentSearchTerm] = useState("");
+  
   // États pour les modals CRUD des colis et paiements
   const [isColisModalOpen, setIsColisModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
@@ -246,31 +260,45 @@ const Expediteur = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
             </svg>
           </button>
-          <button
-            onClick={() => handleEdit(row)}
-            className="text-green-600 hover:text-green-800 p-1 rounded-full hover:bg-green-50 transition-colors"
-            title="Modifier"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-            </svg>
-          </button>
-          <button
-            onClick={() => handleDelete(row)}
-            className="text-red-600 hover:text-red-800 p-1 rounded-full hover:bg-red-50 transition-colors"
-            title="Supprimer"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
-          </button>
+          {!isCommercialUser && (
+            <>
+              <button
+                onClick={() => handleEdit(row)}
+                className="text-green-600 hover:text-green-800 p-1 rounded-full hover:bg-green-50 transition-colors"
+                title="Modifier"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+              </button>
+              <button
+                onClick={() => handleDelete(row)}
+                className="text-red-600 hover:text-red-800 p-1 rounded-full hover:bg-red-50 transition-colors"
+                title="Supprimer"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
+            </>
+          )}
         </div>
       ),
     },
   ];
 
   const handleViewDetails = (shipper) => {
-    setSelectedShipper(selectedShipper?.id === shipper.id ? null : shipper);
+    if (selectedShipper?.id === shipper.id) {
+      setSelectedShipper(null);
+      // Clear search terms when closing details
+      setColisSearchTerm("");
+      setPaymentSearchTerm("");
+    } else {
+      setSelectedShipper(shipper);
+      // Clear search terms when opening new details
+      setColisSearchTerm("");
+      setPaymentSearchTerm("");
+    }
   };
 
   const handleAdd = () => {
@@ -610,40 +638,47 @@ const Expediteur = () => {
   const getSafeShipper = (shipper) => {
     return {
       ...shipper,
-      website: shipper.website || "Non renseigné",
-      contactPerson: shipper.contactPerson || "Non renseigné",
-      contactPhone: shipper.contactPhone || "Non renseigné",
-      bankInfo: shipper.bankInfo || {
-        bank: "Non renseigné",
-        iban: "Non renseigné",
-        bic: "Non renseigné"
-      },
-      successfulShipments: shipper.successfulShipments || 0,
+      colis: shipper.colis || [],
+      payments: shipper.payments || [],
       statistics: shipper.statistics || {
         totalRevenue: 0,
         averagePerShipment: 0,
         onTimeDelivery: 0,
         customerRating: 0,
-        monthlyAverage: 0,
-        peakMonth: "Non renseigné",
-        peakRevenue: 0
       },
-      colis: shipper.colis || [],
-      payments: shipper.payments || [],
-      defaultLivreurId: shipper.defaultLivreurId || "Aucun",
-      code: shipper.code || "Non renseigné",
-      gouvernorat: shipper.gouvernorat || "Non renseigné",
-      identityNumber: shipper.identityNumber || "Non renseigné",
-      passportNumber: shipper.passportNumber || "Non renseigné",
-      fiscalNumber: shipper.fiscalNumber || "Non renseigné",
-      agence: shipper.agence || "Non renseigné",
-      commercial: shipper.commercial || "Non renseigné",
-      deliveryFee: shipper.deliveryFee || 0,
-      returnFee: shipper.returnFee || 0,
+      bankInfo: shipper.bankInfo || {
+        bank: "Non renseigné",
+        iban: "Non renseigné",
+        bic: "Non renseigné"
+      },
       documents: shipper.documents || [],
-      returnedShipments: shipper.returnedShipments || 0,
-      status: shipper.status || "Actif",
+      successfulShipments: shipper.successfulShipments || 0,
     };
+  };
+
+  // Filter functions for parcel and payment history
+  const getFilteredColis = (colis) => {
+    if (!colisSearchTerm) return colis;
+    return colis.filter(colis => 
+      colis.id.toLowerCase().includes(colisSearchTerm.toLowerCase()) ||
+      (colis.destination && colis.destination.toLowerCase().includes(colisSearchTerm.toLowerCase())) ||
+      (colis.type && colis.type.toLowerCase().includes(colisSearchTerm.toLowerCase())) ||
+      (colis.status && colis.status.toLowerCase().includes(colisSearchTerm.toLowerCase())) ||
+      (colis.date && colis.date.includes(colisSearchTerm)) ||
+      (colis.amount && colis.amount.toString().includes(colisSearchTerm))
+    );
+  };
+
+  const getFilteredPayments = (payments) => {
+    if (!paymentSearchTerm) return payments;
+    return payments.filter(payment => 
+      payment.id.toLowerCase().includes(paymentSearchTerm.toLowerCase()) ||
+      (payment.reference && payment.reference.toLowerCase().includes(paymentSearchTerm.toLowerCase())) ||
+      (payment.method && payment.method.toLowerCase().includes(paymentSearchTerm.toLowerCase())) ||
+      (payment.status && payment.status.toLowerCase().includes(paymentSearchTerm.toLowerCase())) ||
+      (payment.date && payment.date.includes(paymentSearchTerm)) ||
+      (payment.amount && payment.amount.toString().includes(paymentSearchTerm))
+    );
   };
 
   return (
@@ -654,12 +689,14 @@ const Expediteur = () => {
           <h1 className="text-2xl font-bold text-gray-900">Gestion des expéditeurs</h1>
           <p className="text-gray-600 mt-1">Liste des expéditeurs et leurs informations</p>
         </div>
-        <button
-          onClick={handleAdd}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
-        >
-          Nouvel expéditeur
-        </button>
+        {!isCommercialUser && (
+          <button
+            onClick={handleAdd}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+          >
+            Nouvel expéditeur
+          </button>
+        )}
       </div>
 
       {/* Advanced Filters */}
@@ -926,13 +963,47 @@ const Expediteur = () => {
                   <span className="inline-block bg-orange-100 text-orange-700 rounded-full px-3 py-1 text-xs font-bold">Historique des colis</span>
                   <span className="text-xs text-gray-400">({getSafeShipper(selectedShipper).colis.length})</span>
                 </h3>
-                <button
-                  onClick={handleAddColis}
-                  className="bg-orange-600 hover:bg-orange-700 text-white px-3 py-1 rounded-md text-sm font-medium"
-                >
-                  Ajouter un colis
-                </button>
+                {!isCommercialUser && (
+                  <button
+                    onClick={handleAddColis}
+                    className="bg-orange-600 hover:bg-orange-700 text-white px-3 py-1 rounded-md text-sm font-medium"
+                  >
+                    Ajouter un colis
+                  </button>
+                )}
               </div>
+              
+              {/* Search bar for parcels */}
+              <div className="mb-4">
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Rechercher dans les colis (ID, destination, type, statut, date, montant)..."
+                    value={colisSearchTerm}
+                    onChange={(e) => setColisSearchTerm(e.target.value)}
+                    className="w-full px-4 py-2 pl-10 pr-10 border border-orange-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white"
+                  />
+                  <svg className="absolute left-3 top-2.5 h-5 w-5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  {colisSearchTerm && (
+                    <button
+                      onClick={() => setColisSearchTerm("")}
+                      className="absolute right-3 top-2.5 h-5 w-5 text-orange-400 hover:text-orange-600"
+                    >
+                      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+                {colisSearchTerm && (
+                  <div className="mt-2 text-sm text-orange-600">
+                    {getFilteredColis(getSafeShipper(selectedShipper).colis).length} résultat(s) trouvé(s)
+                  </div>
+                )}
+              </div>
+              
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
@@ -944,11 +1015,13 @@ const Expediteur = () => {
                       <th className="text-left py-2 font-semibold text-gray-700">Statut</th>
                       <th className="text-left py-2 font-semibold text-gray-700">Date</th>
                       <th className="text-right py-2 font-semibold text-gray-700">Montant</th>
-                      <th className="text-center py-2 font-semibold text-gray-700">Actions</th>
+                      {!isCommercialUser && (
+                        <th className="text-center py-2 font-semibold text-gray-700">Actions</th>
+                      )}
                     </tr>
                   </thead>
                   <tbody>
-                    {getSafeShipper(selectedShipper).colis.map((colis) => (
+                    {getFilteredColis(getSafeShipper(selectedShipper).colis).map((colis) => (
                       <tr key={colis.id} className="border-b border-orange-100">
                         <td className="py-2 font-medium text-blue-700">{colis.id}</td>
                         <td className="py-2 text-gray-600">{colis.destination || "Non renseigné"}</td>
@@ -957,28 +1030,30 @@ const Expediteur = () => {
                         <td className="py-2">{getStatusBadge(colis.status)}</td>
                         <td className="py-2 text-gray-600">{colis.date}</td>
                         <td className="py-2 text-right font-semibold">{colis.amount}€</td>
-                        <td className="py-2 text-center">
-                          <div className="flex justify-center gap-1">
-                            <button
-                              onClick={() => handleEditColis(colis)}
-                              className="text-green-600 hover:text-green-800 p-1 rounded-full hover:bg-green-50 transition-colors"
-                              title="Modifier"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                              </svg>
-                            </button>
-                            <button
-                              onClick={() => handleDeleteColis(colis)}
-                              className="text-red-600 hover:text-red-800 p-1 rounded-full hover:bg-red-50 transition-colors"
-                              title="Supprimer"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
-                            </button>
-                          </div>
-                        </td>
+                        {!isCommercialUser && (
+                          <td className="py-2 text-center">
+                            <div className="flex justify-center gap-1">
+                              <button
+                                onClick={() => handleEditColis(colis)}
+                                className="text-green-600 hover:text-green-800 p-1 rounded-full hover:bg-green-50 transition-colors"
+                                title="Modifier"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={() => handleDeleteColis(colis)}
+                                className="text-red-600 hover:text-red-800 p-1 rounded-full hover:bg-red-50 transition-colors"
+                                title="Supprimer"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            </div>
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>
@@ -993,13 +1068,47 @@ const Expediteur = () => {
                   <span className="inline-block bg-indigo-100 text-indigo-700 rounded-full px-3 py-1 text-xs font-bold">Historique des paiements</span>
                   <span className="text-xs text-gray-400">({getSafeShipper(selectedShipper).payments.length})</span>
                 </h3>
-                <button
-                  onClick={handleAddPayment}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded-md text-sm font-medium"
-                >
-                  Ajouter un paiement
-                </button>
+                {!isCommercialUser && (
+                  <button
+                    onClick={handleAddPayment}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded-md text-sm font-medium"
+                  >
+                    Ajouter un paiement
+                  </button>
+                )}
               </div>
+              
+              {/* Search bar for payments */}
+              <div className="mb-4">
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Rechercher dans les paiements (ID, référence, méthode, statut, date, montant)..."
+                    value={paymentSearchTerm}
+                    onChange={(e) => setPaymentSearchTerm(e.target.value)}
+                    className="w-full px-4 py-2 pl-10 pr-10 border border-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+                  />
+                  <svg className="absolute left-3 top-2.5 h-5 w-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  {paymentSearchTerm && (
+                    <button
+                      onClick={() => setPaymentSearchTerm("")}
+                      className="absolute right-3 top-2.5 h-5 w-5 text-indigo-400 hover:text-indigo-600"
+                    >
+                      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+                {paymentSearchTerm && (
+                  <div className="mt-2 text-sm text-indigo-600">
+                    {getFilteredPayments(getSafeShipper(selectedShipper).payments).length} résultat(s) trouvé(s)
+                  </div>
+                )}
+              </div>
+              
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
@@ -1010,11 +1119,13 @@ const Expediteur = () => {
                       <th className="text-left py-2 font-semibold text-gray-700">Statut</th>
                       <th className="text-left py-2 font-semibold text-gray-700">Date</th>
                       <th className="text-right py-2 font-semibold text-gray-700">Montant</th>
-                      <th className="text-center py-2 font-semibold text-gray-700">Actions</th>
+                      {!isCommercialUser && (
+                        <th className="text-center py-2 font-semibold text-gray-700">Actions</th>
+                      )}
                     </tr>
                   </thead>
                   <tbody>
-                    {getSafeShipper(selectedShipper).payments.map((payment) => (
+                    {getFilteredPayments(getSafeShipper(selectedShipper).payments).map((payment) => (
                       <tr key={payment.id} className="border-b border-indigo-100">
                         <td className="py-2 font-medium text-indigo-700">{payment.id}</td>
                         <td className="py-2 text-gray-600">{payment.reference || "Non renseigné"}</td>
@@ -1022,28 +1133,30 @@ const Expediteur = () => {
                         <td className="py-2">{getPaymentStatusBadge(payment.status)}</td>
                         <td className="py-2 text-gray-600">{payment.date}</td>
                         <td className="py-2 text-right font-semibold">{payment.amount}€</td>
-                        <td className="py-2 text-center">
-                          <div className="flex justify-center gap-1">
-                            <button
-                              onClick={() => handleEditPayment(payment)}
-                              className="text-green-600 hover:text-green-800 p-1 rounded-full hover:bg-green-50 transition-colors"
-                              title="Modifier"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                              </svg>
-                            </button>
-                            <button
-                              onClick={() => handleDeletePayment(payment)}
-                              className="text-red-600 hover:text-red-800 p-1 rounded-full hover:bg-red-50 transition-colors"
-                              title="Supprimer"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
-                            </button>
-                          </div>
-                        </td>
+                        {!isCommercialUser && (
+                          <td className="py-2 text-center">
+                            <div className="flex justify-center gap-1">
+                              <button
+                                onClick={() => handleEditPayment(payment)}
+                                className="text-green-600 hover:text-green-800 p-1 rounded-full hover:bg-green-50 transition-colors"
+                                title="Modifier"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={() => handleDeletePayment(payment)}
+                                className="text-red-600 hover:text-red-800 p-1 rounded-full hover:bg-red-50 transition-colors"
+                                title="Supprimer"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            </div>
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>
