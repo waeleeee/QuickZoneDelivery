@@ -17,17 +17,29 @@ const statusColors = {
 
 const MissionPickupTable = ({ missions, onView, onEdit, onDelete, searchTerm, onSearchChange }) => {
   const columns = [
-    { key: "id", header: "N° Mission" },
-    { key: "driver", header: "Livreur" },
-    { key: "shipper", header: "Expéditeur" },
+    { key: "mission_number", header: "N° Mission" },
+    { 
+      key: "driver", 
+      header: "Livreur",
+      render: (driver) => driver?.name || "Non assigné"
+    },
+    { 
+      key: "shipper", 
+      header: "Expéditeur",
+      render: (shipper) => shipper?.name || "Non assigné"
+    },
     {
-      key: "colis",
+      key: "parcels",
       header: "Colis",
-      render: (colis) => (
-        <span className="text-xs text-gray-700">{colis.map(c => c.id).join(", ")}</span>
+      render: (parcels) => (
+        <span className="text-xs text-gray-700">{parcels?.map(c => c.id).join(", ") || "Aucun colis"}</span>
       ),
     },
-    { key: "scheduledTime", header: "Date prévue" },
+    { 
+      key: "scheduled_time", 
+      header: "Date prévue",
+      render: (date) => new Date(date).toLocaleString('fr-FR')
+    },
     {
       key: "status",
       header: "Statut",

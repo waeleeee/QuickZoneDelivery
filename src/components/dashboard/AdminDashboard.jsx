@@ -1,9 +1,89 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import DeliveryChart from '../charts/DeliveryChart';
 import StatusChart from '../charts/StatusChart';
 import GeoChart from '../charts/GeoChart';
+import { apiService } from '../../services/api';
 
 export default function AdminDashboard() {
+  const [dashboardData, setDashboardData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        const data = await apiService.getAdminDashboard();
+        if (data && data.success) {
+          setDashboardData(data.data);
+        }
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="p-6 space-y-8">
+        <div className="animate-pulse">
+          <div className="h-8 bg-gray-200 rounded w-1/3 mb-4"></div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="h-32 bg-gray-200 rounded-xl"></div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Use real data or fallback to frontend defaults
+  const keyMetrics = dashboardData?.keyMetrics || {
+    totalColis: 1847,
+    livreursActifs: 67,
+    livraisonsCompletees: 1234,
+    tauxSatisfaction: 98.5,
+    colisGrowth: "+12% ce mois",
+    livreursGrowth: "+8% cette semaine",
+    livraisonsGrowth: "+15% aujourd'hui",
+    satisfactionGrowth: "+2.3% ce mois"
+  };
+
+  const topLivreurs = dashboardData?.topLivreurs || [
+    { rank: 1, name: "Marc Simon", livraisons: 156 },
+    { rank: 2, name: "Laurent Girard", livraisons: 142 },
+    { rank: 3, name: "Ahmed Ben Salem", livraisons: 128 }
+  ];
+
+  const recentActivities = dashboardData?.recentActivities || [
+    {
+      type: "delivered",
+      message: "Colis #1234567890 livré",
+      time: "Il y a 5 minutes",
+      color: "green"
+    },
+    {
+      type: "driver_added",
+      message: "Nouveau livreur ajouté",
+      time: "Il y a 15 minutes",
+      color: "yellow"
+    },
+    {
+      type: "complaint_resolved",
+      message: "Réclamation résolue",
+      time: "Il y a 1 heure",
+      color: "blue"
+    },
+    {
+      type: "parcel_returned",
+      message: "Colis retourné",
+      time: "Il y a 2 heures",
+      color: "red"
+    }
+  ];
   return (
     <div className="p-6 space-y-8">
       <h1 className="text-2xl font-bold text-red-600 mb-2 flex items-center gap-2">
@@ -19,8 +99,8 @@ export default function AdminDashboard() {
         <div className="bg-gradient-to-tr from-indigo-500 to-purple-400 text-white rounded-xl p-6 shadow flex flex-col justify-between">
           <div>
             <div className="text-sm opacity-80">Total Colis</div>
-            <div className="text-3xl font-bold">1,847</div>
-            <div className="text-xs opacity-70 mt-1">↗️ +12% ce mois</div>
+            <div className="text-3xl font-bold">{keyMetrics.totalColis.toLocaleString()}</div>
+            <div className="text-xs opacity-70 mt-1">↗️ {keyMetrics.colisGrowth}</div>
           </div>
           <div className="mt-2">
             <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -31,8 +111,8 @@ export default function AdminDashboard() {
         <div className="bg-gradient-to-tr from-pink-400 to-pink-600 text-white rounded-xl p-6 shadow flex flex-col justify-between">
           <div>
             <div className="text-sm opacity-80">Livreurs Actifs</div>
-            <div className="text-3xl font-bold">67</div>
-            <div className="text-xs opacity-70 mt-1">↗️ +8% cette semaine</div>
+            <div className="text-3xl font-bold">{keyMetrics.livreursActifs}</div>
+            <div className="text-xs opacity-70 mt-1">↗️ {keyMetrics.livreursGrowth}</div>
           </div>
           <div className="mt-2">
             <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -43,8 +123,8 @@ export default function AdminDashboard() {
         <div className="bg-gradient-to-tr from-blue-400 to-cyan-400 text-white rounded-xl p-6 shadow flex flex-col justify-between">
           <div>
             <div className="text-sm opacity-80">Livraisons Complétées</div>
-            <div className="text-3xl font-bold">1,234</div>
-            <div className="text-xs opacity-70 mt-1">↗️ +15% aujourd'hui</div>
+            <div className="text-3xl font-bold">{keyMetrics.livraisonsCompletees.toLocaleString()}</div>
+            <div className="text-xs opacity-70 mt-1">↗️ {keyMetrics.livraisonsGrowth}</div>
           </div>
           <div className="mt-2">
             <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -55,8 +135,8 @@ export default function AdminDashboard() {
         <div className="bg-gradient-to-tr from-green-400 to-teal-300 text-white rounded-xl p-6 shadow flex flex-col justify-between">
           <div>
             <div className="text-sm opacity-80">Taux de Satisfaction</div>
-            <div className="text-3xl font-bold">98.5%</div>
-            <div className="text-xs opacity-70 mt-1">↗️ +2.3% ce mois</div>
+            <div className="text-3xl font-bold">{keyMetrics.tauxSatisfaction}%</div>
+            <div className="text-xs opacity-70 mt-1">↗️ {keyMetrics.satisfactionGrowth}</div>
           </div>
           <div className="mt-2">
             <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -98,18 +178,20 @@ export default function AdminDashboard() {
             Top Livreurs
           </h3>
           <ul className="space-y-2">
-            <li className="flex justify-between items-center bg-gray-50 rounded p-2">
-              <span className="font-semibold flex items-center gap-2"><span className="bg-yellow-400 text-white rounded-full w-6 h-6 flex items-center justify-center font-bold">1</span> Marc Simon</span>
-              <span className="text-green-600 font-bold">156 livraisons</span>
-            </li>
-            <li className="flex justify-between items-center bg-gray-50 rounded p-2">
-              <span className="font-semibold flex items-center gap-2"><span className="bg-gray-400 text-white rounded-full w-6 h-6 flex items-center justify-center font-bold">2</span> Laurent Girard</span>
-              <span className="text-green-600 font-bold">142 livraisons</span>
-            </li>
-            <li className="flex justify-between items-center bg-gray-50 rounded p-2">
-              <span className="font-semibold flex items-center gap-2"><span className="bg-yellow-700 text-white rounded-full w-6 h-6 flex items-center justify-center font-bold">3</span> Ahmed Ben Salem</span>
-              <span className="text-green-600 font-bold">128 livraisons</span>
-            </li>
+            {topLivreurs.map((livreur, index) => (
+              <li key={livreur.rank} className="flex justify-between items-center bg-gray-50 rounded p-2">
+                <span className="font-semibold flex items-center gap-2">
+                  <span className={`${
+                    index === 0 ? 'bg-yellow-400' : 
+                    index === 1 ? 'bg-gray-400' : 'bg-yellow-700'
+                  } text-white rounded-full w-6 h-6 flex items-center justify-center font-bold`}>
+                    {livreur.rank}
+                  </span> 
+                  {livreur.name}
+                </span>
+                <span className="text-green-600 font-bold">{livreur.livraisons} livraisons</span>
+              </li>
+            ))}
           </ul>
         </div>
         <div className="bg-white rounded-xl p-6 shadow">
@@ -120,22 +202,22 @@ export default function AdminDashboard() {
             Activité Récente
           </h3>
           <ul className="space-y-2">
-            <li className="flex items-center gap-2 border-l-4 border-green-500 pl-2">
-              <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-              <span>Colis #1234567890 livré <span className="text-gray-400 text-xs">Il y a 5 minutes</span></span>
-            </li>
-            <li className="flex items-center gap-2 border-l-4 border-yellow-400 pl-2">
-              <span className="w-2 h-2 bg-yellow-400 rounded-full"></span>
-              <span>Nouveau livreur ajouté <span className="text-gray-400 text-xs">Il y a 15 minutes</span></span>
-            </li>
-            <li className="flex items-center gap-2 border-l-4 border-blue-500 pl-2">
-              <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-              <span>Réclamation résolue <span className="text-gray-400 text-xs">Il y a 1 heure</span></span>
-            </li>
-            <li className="flex items-center gap-2 border-l-4 border-red-500 pl-2">
-              <span className="w-2 h-2 bg-red-500 rounded-full"></span>
-              <span>Colis retourné <span className="text-gray-400 text-xs">Il y a 2 heures</span></span>
-            </li>
+            {recentActivities.map((activity, index) => (
+              <li key={index} className={`flex items-center gap-2 border-l-4 pl-2 ${
+                activity.color === 'green' ? 'border-green-500' :
+                activity.color === 'yellow' ? 'border-yellow-400' :
+                activity.color === 'blue' ? 'border-blue-500' :
+                'border-red-500'
+              }`}>
+                <span className={`w-2 h-2 rounded-full ${
+                  activity.color === 'green' ? 'bg-green-500' :
+                  activity.color === 'yellow' ? 'bg-yellow-400' :
+                  activity.color === 'blue' ? 'bg-blue-500' :
+                  'bg-red-500'
+                }`}></span>
+                <span>{activity.message} <span className="text-gray-400 text-xs">{activity.time}</span></span>
+              </li>
+            ))}
           </ul>
         </div>
         <div className="bg-white rounded-xl p-6 shadow">

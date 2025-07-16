@@ -1,121 +1,120 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import DataTable from "./common/DataTable";
 import Modal from "./common/Modal";
+import { apiService } from "../../services/api";
 
 const Secteurs = () => {
-  const [sectors, setSectors] = useState([
-    {
-      id: "SEC001",
-      name: "Secteur Nord",
-      city: ["Paris", "Lyon"],
-      manager: "Pierre Dubois",
-      status: "Actif",
-    },
-    {
-      id: "SEC002",
-      name: "Secteur Sud",
-      city: ["Marseille", "Toulouse"],
-      manager: "Sarah Ahmed",
-      status: "Actif",
-    },
-    {
-      id: "SEC003",
-      name: "Secteur Est",
-      city: ["Nice", "Nantes"],
-      manager: "Mohamed Ali",
-      status: "Inactif",
-    },
-  ]);
-
+  const [sectors, setSectors] = useState([]);
+  const [managers, setManagers] = useState([]); // List of chefs d'agence
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSector, setEditingSector] = useState(null);
   const [formData, setFormData] = useState({
     name: "",
     city: [],
-    manager: "",
+    manager_id: "",
     status: "Actif",
   });
+  const [error, setError] = useState("");
 
-  // List of chef d'agence (should match ChefAgence.jsx)
-  const chefAgenceList = [
-    "Amine Gharbi",
-    "Sonia Ben Salah"
-  ];
+  // Fetch sectors and managers on mount
+  useEffect(() => {
+    fetchSectors();
+    fetchManagers();
+  }, []);
+
+  const fetchSectors = async () => {
+    try {
+      const data = await apiService.getSectors();
+      setSectors(data);
+    } catch (e) {
+      setSectors([]);
+    }
+  };
+
+  const fetchManagers = async () => {
+    try {
+      const data = await apiService.getAgencyManagers();
+      // The data should be an array of agency managers with id and name
+      setManagers(Array.isArray(data) ? data : (data.data || []));
+    } catch (e) {
+      setManagers([]);
+    }
+  };
 
   const columns = [
-    { key: "id", header: "ID" },
+    { key: "id", header: "ID", render: v => v ? `SEC${String(v).padStart(3, '0')}` : "N/A" },
     { key: "name", header: "Nom du secteur" },
-    { key: "city", header: "Ville", render: (value) => Array.isArray(value) ? value.join(", ") : value },
-    { key: "manager", header: "Responsable" },
+    { key: "city", header: "Ville", render: value => Array.isArray(value) ? value.join(", ") : value },
+    { key: "manager_name", header: "Responsable" },
     {
       key: "status",
       header: "Statut",
-      render: (value) => (
-        <span
-          className={`px-2 py-1 text-xs font-medium rounded-full ${
-            value === "Actif"
-              ? "bg-green-100 text-green-800"
-              : "bg-red-100 text-red-800"
-          }`}
-        >
-          {value}
-        </span>
+      render: value => (
+        <span className={`px-2 py-1 text-xs font-medium rounded-full ${value === "Actif" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>{value}</span>
       ),
     },
   ];
 
   const handleAdd = () => {
     setEditingSector(null);
-    setFormData({
-      name: "",
-      city: [],
-      manager: "",
-      status: "Actif",
-    });
+    setFormData({ name: "", city: [], manager_id: "", status: "Actif" });
+    setError("");
     setIsModalOpen(true);
   };
 
   const handleEdit = (sector) => {
     setEditingSector(sector);
-    setFormData(sector);
+    setFormData({
+      name: sector.name,
+      city: Array.isArray(sector.city) ? sector.city : (sector.city ? sector.city.split(",") : []),
+      manager_id: sector.manager_id || "",
+      status: sector.status || "Actif"
+    });
+    setError("");
     setIsModalOpen(true);
   };
 
-  const handleDelete = (sector) => {
+  const handleDelete = async (sector) => {
     if (window.confirm("Êtes-vous sûr de vouloir supprimer ce secteur ?")) {
-      setSectors(sectors.filter((s) => s.id !== sector.id));
+      try {
+        await apiService.deleteSector(sector.id);
+        fetchSectors();
+      } catch (e) {
+        setError("Erreur lors de la suppression du secteur.");
+      }
     }
   };
 
-  const handleSubmit = () => {
-    if (editingSector) {
-      setSectors(
-        sectors.map((sector) =>
-          sector.id === editingSector.id ? { ...formData, id: sector.id } : sector
-        )
-      );
-    } else {
-      const newSector = {
-        ...formData,
-        id: `SEC${String(sectors.length + 1).padStart(3, '0')}`,
+  const handleSubmit = async () => {
+    setError("");
+    try {
+      const payload = {
+        name: formData.name,
+        city: Array.isArray(formData.city) ? formData.city.join(",") : formData.city,
+        manager_id: formData.manager_id,
+        status: formData.status
       };
-      setSectors([...sectors, newSector]);
+      if (editingSector) {
+        await apiService.updateSector(editingSector.id, payload);
+      } else {
+        await apiService.createSector(payload);
+      }
+      setIsModalOpen(false);
+      fetchSectors();
+    } catch (e) {
+      setError(e?.response?.data?.message || "Erreur lors de la sauvegarde du secteur.");
     }
-    setIsModalOpen(false);
   };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   return (
     <div className="space-y-6">
-      {/* Header harmonisé */}
+      {/* Header */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Gestion des secteurs</h1>
@@ -129,7 +128,7 @@ const Secteurs = () => {
         </button>
       </div>
 
-      {/* Tableau des secteurs */}
+      {/* Table */}
       <DataTable
         data={sectors}
         columns={columns}
@@ -139,7 +138,7 @@ const Secteurs = () => {
         onSearchChange={setSearchTerm}
       />
 
-      {/* Modal d'ajout/édition */}
+      {/* Modal */}
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -178,10 +177,10 @@ const Secteurs = () => {
             </div>
             <div>
               <label className="block text-sm font-medium text-left">Responsable</label>
-              <select name="manager" value={formData.manager} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+              <select name="manager_id" value={formData.manager_id} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                 <option value="">Sélectionner un responsable</option>
-                {chefAgenceList.map(name => (
-                  <option key={name} value={name}>{name}</option>
+                {managers.map(m => (
+                  <option key={m.id} value={m.id}>{m.name}</option>
                 ))}
               </select>
             </div>
@@ -193,6 +192,7 @@ const Secteurs = () => {
               </select>
             </div>
           </div>
+          {error && <div className="text-red-600 text-center mt-4 font-semibold">{error}</div>}
           <div className="flex justify-end space-x-3 space-x-reverse pt-4">
             <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md">Annuler</button>
             <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md">{editingSector ? "Mettre à jour" : "Ajouter"}</button>

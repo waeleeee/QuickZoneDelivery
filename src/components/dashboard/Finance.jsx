@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import DataTable from "./common/DataTable";
 import Modal from "./common/Modal";
+import { apiService } from "../../services/api";
 
 // List of Tunisian governorates
 const gouvernorats = [
@@ -10,28 +11,7 @@ const gouvernorats = [
   "Tozeur", "Tunis", "Zaghouan"
 ];
 
-const initialComptables = [
-  {
-    id: "COMP001",
-    name: "Sami Ben Ali",
-    email: "sami.benali@quickzone.tn",
-    phone: "+216 21 123 456",
-    address: "12 Rue de la Liberté, Tunis",
-    titre: "comptable",
-    agence: "Siège",
-    gouvernorat: "Tunis",
-  },
-  {
-    id: "COMP002",
-    name: "Leila Trabelsi",
-    email: "leila.trabelsi@quickzone.tn",
-    phone: "+216 98 654 321",
-    address: "45 Avenue Habib Bourguiba, Sousse",
-    titre: "senior comptable",
-    agence: "Sousse",
-    gouvernorat: "Sousse",
-  },
-];
+
 
 const titreOptions = [
   { value: "comptable", label: "Comptable" },
@@ -47,10 +27,29 @@ const agenceOptions = [
 ];
 
 const Finance = () => {
-  const [comptables, setComptables] = useState(initialComptables);
+  const [comptables, setComptables] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [showEditModal, setShowEditModal] = useState(false);
   const [editComptable, setEditComptable] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch comptables from backend
+  useEffect(() => {
+    const fetchComptables = async () => {
+      try {
+        setLoading(true);
+        const data = await apiService.getComptables();
+        console.log('Comptables data:', data);
+        setComptables(data || []);
+      } catch (error) {
+        console.error('Error fetching comptables:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchComptables();
+  }, []);
 
   const handleAddComptable = () => {
     setEditComptable({
@@ -59,9 +58,9 @@ const Finance = () => {
       email: '',
       phone: '',
       address: '',
-      titre: 'comptable',
-      agence: 'Siège',
-      gouvernorat: 'Tunis',
+      title: 'comptable',
+      agency: 'Siège',
+      governorate: 'Tunis',
     });
     setShowEditModal(true);
   };
@@ -71,22 +70,47 @@ const Finance = () => {
     setShowEditModal(true);
   };
 
-  const handleSaveComptable = (e) => {
+  const handleSaveComptable = async (e) => {
     e.preventDefault();
-    if (editComptable.id && comptables.some(c => c.id === editComptable.id)) {
-      setComptables(comptables.map(c => c.id === editComptable.id ? editComptable : c));
-    } else {
-      setComptables([
-        ...comptables,
-        { ...editComptable, id: `COMP${comptables.length + 1}` }
-      ]);
+    try {
+      if (editComptable.id && comptables.some(c => c.id === editComptable.id)) {
+        // Update existing comptable
+        const result = await apiService.updateComptable(editComptable.id, editComptable);
+        if (result && result.success) {
+          setComptables(comptables.map(c => c.id === editComptable.id ? result.data : c));
+          alert('Comptable mis à jour avec succès!');
+        }
+      } else {
+        // Create new comptable
+        const result = await apiService.createComptable(editComptable);
+        if (result && result.success) {
+          setComptables([...comptables, result.data]);
+          alert('Comptable créé avec succès!');
+        }
+      }
+      setShowEditModal(false);
+      setEditComptable(null);
+    } catch (error) {
+      console.error('Error saving comptable:', error);
+      const errorMessage = error.message || 'Error saving comptable. Please try again.';
+      alert(errorMessage);
     }
-    setShowEditModal(false);
-    setEditComptable(null);
   };
 
-  const handleDeleteComptable = (comptable) => {
-    setComptables(comptables.filter(c => c.id !== comptable.id));
+  const handleDeleteComptable = async (comptable) => {
+    if (window.confirm(`Êtes-vous sûr de vouloir supprimer le comptable "${comptable.name}" ?`)) {
+      try {
+        const result = await apiService.deleteComptable(comptable.id);
+        if (result && result.success) {
+          setComptables(comptables.filter(c => c.id !== comptable.id));
+          alert('Comptable supprimé avec succès!');
+        }
+      } catch (error) {
+        console.error('Error deleting comptable:', error);
+        const errorMessage = error.message || 'Error deleting comptable. Please try again.';
+        alert(errorMessage);
+      }
+    }
   };
 
   const columns = [
@@ -94,10 +118,10 @@ const Finance = () => {
     { key: "name", header: "Nom et prénom" },
     { key: "email", header: "Email" },
     { key: "phone", header: "Téléphone" },
-    { key: "gouvernorat", header: "Gouvernorat" },
+    { key: "governorate", header: "Gouvernorat" },
     { key: "address", header: "Adresse" },
-    { key: "titre", header: "Titre", render: value => titreOptions.find(o => o.value === value)?.label || value },
-    { key: "agence", header: "Agence" },
+    { key: "title", header: "Titre", render: value => titreOptions.find(o => o.value === value)?.label || value },
+    { key: "agency", header: "Agence" },
     {
       key: "actions",
       header: "Actions",
@@ -145,13 +169,19 @@ const Finance = () => {
         </button>
       </div>
       <div className="bg-white rounded-lg shadow-sm border">
-        <DataTable
-          data={filteredComptables}
-          columns={columns}
-          searchTerm={searchTerm}
-          onSearchChange={setSearchTerm}
-          showActions={false}
-        />
+        {loading ? (
+          <div className="animate-pulse p-8">
+            <div className="h-64 bg-gray-200 rounded"></div>
+          </div>
+        ) : (
+          <DataTable
+            data={filteredComptables}
+            columns={columns}
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            showActions={false}
+          />
+        )}
       </div>
       {/* Modal for Add/Edit Comptable */}
       {showEditModal && (
@@ -176,7 +206,7 @@ const Finance = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-left">Gouvernorat</label>
-                <select className="border rounded px-2 py-1 w-full" value={editComptable.gouvernorat || 'Tunis'} onChange={e => setEditComptable({ ...editComptable, gouvernorat: e.target.value })} required>
+                <select className="border rounded px-2 py-1 w-full" value={editComptable.governorate || 'Tunis'} onChange={e => setEditComptable({ ...editComptable, governorate: e.target.value })} required>
                   {gouvernorats.map(gov => (
                     <option key={gov} value={gov}>{gov}</option>
                   ))}
@@ -188,13 +218,13 @@ const Finance = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-left">Titre</label>
-                <select className="border rounded px-2 py-1 w-full" value={editComptable.titre || 'comptable'} onChange={e => setEditComptable({ ...editComptable, titre: e.target.value })} required>
+                <select className="border rounded px-2 py-1 w-full" value={editComptable.title || 'comptable'} onChange={e => setEditComptable({ ...editComptable, title: e.target.value })} required>
                   {titreOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-left">Agence</label>
-                <select className="border rounded px-2 py-1 w-full" value={editComptable.agence || 'Siège'} onChange={e => setEditComptable({ ...editComptable, agence: e.target.value })} required>
+                <select className="border rounded px-2 py-1 w-full" value={editComptable.agency || 'Siège'} onChange={e => setEditComptable({ ...editComptable, agency: e.target.value })} required>
                   {agenceOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                 </select>
               </div>

@@ -3,11 +3,14 @@ import { useTranslation } from "react-i18next";
 import DeliveryChart from "../charts/DeliveryChart";
 import GeoChart from "../charts/GeoChart";
 import StatusChart from "../charts/StatusChart";
+import { apiService } from "../../services/api";
 
 const DashboardHome = () => {
   const { t } = useTranslation();
   const [currentUser, setCurrentUser] = useState(null);
   const [roleSpecificStats, setRoleSpecificStats] = useState({});
+  const [expediteurStats, setExpediteurStats] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem('currentUser') || 'null');
@@ -16,8 +19,46 @@ const DashboardHome = () => {
     // Generate role-specific statistics
     if (user && user.role) {
       generateRoleSpecificStats(user.role);
+      
+      // Fetch real data for expéditeurs
+      if (user.role === 'Expéditeur' && user.email) {
+        fetchExpediteurStats(user.email);
+      } else {
+        setLoading(false);
+      }
+    } else {
+      setLoading(false);
     }
   }, []);
+
+  // Regenerate stats when expediteurStats changes
+  useEffect(() => {
+    if (currentUser && currentUser.role) {
+      generateRoleSpecificStats(currentUser.role);
+    }
+  }, [expediteurStats, currentUser]);
+
+  const fetchExpediteurStats = async (email) => {
+    try {
+      setLoading(true);
+      const stats = await apiService.getExpediteurStats(email);
+      console.log('Fetched expediteur stats:', stats);
+      setExpediteurStats(stats);
+    } catch (error) {
+      console.error('Error fetching expediteur stats:', error);
+      setExpediteurStats({
+        totalParcels: 0,
+        totalRevenue: 0,
+        currentMonth: 0,
+        deliveredThisMonth: 0,
+        complaintsCount: 0,
+        monthlyChanges: { parcels: 0, delivered: 0 },
+        statusStats: {}
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Function to render professional SVG icons
   const renderIcon = (iconType) => {
@@ -184,11 +225,41 @@ const DashboardHome = () => {
         title: "Tableau de Bord Client",
         subtitle: "Suivi de vos colis et paiements",
         cards: [
-          { title: "Mes Colis", value: "23", change: "+3", color: "blue", icon: "package" },
-          { title: "En Transit", value: "8", change: "+2", color: "green", icon: "truck" },
-          { title: "Livrés", value: "15", change: "+1", color: "purple", icon: "check" },
-          { title: "Solde", value: "€1,250", change: "-€50", color: "orange", icon: "money" },
-          { title: "Réclamations", value: "2", change: "-1", color: "red", icon: "warning" }
+          { 
+            title: "Mes Colis", 
+            value: expediteurStats ? expediteurStats.totalParcels.toString() : "0", 
+            change: expediteurStats ? (expediteurStats.monthlyChanges.parcels >= 0 ? `+${expediteurStats.monthlyChanges.parcels}` : `${expediteurStats.monthlyChanges.parcels}`) : "0", 
+            color: "blue", 
+            icon: "package" 
+          },
+          { 
+            title: "En Transit", 
+            value: expediteurStats ? (expediteurStats.statusStats["En cours"] || 0).toString() : "0", 
+            change: expediteurStats ? (expediteurStats.monthlyChanges.delivered >= 0 ? `+${expediteurStats.monthlyChanges.delivered}` : `${expediteurStats.monthlyChanges.delivered}`) : "0", 
+            color: "green", 
+            icon: "truck" 
+          },
+          { 
+            title: "Livrés", 
+            value: expediteurStats ? expediteurStats.deliveredThisMonth.toString() : "0", 
+            change: expediteurStats ? (expediteurStats.monthlyChanges.delivered >= 0 ? `+${expediteurStats.monthlyChanges.delivered}` : `${expediteurStats.monthlyChanges.delivered}`) : "0", 
+            color: "purple", 
+            icon: "check" 
+          },
+          { 
+            title: "Solde", 
+            value: expediteurStats ? `€${expediteurStats.totalRevenue.toFixed(2)}` : "€0.00", 
+            change: expediteurStats ? (expediteurStats.monthlyChanges.parcels >= 0 ? `+€${(expediteurStats.monthlyChanges.parcels * 10).toFixed(2)}` : `-€${Math.abs(expediteurStats.monthlyChanges.parcels * 10).toFixed(2)}`) : "€0.00", 
+            color: "orange", 
+            icon: "money" 
+          },
+          { 
+            title: "Réclamations", 
+            value: expediteurStats ? expediteurStats.complaintsCount.toString() : "0", 
+            change: "0", 
+            color: "red", 
+            icon: "warning" 
+          }
         ]
       }
     };
@@ -207,7 +278,7 @@ const DashboardHome = () => {
     return colors[color] || colors.blue;
   };
 
-  if (!currentUser) {
+  if (!currentUser || loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
@@ -231,11 +302,11 @@ const DashboardHome = () => {
           <div className="flex items-center space-x-4">
             <div className="text-right">
               <p className="text-sm text-red-600 font-medium">Connecté en tant que</p>
-              <p className="font-bold text-red-800 text-lg">{currentUser.name}</p>
+              <p className="font-bold text-red-800 text-lg">{currentUser.name || currentUser.firstName || currentUser.email || 'Utilisateur'}</p>
               <p className="text-xs text-red-500 bg-red-100 px-2 py-1 rounded-full">{currentUser.role}</p>
             </div>
             <div className="w-16 h-16 bg-gradient-to-br from-red-500 to-red-600 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-lg">
-              {currentUser.name?.charAt(0) || 'U'}
+              {(currentUser.name || currentUser.firstName || currentUser.email || 'U').charAt(0).toUpperCase()}
             </div>
           </div>
         </div>

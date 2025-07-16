@@ -3,129 +3,88 @@ import { useNavigate } from "react-router-dom";
 import DataTable from "./common/DataTable";
 import Modal from "./common/Modal";
 import html2pdf from "html2pdf.js";
-import ActionButtons from "./common/ActionButtons"; // Assuming this component exists
+import ActionButtons from "./common/ActionButtons";
+import { apiService } from "../../services/api";
 
 // Subcomponent for a single commercial's dashboard
-const CommercialDashboard = ({ commercial, expediteurs, onViewExpediteur }) => {
+const CommercialDashboard = ({ commercial, onViewExpediteur }) => {
   const navigate = useNavigate();
-  const [commercialData, setCommercialData] = useState({
-    id: "COM001",
-    name: "Jean Dupont",
-    email: "jean.dupont@quickzone.tn",
-    phone: "+216 71 234 567",
-    totalSales: 2840.50,
-    monthlyTarget: 3000.00,
-    totalClients: 12,
-    totalParcels: 156,
-    successfulParcels: 142,
-    successRate: 91.0,
-    performanceScore: 85.5
-  });
+  const [expediteursData, setExpediteursData] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const [expediteursData, setExpediteursData] = useState([
-    {
-      id: "EXP001",
-      name: "Pierre Dubois",
-      email: "pierre.dubois@email.com",
-      phone: "+33 1 23 45 67 89",
-      address: "12 rue de Paris, 75001 Paris",
-      totalShipments: 45,
-      successfulShipments: 42,
-      registrationDate: "2023-01-15",
-      lastActivity: "2024-01-20",
-      company: "Dubois Logistics",
-      siret: "12345678901234",
-      totalRevenue: 1150.50,
-      status: "active",
-      colis: [
-        { id: "COL001", status: "Livés", date: "2024-01-18", amount: 25.50, destination: "Paris", weight: "2.5kg", type: "Standard" },
-        { id: "COL002", status: "En cours", date: "2024-01-19", amount: 18.75, destination: "Lyon", weight: "1.8kg", type: "Express" },
-        { id: "COL003", status: "Livés", date: "2024-01-17", amount: 32.00, destination: "Marseille", weight: "3.2kg", type: "Standard" },
-        { id: "COL004", status: "En attente", date: "2024-01-20", amount: 15.25, destination: "Toulouse", weight: "1.5kg", type: "Standard" },
-        { id: "COL005", status: "Livés", date: "2024-01-16", amount: 28.90, destination: "Nice", weight: "2.8kg", type: "Express" },
-      ]
-    },
-    {
-      id: "EXP002",
-      name: "Sarah Ahmed",
-      email: "sarah.ahmed@email.com",
-      phone: "+33 1 98 76 54 32",
-      address: "8 avenue de Lyon, 69001 Lyon",
-      totalShipments: 32,
-      successfulShipments: 29,
-      registrationDate: "2023-03-20",
-      lastActivity: "2024-01-19",
-      company: "Ahmed Trading",
-      siret: "98765432109876",
-      totalRevenue: 872.50,
-      status: "active",
-      colis: [
-        { id: "COL006", status: "Livés", date: "2024-01-19", amount: 22.00, destination: "Paris", weight: "2.1kg", type: "Standard" },
-        { id: "COL007", status: "En cours", date: "2024-01-20", amount: 19.50, destination: "Lyon", weight: "1.9kg", type: "Express" },
-        { id: "COL008", status: "Livés", date: "2024-01-18", amount: 35.75, destination: "Marseille", weight: "3.5kg", type: "Standard" },
-      ]
-    },
-    {
-      id: "EXP003",
-      name: "Mohamed Ali",
-      email: "mohamed.ali@email.com",
-      phone: "+33 1 11 22 33 44",
-      address: "5 rue Principale, 13001 Marseille",
-      totalShipments: 28,
-      successfulShipments: 24,
-      registrationDate: "2022-11-10",
-      lastActivity: "2023-12-15",
-      company: "Ali Import Export",
-      siret: "11223344556677",
-      totalRevenue: 660.00,
-      status: "inactive",
-      colis: [
-        { id: "COL009", status: "Livés", date: "2023-12-10", amount: 45.00, destination: "Paris", weight: "4.5kg", type: "Standard" },
-        { id: "COL010", status: "Retour", date: "2023-12-12", amount: 0.00, destination: "Lyon", weight: "2.0kg", type: "Standard" },
-      ]
+  // Fetch shippers for this commercial
+  useEffect(() => {
+    const fetchShippers = async () => {
+      try {
+        setLoading(true);
+        console.log('Fetching shippers for commercial ID:', commercial.id);
+        const data = await apiService.getShippersByCommercial(commercial.id);
+        console.log('Shippers for commercial:', data);
+        setExpediteursData(data || []);
+      } catch (error) {
+        console.error('Error fetching shippers for commercial:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (commercial && commercial.id) {
+      fetchShippers();
     }
-  ]);
+  }, [commercial]);
 
-  // Add mock payments data here so it's defined in this scope
-  const payments = [
-    {
-      id: 1,
-      shipper: "Ahmed Mohamed",
-      amount: "250,00 €",
-      date: "2024-01-15",
-      method: "Virement bancaire",
-      reference: "REF-001",
-      status: "Payé",
-    },
-    {
-      id: 2,
-      shipper: "Sarah Ahmed",
-      amount: "180,00 €",
-      date: "2024-01-14",
-      method: "Espèces",
-      reference: "REF-002",
-      status: "Payé",
-    },
-    {
-      id: 3,
-      shipper: "Mohamed Ali",
-      amount: "320,00 €",
-      date: "2024-01-13",
-      method: "Chèque",
-      reference: "REF-003",
-      status: "En attente",
-    },
-    // Added payment for Pierre Dubois
-    {
-      id: 4,
-      shipper: "Pierre Dubois",
-      amount: "400,00 €",
-      date: "2024-01-20",
-      method: "Virement bancaire",
-      reference: "REF-004",
-      status: "Payé",
-    },
-  ];
+  // Add refresh function that can be called from parent
+  const refreshShippers = async () => {
+    try {
+      setLoading(true);
+      const data = await apiService.getShippersByCommercial(commercial.id);
+      console.log('Refreshed shippers for commercial:', data);
+      setExpediteursData(data || []);
+      
+      // Show success notification for manual refresh
+      const notification = document.createElement('div');
+      notification.className = 'fixed top-4 right-4 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+      notification.textContent = 'Liste des expéditeurs actualisée avec succès';
+      document.body.appendChild(notification);
+      setTimeout(() => {
+        document.body.removeChild(notification);
+      }, 3000);
+    } catch (error) {
+      console.error('Error refreshing shippers for commercial:', error);
+      
+      // Show error notification
+      const notification = document.createElement('div');
+      notification.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+      notification.textContent = 'Erreur lors de l\'actualisation';
+      document.body.appendChild(notification);
+      setTimeout(() => {
+        document.body.removeChild(notification);
+      }, 3000);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Listen for custom events to refresh data
+  useEffect(() => {
+    const handleShipperUpdate = (event) => {
+      console.log('Shipper update event received:', event.detail);
+      refreshShippers();
+      // Show a brief notification
+      const notification = document.createElement('div');
+      notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+      notification.textContent = 'Liste des expéditeurs actualisée automatiquement';
+      document.body.appendChild(notification);
+      setTimeout(() => {
+        document.body.removeChild(notification);
+      }, 3000);
+    };
+
+    window.addEventListener('shipper-updated', handleShipperUpdate);
+    return () => {
+      window.removeEventListener('shipper-updated', handleShipperUpdate);
+    };
+  }, [commercial.id]);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedExpediteur, setSelectedExpediteur] = useState(null);
@@ -140,6 +99,8 @@ const CommercialDashboard = ({ commercial, expediteurs, onViewExpediteur }) => {
     successRate: ""
   });
   const detailRef = useRef();
+  const [shipperDetails, setShipperDetails] = useState(null);
+  const [loadingDetails, setLoadingDetails] = useState(false);
 
   // Filter expediteurs based on search and advanced filters
   const filteredExpediteurs = expediteursData.filter(expediteur => {
@@ -149,139 +110,78 @@ const CommercialDashboard = ({ commercial, expediteurs, onViewExpediteur }) => {
       );
 
     const matchesStatus = advancedFilters.status === "" || expediteur.status === advancedFilters.status;
-    const matchesMinRevenue = advancedFilters.minRevenue === "" || expediteur.totalRevenue >= parseFloat(advancedFilters.minRevenue);
-    const matchesMaxRevenue = advancedFilters.maxRevenue === "" || expediteur.totalRevenue <= parseFloat(advancedFilters.maxRevenue);
+    const matchesMinRevenue = advancedFilters.minRevenue === "" || expediteur.delivery_fees >= parseFloat(advancedFilters.minRevenue);
+    const matchesMaxRevenue = advancedFilters.maxRevenue === "" || expediteur.delivery_fees <= parseFloat(advancedFilters.maxRevenue);
 
-    const successRate = (expediteur.successfulShipments / expediteur.totalShipments) * 100;
+    const successRate = expediteur.total_parcels > 0 ? (expediteur.delivered_parcels / expediteur.total_parcels) * 100 : 0;
     const matchesSuccessRate = advancedFilters.successRate === "" || successRate >= parseFloat(advancedFilters.successRate);
 
     return matchesSearch && matchesStatus && matchesMinRevenue && matchesMaxRevenue && matchesSuccessRate;
   });
 
   const columns = [
-    { key: "id", header: "ID" },
-    { key: "name", header: "Nom" },
-    { key: "email", header: "Email" },
-    { key: "phone", header: "Téléphone" },
-    { key: "company", header: "Entreprise" },
-    { key: "totalShipments", header: "Total colis" },
-    { key: "successfulShipments", header: "Colis réussis" },
-    {
-      key: "successRate",
-      header: "Taux de réussite",
-      render: (_, row) => {
-        const rate = ((row.successfulShipments / row.totalShipments) * 100).toFixed(1);
-        return (
-          <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-            rate >= 90 ? "bg-green-100 text-green-800" :
-            rate >= 80 ? "bg-yellow-100 text-yellow-800" :
-            "bg-red-100 text-red-800"
-          }`}>
-            {rate}%
-          </span>
-        );
-      }
-    },
-    {
-      key: "totalRevenue",
-      header: "Chiffre d'affaires (€)",
-      render: (value) => (
-        <span className="font-semibold text-green-600">€{value.toFixed(2)}</span>
-      )
-    },
-    {
-      key: "status",
-      header: "Statut",
-      render: (value) => (
-        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-          value === "active" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
-        }`}>
-          {value === "active" ? "Actif" : "Inactif"}
-        </span>
-      )
-    },
-    {
-      key: "actions",
-      header: "Actions",
-      render: (_, row) => (
-        <div className="flex gap-2">
-          <button
-            onClick={() => setSelectedExpediteur(row)}
-            className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-50 transition-colors"
-            title="Voir les détails"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-            </svg>
-          </button>
-        </div>
-      ),
-    },
-  ];
-
-  const expediteursColumns = [
-    { key: "id", header: "CODE" },
+    { key: "code", header: "CODE" },
     { key: "name", header: "NOM" },
     { key: "email", header: "EMAIL" },
     { key: "phone", header: "TÉLÉPHONE" },
     { key: "company", header: "ENTREPRISE" },
-    { key: "totalShipments", header: "TOTAL COLIS" },
+    { key: "total_parcels", header: "TOTAL COLIS" },
+    { key: "delivered_parcels", header: "COLIS LIVRÉ" },
+    { key: "returned_parcels", header: "COLIS RETOURNÉ" },
     {
-      key: "colisLivres",
-      header: "COLIS LIVRÉ",
-      render: (_, row) => row.colis ? row.colis.filter(c => c.status === "Livés").length : 0
-    },
-    {
-      key: "colisRetournes",
-      header: "COLIS RETOURNÉ",
-      render: (_, row) => row.colis ? row.colis.filter(c => c.status === "Retour").length : 0
-    },
-    {
-      key: "fraisLivraison",
+      key: "delivery_fees",
       header: "FRAIS DE LIVRAISON",
-      render: (_, row) => {
-        const frais = row.colis ? row.colis.filter(c => c.status === "Livés").reduce((sum, c) => sum + (c.amount || 0), 0) : 0;
-        return `€${frais.toFixed(2)}`;
-      }
+      render: (value) => (
+        <span className="font-semibold text-green-600">€{parseFloat(value || 0).toFixed(2)}</span>
+      )
     },
     {
-      key: "fraisRetour",
+      key: "return_fees",
       header: "FRAIS DE RETOUR",
-      render: (_, row) => {
-        const frais = row.colis ? row.colis.filter(c => c.status === "Retour").reduce((sum, c) => sum + (c.amount || 0), 0) : 0;
-        return `€${frais.toFixed(2)}`;
-      }
+      render: (value) => (
+        <span className="font-semibold text-red-600">€{parseFloat(value || 0).toFixed(2)}</span>
+      )
     },
     {
       key: "status",
       header: "STATUT",
       render: (value) => (
-        <span className={`px-2 py-1 text-xs font-medium rounded-full ${value === "active" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}`}>{value === "active" ? "Actif" : "Inactif"}</span>
+        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+          value === "Actif" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
+        }`}>
+          {value}
+        </span>
       )
-    },
-    {
-      key: "actions",
-      header: "ACTIONS",
-      render: (_, row) => (
-        <div className="flex gap-2">
-          <button
-            onClick={() => setSelectedExpediteur(row)}
-            className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-50 transition-colors"
-            title="Voir les détails"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-            </svg>
-          </button>
-        </div>
-      ),
     },
   ];
 
-  const handleViewDetails = (expediteur) => {
-    setSelectedExpediteur(selectedExpediteur?.id === expediteur.id ? null : expediteur);
+
+
+  const handleViewDetails = async (expediteur) => {
+    try {
+      setLoadingDetails(true);
+      setSelectedExpediteur(expediteur);
+      
+      // Fetch detailed data for this shipper
+      const details = await apiService.getShipperDetails(expediteur.id);
+      setShipperDetails(details);
+    } catch (error) {
+      console.error('Error fetching shipper details:', error);
+      // Fallback to basic expediteur data
+      setShipperDetails({
+        shipper: expediteur,
+        payments: [],
+        parcels: [],
+        statistics: {
+          totalParcels: expediteur.total_parcels || 0,
+          deliveredParcels: expediteur.delivered_parcels || 0,
+          successRate: "0.0",
+          totalRevenue: "0.00"
+        }
+      });
+    } finally {
+      setLoadingDetails(false);
+    }
   };
 
   const handleCalculatePerformance = (expediteur) => {
@@ -306,7 +206,7 @@ const CommercialDashboard = ({ commercial, expediteurs, onViewExpediteur }) => {
       try {
         await html2pdf().set({
           margin: [0.3, 0.3, 0.3, 0.3],
-          filename: `Commercial_${commercialData.name}_Expediteur_${selectedExpediteur.name}.pdf`,
+          filename: `Commercial_${commercial.name}_Expediteur_${selectedExpediteur.name}.pdf`,
           html2canvas: {
             scale: 2,
             useCORS: true,
@@ -334,10 +234,21 @@ const CommercialDashboard = ({ commercial, expediteurs, onViewExpediteur }) => {
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-900">Gestion des expéditeurs</h1>
           <p className="text-gray-600 mt-1">Gestion des expéditeurs et analyse des performances</p>
-          <div className="mt-3">
+          <div className="mt-3 flex items-center justify-center gap-3">
             <span className="inline-block bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
-              Commercial ID: {commercialData.id}
+              Commercial ID: {commercial.id}
             </span>
+            <button
+              onClick={refreshShippers}
+              disabled={loading}
+              className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-full text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Actualiser la liste des expéditeurs"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              {loading ? "Actualisation..." : "Actualiser"}
+            </button>
           </div>
         </div>
 
@@ -351,19 +262,19 @@ const CommercialDashboard = ({ commercial, expediteurs, onViewExpediteur }) => {
               </svg>
             </div>
             <div className="text-center w-full">
-              <div className="text-lg font-bold text-gray-800 mb-1">{commercialData.name}</div>
-              <div className="inline-block text-xs font-semibold text-blue-700 bg-blue-100 rounded px-2 py-1 mb-2">Commercial ID: {commercialData.id}</div>
+              <div className="text-lg font-bold text-gray-800 mb-1">{commercial.name}</div>
+              <div className="inline-block text-xs font-semibold text-blue-700 bg-blue-100 rounded px-2 py-1 mb-2">Commercial ID: {commercial.id}</div>
               <div className="flex items-center justify-center text-sm text-gray-600 mb-1">
                 <svg className="w-4 h-4 mr-1 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
-                {commercialData.email}
+                {commercial.email}
               </div>
               <div className="flex items-center justify-center text-sm text-gray-600">
                 <svg className="w-4 h-4 mr-1 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                 </svg>
-                {commercialData.phone}
+                {commercial.phone}
               </div>
             </div>
           </div>
@@ -378,7 +289,7 @@ const CommercialDashboard = ({ commercial, expediteurs, onViewExpediteur }) => {
             <div className="text-center w-full">
               <div className="text-lg font-bold text-gray-800 mb-1">Expéditeurs</div>
               <div className="flex flex-col items-center justify-center text-3xl font-bold text-green-600 mb-2">
-                {commercialData.totalClients}
+                {commercial.clients_count || 0}
               </div>
               <div className="text-sm text-gray-600 bg-purple-50 px-3 py-1 rounded-full inline-block">Nombre d’expéditeurs</div>
             </div>
@@ -393,7 +304,7 @@ const CommercialDashboard = ({ commercial, expediteurs, onViewExpediteur }) => {
             </div>
             <div className="text-center w-full">
               <div className="text-lg font-bold text-gray-800 mb-1">TOTAL EXPÉDITIONS</div>
-              <div className="text-3xl font-bold text-orange-600 mb-2">{commercialData.totalParcels}</div>
+              <div className="text-3xl font-bold text-orange-600 mb-2">{commercial.shipments_received || 0}</div>
               <div className="text-sm text-gray-600 bg-orange-50 px-3 py-1 rounded-full inline-block">Expéditions au total</div>
             </div>
           </div>
@@ -407,7 +318,9 @@ const CommercialDashboard = ({ commercial, expediteurs, onViewExpediteur }) => {
             </div>
             <div className="text-center w-full">
               <div className="text-lg font-bold text-gray-800 mb-1">Expédition livrée</div>
-              <div className="text-3xl font-bold text-green-600 mb-2">{commercialData.successfulParcels}</div>
+              <div className="text-3xl font-bold text-green-600 mb-2">
+                {loading ? "..." : `${expediteursData.length > 0 ? "Calculé" : "N/A"}`}
+              </div>
               <div className="text-sm text-gray-600 bg-green-50 px-3 py-1 rounded-full inline-block">Livrées avec succès</div>
             </div>
           </div>
@@ -476,13 +389,20 @@ const CommercialDashboard = ({ commercial, expediteurs, onViewExpediteur }) => {
           <p className="text-gray-600">Gérez vos expéditeurs et suivez leurs performances</p>
         </div>
 
-        <DataTable
-          data={filteredExpediteurs}
-          columns={expediteursColumns}
-          searchTerm={searchTerm}
-          onSearchChange={setSearchTerm}
-          showActions={false} // This is already correctly set to false for the Expediteurs table
-        />
+        {loading ? (
+          <div className="animate-pulse p-8">
+            <div className="h-64 bg-gray-200 rounded"></div>
+          </div>
+        ) : (
+          <DataTable
+            data={filteredExpediteurs}
+            columns={columns}
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            onRowClick={(expediteur) => handleViewDetails(expediteur)}
+            showActions={true}
+          />
+        )}
       </div>
 
       {/* Expéditeur Details Modal */}
@@ -496,7 +416,9 @@ const CommercialDashboard = ({ commercial, expediteurs, onViewExpediteur }) => {
             <div className="flex justify-between items-center mb-6">
               <div>
                 <h2 className="text-2xl font-bold text-gray-900">Détails de l'expéditeur</h2>
-                <p className="text-gray-600">{selectedExpediteur.name} - {selectedExpediteur.company}</p>
+                <p className="text-gray-600">
+                  {shipperDetails?.shipper?.name || selectedExpediteur.name} - {shipperDetails?.shipper?.company_name || selectedExpediteur.company}
+                </p>
               </div>
               <div className="flex gap-2">
                 <button
@@ -518,20 +440,26 @@ const CommercialDashboard = ({ commercial, expediteurs, onViewExpediteur }) => {
             {/* Performance Summary */}
             <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-xl border border-blue-200 mb-6 text-center">
               <h3 className="text-xl font-bold text-gray-900 mb-4">Résumé des Performances</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-blue-600">€{selectedExpediteur.totalRevenue.toFixed(2)}</div>
-                  <div className="text-sm text-gray-600">Chiffre d'affaires total</div>
+              {loadingDetails ? (
+                <div className="flex justify-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                 </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-green-600">{selectedExpediteur.successfulShipments}</div>
-                  <div className="text-sm text-gray-600">Colis réussis</div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-blue-600">€{shipperDetails?.statistics?.totalRevenue || "0.00"}</div>
+                    <div className="text-sm text-gray-600">Chiffre d'affaires total</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-green-600">{shipperDetails?.statistics?.deliveredParcels || 0}</div>
+                    <div className="text-sm text-gray-600">Colis réussis</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-purple-600">{shipperDetails?.statistics?.successRate || "0.0"}%</div>
+                    <div className="text-sm text-gray-600">Taux de réussite</div>
+                  </div>
                 </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-purple-600">{((selectedExpediteur.successfulShipments / selectedExpediteur.totalShipments) * 100).toFixed(1)}%</div>
-                  <div className="text-sm text-gray-600">Taux de réussite</div>
-                </div>
-              </div>
+              )}
             </div>
 
             {/* Expéditeur Information */}
@@ -541,23 +469,23 @@ const CommercialDashboard = ({ commercial, expediteurs, onViewExpediteur }) => {
                 <div className="space-y-3">
                   <div className="flex justify-between">
                     <span className="font-medium">Nom:</span>
-                    <span>{selectedExpediteur.name}</span>
+                    <span>{shipperDetails?.shipper?.name || selectedExpediteur.name}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="font-medium">Email:</span>
-                    <span>{selectedExpediteur.email}</span>
+                    <span>{shipperDetails?.shipper?.email || selectedExpediteur.email}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="font-medium">Téléphone:</span>
-                    <span>{selectedExpediteur.phone}</span>
+                    <span>{shipperDetails?.shipper?.phone || selectedExpediteur.phone}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="font-medium">Entreprise:</span>
-                    <span>{selectedExpediteur.company}</span>
+                    <span>{shipperDetails?.shipper?.company_name || selectedExpediteur.company}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="font-medium">SIRET:</span>
-                    <span>{selectedExpediteur.siret}</span>
+                    <span>{shipperDetails?.shipper?.tax_number || "N/A"}</span>
                   </div>
                 </div>
               </div>
@@ -567,23 +495,23 @@ const CommercialDashboard = ({ commercial, expediteurs, onViewExpediteur }) => {
                 <div className="space-y-3">
                   <div className="flex justify-between">
                     <span className="font-medium">Total colis:</span>
-                    <span>{selectedExpediteur.totalShipments}</span>
+                    <span>{shipperDetails?.statistics?.totalParcels || 0}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="font-medium">Colis réussis:</span>
-                    <span className="text-green-600">{selectedExpediteur.successfulShipments}</span>
+                    <span className="text-green-600">{shipperDetails?.statistics?.deliveredParcels || 0}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="font-medium">Taux de réussite:</span>
-                    <span className="text-blue-600">{((selectedExpediteur.successfulShipments / selectedExpediteur.totalShipments) * 100).toFixed(1)}%</span>
+                    <span className="text-blue-600">{shipperDetails?.statistics?.successRate || "0.0"}%</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="font-medium">Chiffre d'affaires:</span>
-                    <span className="text-green-600 font-semibold">€{selectedExpediteur.totalRevenue.toFixed(2)}</span>
+                    <span className="text-green-600 font-semibold">€{shipperDetails?.statistics?.totalRevenue || "0.00"}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="font-medium">Date d'inscription:</span>
-                    <span>{selectedExpediteur.registrationDate}</span>
+                    <span>{shipperDetails?.shipper?.created_at ? new Date(shipperDetails.shipper.created_at).toLocaleDateString() : "N/A"}</span>
                   </div>
                 </div>
               </div>
@@ -604,17 +532,23 @@ const CommercialDashboard = ({ commercial, expediteurs, onViewExpediteur }) => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {payments.filter(p => p.shipper === selectedExpediteur.name).length === 0 ? (
+                    {shipperDetails?.payments?.length === 0 ? (
                       <tr><td colSpan={5} className="text-center py-4 text-gray-400">Aucun paiement trouvé pour cet expéditeur.</td></tr>
                     ) : (
-                      payments.filter(p => p.shipper === selectedExpediteur.name).map(payment => (
+                      shipperDetails?.payments?.map(payment => (
                         <tr key={payment.id}>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{payment.date}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-green-700 font-semibold">{payment.amount}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{payment.method}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{payment.reference}</td>
+                                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                             {payment.date ? new Date(payment.date).toLocaleDateString() : "N/A"}
+                           </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-green-700 font-semibold">
+                            €{parseFloat(payment.amount || 0).toFixed(2)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{payment.payment_method || "N/A"}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{payment.reference || "N/A"}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm">
-                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${payment.status === "Payé" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}`}>{payment.status}</span>
+                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${payment.status === "paid" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}`}>
+                              {payment.status === "paid" ? "Payé" : "En attente"}
+                            </span>
                           </td>
                         </tr>
                       ))
@@ -634,26 +568,34 @@ const CommercialDashboard = ({ commercial, expediteurs, onViewExpediteur }) => {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Montant</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Poids (kg)</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {selectedExpediteur.colis.map((colis) => (
-                      <tr key={colis.id}>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{colis.id}</td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                            colis.status === "Livés" ? "bg-green-100 text-green-800" :
-                            colis.status === "En cours" ? "bg-blue-100 text-blue-800" :
-                            "bg-yellow-100 text-yellow-800"
-                          }`}>
-                            {colis.status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{colis.date}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">€{colis.amount.toFixed(2)}</td>
-                      </tr>
-                    ))}
+                    {shipperDetails?.parcels?.length === 0 ? (
+                      <tr><td colSpan={4} className="text-center py-4 text-gray-400">Aucun colis trouvé pour cet expéditeur.</td></tr>
+                    ) : (
+                      shipperDetails?.parcels?.map((colis) => (
+                        <tr key={colis.id}>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{colis.tracking_number || colis.id}</td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                              colis.status === "delivered" ? "bg-green-100 text-green-800" :
+                              colis.status === "in_transit" ? "bg-blue-100 text-blue-800" :
+                              "bg-yellow-100 text-yellow-800"
+                            }`}>
+                              {colis.status === "delivered" ? "Livés" :
+                               colis.status === "in_transit" ? "En cours" :
+                               colis.status === "pending" ? "En attente" : colis.status}
+                            </span>
+                          </td>
+                                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                             {colis.created_date ? new Date(colis.created_date).toLocaleDateString() : "N/A"}
+                           </td>
+                                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{parseFloat(colis.weight || 0).toFixed(2)} kg</td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -669,7 +611,9 @@ const CommercialDashboard = ({ commercial, expediteurs, onViewExpediteur }) => {
 const Commercial = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCommercial, setSelectedCommercial] = useState(null); // To manage details modal for commercials
+  const [selectedCommercial, setSelectedCommercial] = useState(null);
+  const [loading, setLoading] = useState(true);
+  
   // List of Tunisian governorates
   const gouvernorats = [
     "Ariana", "Béja", "Ben Arous", "Bizerte", "Gabès", "Gafsa", "Jendouba", 
@@ -678,106 +622,113 @@ const Commercial = () => {
     "Tozeur", "Tunis", "Zaghouan"
   ];
 
-  const [commercials, setCommercials] = useState([
-    {
-      id: "COM001",
-      name: "Jean Dupont",
-      email: "jean.dupont@quickzone.tn",
-      phone: "+216 71 234 567",
-      address: "55",
-      title: "Commercial",
-      gouvernorat: "Tunis",
-      totalClients: 12,
-      expeditionsRecues: 156,
-      totalSales: 2840.50,
-      monthlyTarget: 3000.00,
-      successfulParcels: 142,
-      successRate: 91.0,
-      performanceScore: 85.5,
-      expediteurs: [],
-    },
-    {
-      id: "COM002",
-      name: "Alice Smith",
-      email: "alice.smith@quickzone.tn",
-      phone: "+216 98 765 432",
-      address: "123",
-      title: "Senior Commercial",
-      gouvernorat: "Sousse",
-      totalClients: 20,
-      expeditionsRecues: 250,
-      totalSales: 4200.00,
-      monthlyTarget: 4000.00,
-      successfulParcels: 235,
-      successRate: 94.0,
-      performanceScore: 92.5,
-      expediteurs: [],
-    },
-    {
-      id: "COM003",
-      name: "Mohamed Ben Ali",
-      email: "mohamed.benali@quickzone.tn",
-      phone: "+216 95 123 456",
-      address: "78",
-      title: "Commercial",
-      gouvernorat: "Sfax",
-      totalClients: 8,
-      expeditionsRecues: 89,
-      totalSales: 1200.00,
-      monthlyTarget: 2000.00,
-      successfulParcels: 78,
-      successRate: 87.6,
-      performanceScore: 72.0,
-      expediteurs: [],
-    },
-  ]);
-
+  const [commercials, setCommercials] = useState([]);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editCommercial, setEditCommercial] = useState(null);
+  const [formData, setFormData] = useState({
+    id: "",
+    name: "",
+    email: "",
+    phone: "",
+    address: "",
+    title: "Commercial",
+    governorate: "Tunis",
+    clients_count: 0,
+    shipments_received: 0
+  });
+
+  // Fetch commercials from backend
+  useEffect(() => {
+    const fetchCommercials = async () => {
+      try {
+        const data = await apiService.getCommercials();
+        console.log('Commercials data:', data);
+        setCommercials(data || []);
+      } catch (error) {
+        console.error('Error fetching commercials:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCommercials();
+  }, []);
 
   // Add Commercial handler
   const handleAddCommercial = () => {
-    setEditCommercial({
-      id: '',
-      name: '',
-      email: '',
-      phone: '',
-      address: '',
-      title: 'Commercial',
-      gouvernorat: 'Tunis',
-      totalClients: 0,
-      expeditionsRecues: 0,
-      totalSales: 0,
-      monthlyTarget: 0,
-      successfulParcels: 0,
-      successRate: 0,
-      performanceScore: 0,
-      expediteurs: [],
+    setEditCommercial(null);
+    setFormData({
+      id: "",
+      name: "",
+      email: "",
+      phone: "",
+      address: "",
+      title: "Commercial",
+      governorate: "Tunis",
+      clients_count: 0,
+      shipments_received: 0
     });
     setShowEditModal(true);
   };
 
   // Edit Commercial handler
   const handleEditCommercial = (commercial) => {
-    setEditCommercial({ ...commercial });
+    setEditCommercial(commercial);
+    setFormData(commercial);
     setShowEditModal(true);
   };
 
-  // Save Commercial handler
-  const handleSaveCommercial = (e) => {
-    e.preventDefault();
-    if (editCommercial.id) {
-      // Edit existing
-      setCommercials(commercials.map(c => c.id === editCommercial.id ? editCommercial : c));
-    } else {
-      // Add new
-      setCommercials([
-        ...commercials,
-        { ...editCommercial, id: `COM${commercials.length + 1}` }
-      ]);
+  // Delete Commercial handler
+  const handleDeleteCommercial = async (commercial) => {
+    if (window.confirm("Êtes-vous sûr de vouloir supprimer ce commercial ?")) {
+      try {
+        const result = await apiService.deleteCommercial(commercial.id);
+        if (result && result.success) {
+          setCommercials(commercials.filter((c) => c.id !== commercial.id));
+        }
+      } catch (error) {
+        console.error('Error deleting commercial:', error);
+        const errorMessage = error.message || 'Error deleting commercial. Please try again.';
+        alert(errorMessage);
+      }
     }
-    setShowEditModal(false);
-    setEditCommercial(null);
+  };
+
+  // Save Commercial handler
+  const handleSaveCommercial = async (e) => {
+    e.preventDefault();
+    try {
+      if (editCommercial) {
+        // Update existing commercial
+        const result = await apiService.updateCommercial(editCommercial.id, formData);
+        if (result && result.success) {
+          setCommercials(
+            commercials.map((commercial) =>
+              commercial.id === editCommercial.id ? result.data : commercial
+            )
+          );
+        }
+      } else {
+        // Create new commercial
+        const result = await apiService.createCommercial(formData);
+        if (result && result.success) {
+          setCommercials([...commercials, result.data]);
+        }
+      }
+      setShowEditModal(false);
+    } catch (error) {
+      console.error('Error saving commercial:', error);
+      const errorMessage = error.message || 'Error saving commercial. Please try again.';
+      alert(errorMessage);
+    }
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
   };
 
   const filteredCommercials = commercials.filter(commercial =>
@@ -792,20 +743,20 @@ const Commercial = () => {
     { key: "name", header: "NOM" },
     { key: "email", header: "EMAIL" },
     { key: "phone", header: "TÉLÉPHONE" },
-    { key: "gouvernorat", header: "GOUVERNORAT" },
+    { key: "governorate", header: "GOUVERNORAT" },
     { key: "address", header: "ADRESSE" },
     { key: "title", header: "TITRE" },
-    { key: "totalClients", header: "CLIENTS" },
-    { key: "expeditionsRecues", header: "EXPÉDITIONS REÇUES" },
+    { key: "clients_count", header: "CLIENTS" },
+    { key: "shipments_received", header: "EXPÉDITIONS REÇUES" },
     {
       key: "actions",
       header: "ACTIONS",
       render: (_, row) => (
         <div className="flex gap-2">
           <button
-            onClick={() => setSelectedCommercial(row)}
+            onClick={(e) => { e.stopPropagation(); setSelectedCommercial(row); }}
             className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-50 transition-colors"
-            title="Voir le tableau de bord"
+            title="Voir les expéditeurs"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -813,7 +764,7 @@ const Commercial = () => {
             </svg>
           </button>
           <button
-            onClick={() => handleEditCommercial(row)}
+            onClick={(e) => { e.stopPropagation(); handleEditCommercial(row); }}
             className="text-green-600 hover:text-green-800 p-1 rounded-full hover:bg-green-50 transition-colors"
             title="Modifier"
           >
@@ -822,7 +773,7 @@ const Commercial = () => {
             </svg>
           </button>
           <button
-            // onClick={() => handleDelete(row)}
+            onClick={(e) => { e.stopPropagation(); handleDeleteCommercial(row); }}
             className="text-red-600 hover:text-red-800 p-1 rounded-full hover:bg-red-50 transition-colors"
             title="Supprimer"
           >
@@ -836,73 +787,155 @@ const Commercial = () => {
   ];
 
   return (
-    <div className="p-6 bg-gray-100 min-h-screen">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-800">Gestion Commerciaux</h1>
+    <div className="space-y-6">
+      {/* Header harmonisé */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Gestion Commerciaux</h1>
+          <p className="text-gray-600 mt-1">Gérez les commerciaux et leurs performances</p>
+        </div>
         <button
           onClick={handleAddCommercial}
-          className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
         >
           Ajouter Commercial
         </button>
       </div>
-      <div className="bg-white rounded-lg shadow-sm border">
+
+      {/* Tableau des commerciaux */}
+      {loading ? (
+        <div className="animate-pulse">
+          <div className="h-64 bg-gray-200 rounded"></div>
+        </div>
+      ) : (
         <DataTable
-          data={filteredCommercials}
+          data={commercials}
           columns={commercialColumns}
+          onEdit={handleEditCommercial}
+          onDelete={handleDeleteCommercial}
+          onRowClick={(commercial) => setSelectedCommercial(commercial)}
           searchTerm={searchTerm}
           onSearchChange={setSearchTerm}
           showActions={false}
         />
-      </div>
-      {/* Modal for Add/Edit Commercial */}
-      {showEditModal && (
-        <Modal isOpen={showEditModal} onClose={() => setShowEditModal(false)} size="md">
-          <form onSubmit={handleSaveCommercial} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-left">ID</label>
-                <input type="text" className="border rounded px-2 py-1 w-full bg-gray-100" value={editCommercial.id || ''} readOnly disabled />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-left">Nom</label>
-                <input type="text" className="border rounded px-2 py-1 w-full" value={editCommercial.name || ''} onChange={e => setEditCommercial({ ...editCommercial, name: e.target.value })} required />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-left">Email</label>
-                <input type="email" className="border rounded px-2 py-1 w-full" value={editCommercial.email || ''} onChange={e => setEditCommercial({ ...editCommercial, email: e.target.value })} required />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-left">Téléphone</label>
-                <input type="text" className="border rounded px-2 py-1 w-full" value={editCommercial.phone || ''} onChange={e => setEditCommercial({ ...editCommercial, phone: e.target.value })} required />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-left">Gouvernorat</label>
-                <select className="border rounded px-2 py-1 w-full" value={editCommercial.gouvernorat || 'Tunis'} onChange={e => setEditCommercial({ ...editCommercial, gouvernorat: e.target.value })} required>
-                  {gouvernorats.map(gov => (
-                    <option key={gov} value={gov}>{gov}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-left">Adresse</label>
-                <input type="text" className="border rounded px-2 py-1 w-full" value={editCommercial.address || ''} onChange={e => setEditCommercial({ ...editCommercial, address: e.target.value })} required />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-left">Titre</label>
-                <select className="border rounded px-2 py-1 w-full" value={editCommercial.title || 'Commercial'} onChange={e => setEditCommercial({ ...editCommercial, title: e.target.value })} required>
-                  <option value="Commercial">Commercial</option>
-                  <option value="Senior Commercial">Senior Commercial</option>
-                </select>
-              </div>
-            </div>
-            <div className="flex justify-end space-x-2 mt-4">
-              <button type="button" className="px-4 py-2 bg-gray-200 rounded" onClick={() => setShowEditModal(false)}>Annuler</button>
-              <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded">Enregistrer</button>
-            </div>
-          </form>
-        </Modal>
       )}
+      {/* Modal d'ajout/édition */}
+      <Modal
+        isOpen={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        title={editCommercial ? "Modifier Commercial" : "Ajouter Commercial"}
+        size="md"
+      >
+        <form onSubmit={e => { e.preventDefault(); handleSaveCommercial(e); }}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1 text-left">
+                ID
+              </label>
+              <input
+                type="text"
+                name="id"
+                value={formData.id}
+                disabled
+                readOnly
+                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1 text-left">
+                Nom
+              </label>
+              <input
+                type="text"
+                name="name"
+                value={formData.name}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1 text-left">
+                Email
+              </label>
+              <input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1 text-left">
+                Téléphone
+              </label>
+              <input
+                type="tel"
+                name="phone"
+                value={formData.phone}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1 text-left">
+                Gouvernorat
+              </label>
+              <select
+                name="governorate"
+                value={formData.governorate}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+              >
+                {gouvernorats.map(gov => (
+                  <option key={gov} value={gov}>{gov}</option>
+                ))}
+              </select>
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1 text-left">
+                Adresse
+              </label>
+              <input
+                type="text"
+                name="address"
+                value={formData.address}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1 text-left">
+                Titre
+              </label>
+              <select
+                name="title"
+                value={formData.title}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="Commercial">Commercial</option>
+                <option value="Senior Commercial">Senior Commercial</option>
+              </select>
+            </div>
+          </div>
+          <div className="flex justify-end space-x-3 space-x-reverse pt-4">
+            <button
+              type="button"
+              onClick={() => setShowEditModal(false)}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
+            >
+              Annuler
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md"
+            >
+              {editCommercial ? "Mettre à jour" : "Ajouter"}
+            </button>
+          </div>
+        </form>
+      </Modal>
       {/* Modal for Commercial Dashboard */}
       {selectedCommercial && (
         <Modal
@@ -912,7 +945,6 @@ const Commercial = () => {
         >
           <CommercialDashboard
             commercial={selectedCommercial}
-            expediteurs={selectedCommercial.expediteurs}
             onViewExpediteur={() => {}}
           />
         </Modal>

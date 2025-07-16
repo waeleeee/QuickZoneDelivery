@@ -1,8 +1,9 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import DataTable from "./common/DataTable";
 import Modal from "./common/Modal";
 import html2pdf from "html2pdf.js";
+import { apiService } from "../../services/api";
 
 const mockDrivers = [
   { id: 1, name: "Pierre Dubois", phone: "+33 1 23 45 67 89" },
@@ -22,162 +23,24 @@ const Expediteur = () => {
   // Check if user is Commercial (read-only access)
   const isCommercialUser = currentUser?.role === 'Commercial';
 
-  const [shippers, setShippers] = useState([
-    {
-      id: 1,
-      name: "Pierre Dubois",
-      email: "pierre.dubois@email.com",
-      phone: "+33 1 23 45 67 89",
-      address: "12 rue de Paris, 75001 Paris",
-      totalShipments: 45,
-      successfulShipments: 42,
-      registrationDate: "2023-01-15",
-      lastActivity: "2024-01-20",
-      company: "Dubois Logistics",
-      siret: "12345678901234",
-      website: "www.dubois-logistics.fr",
-      contactPerson: "Marie Dubois",
-      contactPhone: "+33 1 23 45 67 90",
-      bankInfo: {
-        bank: "Crédit Agricole",
-        iban: "FR76 1234 5678 9012 3456 7890 123",
-        bic: "AGRIFRPP123"
-      },
-      colis: [
-        { id: "COL001", status: "Livés", date: "2024-01-18", amount: 25.50, destination: "Paris", weight: "2.5kg", type: "Standard" },
-        { id: "COL002", status: "En cours", date: "2024-01-19", amount: 18.75, destination: "Lyon", weight: "1.8kg", type: "Express" },
-                  { id: "COL003", status: "Livés", date: "2024-01-17", amount: 32.00, destination: "Marseille", weight: "3.2kg", type: "Standard" },
-        { id: "COL004", status: "En attente", date: "2024-01-20", amount: 15.25, destination: "Toulouse", weight: "1.5kg", type: "Standard" },
-                  { id: "COL005", status: "Livés", date: "2024-01-16", amount: 28.90, destination: "Nice", weight: "2.8kg", type: "Express" },
-      ],
-      payments: [
-        { id: "PAY001", amount: 150.25, date: "2024-01-15", status: "Payé", method: "Carte bancaire", reference: "REF001" },
-        { id: "PAY002", amount: 89.50, date: "2024-01-10", status: "En attente", method: "Virement", reference: "REF002" },
-        { id: "PAY003", amount: 210.75, date: "2024-01-05", status: "Payé", method: "Chèque", reference: "REF003" },
-      ],
-      statistics: {
-        totalRevenue: 2840.50,
-        averagePerShipment: 63.12,
-        onTimeDelivery: 92,
-        customerRating: 4.8,
-      },
-      defaultLivreurId: 1,
-      code: "EXP001",
-      gouvernorat: "Tunis",
-      identityNumber: "123456789012345",
-      passportNumber: "A12345678",
-      fiscalNumber: "12345678901234",
-      agence: "Tunis Sud",
-      commercial: "Ahmed Ben Ali",
-      deliveryFee: 15.00,
-      returnFee: 10.00,
-      documents: ["Facture", "Bon de livraison"],
-      returnedShipments: 5,
-      status: "Actif",
-    },
-    {
-      id: 2,
-      name: "Sarah Ahmed",
-      email: "sarah.ahmed@email.com",
-      phone: "+33 1 98 76 54 32",
-      address: "8 avenue de Lyon, 69001 Lyon",
-      totalShipments: 32,
-      successfulShipments: 29,
-      registrationDate: "2023-03-20",
-      lastActivity: "2024-01-19",
-      company: "Ahmed Trading",
-      siret: "98765432109876",
-      website: "www.ahmed-trading.fr",
-      contactPerson: "Ahmed Ben Ali",
-      contactPhone: "+33 1 98 76 54 33",
-      bankInfo: {
-        bank: "BNP Paribas",
-        iban: "FR76 9876 5432 1098 7654 3210 987",
-        bic: "BNPAFRPP987"
-      },
-      colis: [
-        { id: "COL006", status: "Livés", date: "2024-01-19", amount: 22.00, destination: "Paris", weight: "2.1kg", type: "Standard" },
-        { id: "COL007", status: "En cours", date: "2024-01-20", amount: 19.50, destination: "Lyon", weight: "1.9kg", type: "Express" },
-                  { id: "COL008", status: "Livés", date: "2024-01-18", amount: 35.75, destination: "Marseille", weight: "3.5kg", type: "Standard" },
-      ],
-      payments: [
-        { id: "PAY004", amount: 95.25, date: "2024-01-12", status: "Payé", method: "Carte bancaire", reference: "REF004" },
-        { id: "PAY005", amount: 67.00, date: "2024-01-08", status: "Payé", method: "Espèces", reference: "REF005" },
-      ],
-      statistics: {
-        totalRevenue: 1850.25,
-        averagePerShipment: 57.82,
-        onTimeDelivery: 88,
-        customerRating: 4.6,
-      },
-      defaultLivreurId: 2,
-      code: "EXP002",
-      gouvernorat: "Tunis",
-      identityNumber: "987654321098765",
-      passportNumber: "B87654321",
-      fiscalNumber: "98765432109876",
-      agence: "Tunis Nord",
-      commercial: "Fatima Ali",
-      deliveryFee: 12.00,
-      returnFee: 8.00,
-      documents: ["Facture", "Bon de livraison"],
-      returnedShipments: 3,
-      status: "Actif",
-    },
-    {
-      id: 3,
-      name: "Mohamed Ali",
-      email: "mohamed.ali@email.com",
-      phone: "+33 1 11 22 33 44",
-      address: "5 rue Principale, 13001 Marseille",
-      totalShipments: 28,
-      successfulShipments: 24,
-      registrationDate: "2022-11-10",
-      lastActivity: "2023-12-15",
-      company: "Ali Import Export",
-      siret: "11223344556677",
-      website: "www.ali-import-export.fr",
-      contactPerson: "Fatima Ali",
-      contactPhone: "+33 1 11 22 33 45",
-      bankInfo: {
-        bank: "Société Générale",
-        iban: "FR76 1122 3344 5566 7788 9900 112",
-        bic: "SOGEFRPP112"
-      },
-      colis: [
-        { id: "COL009", status: "Livés", date: "2023-12-10", amount: 45.00, destination: "Paris", weight: "4.5kg", type: "Standard" },
-        { id: "COL010", status: "Retour", date: "2023-12-12", amount: 0.00, destination: "Lyon", weight: "2.0kg", type: "Standard" },
-      ],
-      payments: [
-        { id: "PAY006", amount: 120.00, date: "2023-12-05", status: "Payé", method: "Virement", reference: "REF006" },
-        { id: "PAY007", amount: 45.00, date: "2023-12-08", status: "Remboursé", method: "Virement", reference: "REF007" },
-      ],
-      statistics: {
-        totalRevenue: 1250.00,
-        averagePerShipment: 44.64,
-        onTimeDelivery: 85,
-        customerRating: 4.2,
-      },
-      defaultLivreurId: 3,
-      code: "EXP003",
-      gouvernorat: "Tunis",
-      identityNumber: "112233445566778",
-      passportNumber: "C76543210",
-      fiscalNumber: "11223344556677",
-      agence: "Tunis Est",
-      commercial: "Marie Dubois",
-      deliveryFee: 18.00,
-      returnFee: 12.00,
-      documents: ["Facture", "Bon de livraison"],
-      returnedShipments: 2,
-      status: "Inactif",
-    },
-  ]);
+  const [shippers, setShippers] = useState([]);
+  const [commercials, setCommercials] = useState([]);
+  const [agencies, setAgencies] = useState([]);
+  const [loading, setLoading] = useState(true);
 
+  // Governorates data
+  const governorates = [
+    "Tunis", "Ariana", "Ben Arous", "Manouba", "Nabeul", "Zaghouan", 
+    "Bizerte", "Béja", "Jendouba", "Kef", "Siliana", "Sousse", 
+    "Monastir", "Mahdia", "Sfax", "Kairouan", "Kasserine", "Sidi Bouzid", 
+    "Gabès", "Medenine", "Tataouine", "Gafsa", "Tozeur", "Kebili"
+  ];
   const [searchTerm, setSearchTerm] = useState("");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingShipper, setEditingShipper] = useState(null);
   const [selectedShipper, setSelectedShipper] = useState(null);
+  const [shipperDetails, setShipperDetails] = useState(null);
+  const [loadingDetails, setLoadingDetails] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [advancedFilters, setAdvancedFilters] = useState({
@@ -198,6 +61,37 @@ const Expediteur = () => {
   const [isColisModalOpen, setIsColisModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [editingColis, setEditingColis] = useState(null);
+
+  // Fetch shippers, commercials, and agencies data from backend
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        
+        // Fetch shippers
+        const shippersData = await apiService.getShippers();
+        console.log('Shippers data:', shippersData);
+        setShippers(shippersData || []);
+        
+        // Fetch commercials for dropdown
+        const commercialsData = await apiService.getCommercials();
+        console.log('Commercials data:', commercialsData);
+        setCommercials(commercialsData || []);
+        
+        // Fetch agencies for dropdown
+        const agenciesData = await apiService.getAgencies();
+        console.log('Agencies data:', agenciesData);
+        setAgencies(agenciesData || []);
+        
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
   const [editingPayment, setEditingPayment] = useState(null);
   const [colisFormData, setColisFormData] = useState({
     destination: "",
@@ -214,23 +108,33 @@ const Expediteur = () => {
   });
   
   const [formData, setFormData] = useState({
+    // Form type selection
+    formType: "individual", // "individual" or "company"
+    
+    // Common fields
+    code: "",
+    password: "",
     name: "",
     email: "",
     phone: "",
+    governorate: "",
     address: "",
-    company: "",
-    siret: "",
-    defaultLivreurId: "",
-    code: "",
-    gouvernorat: "Tunis",
-    identityNumber: "",
-    passportNumber: "",
-    fiscalNumber: "",
-    agence: "",
-    commercial: "",
-    deliveryFee: 0,
-    returnFee: 0,
-    documents: [],
+    agency_id: "",
+    commercial_id: "",
+    delivery_fees: 0,
+    return_fees: 0,
+    status: "Actif",
+    
+    // Individual fields
+    identity_number: "",
+    id_document: null,
+    
+    // Company fields
+    company_name: "",
+    fiscal_number: "",
+    company_address: "",
+    company_governorate: "",
+    company_documents: null,
   });
 
   const columns = [
@@ -239,12 +143,30 @@ const Expediteur = () => {
     { key: "email", header: "Email" },
     { key: "phone", header: "Téléphone" },
     { key: "company", header: "Entreprise" },
-    { key: "totalShipments", header: "Total colis" },
-    { key: "successfulShipments", header: "Colis livrés" },
-    { key: "returnedShipments", header: "Colis retournés" },
-    { key: "deliveryFee", header: "Frais de livraison" },
-    { key: "returnFee", header: "Frais de retour" },
-    { key: "status", header: "Statut" },
+    { key: "total_parcels", header: "Total colis" },
+    { key: "delivered_parcels", header: "Colis livrés" },
+    { key: "returned_parcels", header: "Colis retournés" },
+    { 
+      key: "delivery_fees", 
+      header: "Frais de livraison",
+      render: (value) => `€${parseFloat(value || 0).toFixed(2)}`
+    },
+    { 
+      key: "return_fees", 
+      header: "Frais de retour",
+      render: (value) => `€${parseFloat(value || 0).toFixed(2)}`
+    },
+    { 
+      key: "status", 
+      header: "Statut",
+      render: (value) => (
+        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+          value === "Actif" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
+        }`}>
+          {value === "Actif" ? "Actif" : "Inactif"}
+        </span>
+      )
+    },
     {
       key: "actions",
       header: "Actions",
@@ -280,6 +202,15 @@ const Expediteur = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                 </svg>
               </button>
+              <button
+                onClick={() => handleDeleteAllPayments(row)}
+                className="text-orange-600 hover:text-orange-800 p-1 rounded-full hover:bg-orange-50 transition-colors"
+                title="Supprimer tous les paiements"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                </svg>
+              </button>
             </>
           )}
         </div>
@@ -287,146 +218,320 @@ const Expediteur = () => {
     },
   ];
 
-  const handleViewDetails = (shipper) => {
-    if (selectedShipper?.id === shipper.id) {
-      setSelectedShipper(null);
-      // Clear search terms when closing details
-      setColisSearchTerm("");
-      setPaymentSearchTerm("");
-    } else {
+  const handleViewDetails = async (shipper) => {
+    try {
+      setLoadingDetails(true);
       setSelectedShipper(shipper);
-      // Clear search terms when opening new details
-      setColisSearchTerm("");
-      setPaymentSearchTerm("");
+      
+      // Fetch detailed data for this shipper
+      const details = await apiService.getShipperDetails(shipper.id);
+      setShipperDetails(details);
+    } catch (error) {
+      console.error('Error fetching shipper details:', error);
+      // Fallback to basic shipper data
+      setShipperDetails({
+        shipper: shipper,
+        payments: [],
+        parcels: [],
+        statistics: {
+          totalParcels: shipper.total_parcels || 0,
+          deliveredParcels: shipper.delivered_parcels || 0,
+          successRate: "0.0",
+          totalRevenue: "0.00"
+        }
+      });
+    } finally {
+      setLoadingDetails(false);
     }
   };
 
   const handleAdd = () => {
     setEditingShipper(null);
     setFormData({
+      formType: "individual",
+      code: "",
+      password: "",
       name: "",
       email: "",
       phone: "",
-      address: "",
-      company: "",
-      siret: "",
-      defaultLivreurId: "",
-      code: "",
-      gouvernorat: "Tunis",
-      identityNumber: "",
-      passportNumber: "",
-      fiscalNumber: "",
-      agence: "",
-      commercial: "",
-      deliveryFee: 0,
-      returnFee: 0,
-      documents: [],
+      agency: "",
+      commercial_id: "",
+      delivery_fees: 0,
+      return_fees: 0,
+      status: "Actif",
+      identity_number: "",
+      id_document: null,
+      company_name: "",
+      fiscal_number: "",
+      company_address: "",
+      company_governorate: "",
+      company_documents: null,
     });
     setIsAddModalOpen(true);
   };
 
   const handleEdit = (shipper) => {
     setEditingShipper(shipper);
+    
+    // Determine form type based on shipper data (check both old and new field names)
+    const hasCompanyInfo = shipper.company_name || shipper.company || shipper.fiscal_number || shipper.company_address;
+    const formType = hasCompanyInfo ? "company" : "individual";
+    
     setFormData({
-      name: shipper.name,
-      email: shipper.email,
-      phone: shipper.phone,
-      address: shipper.address,
-      company: shipper.company,
-      siret: shipper.siret,
-      status: shipper.status,
-      defaultLivreurId: shipper.defaultLivreurId || "",
+      formType: formType,
       code: shipper.code || "",
-      gouvernorat: shipper.gouvernorat || "Tunis",
-      identityNumber: shipper.identityNumber || "",
-      passportNumber: shipper.passportNumber || "",
-      fiscalNumber: shipper.fiscalNumber || "",
-      agence: shipper.agence || "",
-      commercial: shipper.commercial || "",
-      deliveryFee: shipper.deliveryFee || 0,
-      returnFee: shipper.returnFee || 0,
-      documents: shipper.documents || [],
+      password: "", // Password is not editable in this form
+      name: shipper.name || "",
+      email: shipper.email || "",
+      phone: shipper.phone || "",
+      agency: shipper.agency || "",
+      commercial_id: shipper.commercial_id || "",
+      delivery_fees: shipper.delivery_fees || 0,
+      return_fees: shipper.return_fees || 0,
+      status: shipper.status || "Actif",
+      identity_number: shipper.identity_number || "",
+      id_document: null, // No file upload in this modal
+      company_name: shipper.company_name || shipper.company || "", // Handle both old and new field names
+      fiscal_number: shipper.fiscal_number || "",
+      company_address: shipper.company_address || "",
+      company_governorate: shipper.company_governorate || "",
+      company_documents: null, // No file upload in this modal
     });
     setIsAddModalOpen(true);
   };
 
-  const handleDelete = (shipper) => {
+  const handleDelete = async (shipper) => {
     if (window.confirm(`Êtes-vous sûr de vouloir supprimer l'expéditeur "${shipper.name}" ?`)) {
-      setShippers(shippers.filter(s => s.id !== shipper.id));
-      if (selectedShipper?.id === shipper.id) {
-        setSelectedShipper(null);
+      try {
+        const result = await apiService.deleteShipper(shipper.id);
+        if (result && result.success) {
+          setShippers(shippers.filter(s => s.id !== shipper.id));
+          if (selectedShipper?.id === shipper.id) {
+            setSelectedShipper(null);
+          }
+          alert('Expéditeur supprimé avec succès!');
+          // Dispatch custom event to notify other components
+          window.dispatchEvent(new CustomEvent('shipper-updated', { 
+            detail: { shipperId: shipper.id, action: 'deleted' } 
+          }));
+        }
+      } catch (error) {
+        console.error('Error deleting shipper:', error);
+        
+        // Check if it's a payment dependency error
+        if (error.message.includes('payments associated') || error.message.includes('related records')) {
+          const hasPayments = shipper.payments && shipper.payments.length > 0;
+          
+          if (hasPayments) {
+            const deletePayments = window.confirm(
+              `${error.message}\n\nVoulez-vous supprimer tous les paiements de cet expéditeur pour pouvoir le supprimer ?`
+            );
+            
+            if (deletePayments) {
+              await handleDeleteAllPayments(shipper);
+              // Try to delete the shipper again
+              try {
+                const secondResult = await apiService.deleteShipper(shipper.id);
+                if (secondResult && secondResult.success) {
+                  setShippers(shippers.filter(s => s.id !== shipper.id));
+                  if (selectedShipper?.id === shipper.id) {
+                    setSelectedShipper(null);
+                  }
+                  alert('Expéditeur supprimé avec succès après suppression des paiements!');
+                  // Dispatch custom event to notify other components
+                  window.dispatchEvent(new CustomEvent('shipper-updated', { 
+                    detail: { shipperId: shipper.id, action: 'deleted' } 
+                  }));
+                }
+              } catch (secondError) {
+                console.error('Error deleting shipper after payment deletion:', secondError);
+                alert('Erreur lors de la suppression de l\'expéditeur: ' + secondError.message);
+              }
+            }
+          } else {
+            alert('Erreur lors de la suppression: ' + error.message);
+          }
+        } else {
+          const errorMessage = error.message || 'Error deleting shipper. Please try again.';
+          alert(errorMessage);
+        }
       }
     }
   };
 
-  const handleSubmit = () => {
-    if (editingShipper) {
-      // Modification
-      setShippers(shippers.map(s => s.id === editingShipper.id ? {
-        ...s,
-        ...formData,
-        defaultLivreurId: formData.defaultLivreurId,
-        lastActivity: new Date().toISOString().slice(0, 10)
-      } : s));
-    } else {
-      // Ajout
-      const newShipper = {
-        id: `EXP${String(shippers.length + 1).padStart(3, '0')}`,
-        ...formData,
-        defaultLivreurId: formData.defaultLivreurId,
-        totalShipments: 0,
-        successfulShipments: 0,
-        registrationDate: new Date().toISOString().slice(0, 10),
-        lastActivity: new Date().toISOString().slice(0, 10),
-        colis: [],
-        payments: [],
-        statistics: {
-          totalRevenue: 0,
-          averagePerShipment: 0,
-          onTimeDelivery: 0,
-          customerRating: 0,
-        },
-        code: `EXP${String(shippers.length + 1).padStart(3, '0')}`,
-        gouvernorat: "",
-        identityNumber: "",
-        passportNumber: "",
-        fiscalNumber: "",
-        agence: "",
-        commercial: "",
-        deliveryFee: 0,
-        returnFee: 0,
-        documents: [],
-        returnedShipments: 0,
+  const handleSubmit = async () => {
+    try {
+      // Prepare form data for submission
+      const submitData = new FormData();
+      
+      console.log('=== FORM SUBMISSION DEBUG ===');
+      console.log('Form data being submitted:', formData);
+      console.log('Form data keys:', Object.keys(formData));
+      console.log('Editing shipper:', editingShipper);
+      console.log('Form data values:');
+      Object.keys(formData).forEach(key => {
+        console.log(`  ${key}:`, formData[key], `(type: ${typeof formData[key]})`);
+      });
+      
+      // Validate required fields for new shipper creation
+      if (!editingShipper) {
+        if (!formData.name || !formData.name.trim()) {
+          alert('Le nom est requis');
+          return;
+        }
+        if (!formData.email || !formData.email.trim()) {
+          alert('L\'email est requis');
+          return;
+        }
+        if (!formData.password || !formData.password.trim()) {
+          alert('Le mot de passe est requis');
+          return;
+        }
+      }
+      
+      // Check if we have any actual changes
+      const hasChanges = Object.keys(formData).some(key => {
+        if (key === 'id_document' || key === 'company_documents') return false;
+        if (!editingShipper && key === 'code') return false;
+        return formData[key] !== undefined && formData[key] !== null && formData[key] !== '';
+      });
+      
+      if (editingShipper && !hasChanges) {
+        alert('Aucune modification détectée. Veuillez modifier au moins un champ.');
+        return;
+      }
+      
+      // Add all form fields to FormData
+      Object.keys(formData).forEach(key => {
+        if (key !== 'id_document' && key !== 'company_documents') {
+          // Don't send code field when creating new shipper (it will be auto-generated)
+          if (!editingShipper && key === 'code') {
+            return;
+          }
+          // Only add non-empty values
+          if (formData[key] !== undefined && formData[key] !== null && formData[key] !== '') {
+            submitData.append(key, formData[key]);
+            console.log(`Adding field: ${key} = ${formData[key]}`);
+          }
+        }
+      });
+      
+      // Debug: Check if required fields are present
+      console.log('Checking required fields:');
+      console.log('name:', formData.name);
+      console.log('email:', formData.email);
+      console.log('password:', formData.password);
+      console.log('formType:', formData.formType);
+      
+      // Ensure required fields are always sent
+      submitData.append('name', formData.name || '');
+      submitData.append('email', formData.email || '');
+      if (!editingShipper) {
+        submitData.append('password', formData.password || '');
+      }
+      submitData.append('formType', formData.formType || 'individual');
+      
+      console.log('=== FORMDATA DEBUG ===');
+      console.log('FormData entries:');
+      for (let [key, value] of submitData.entries()) {
+        console.log(`  ${key}: ${value} (type: ${typeof value})`);
+      }
+      console.log('FormData size:', submitData.entries().length);
+      
+      // Add files if they exist
+      if (formData.id_document) {
+        submitData.append('id_document', formData.id_document);
+      }
+      if (formData.company_documents) {
+        submitData.append('company_documents', formData.company_documents);
+      }
+      
+      if (editingShipper) {
+        // Update existing shipper
+        console.log('Calling updateShipper with:', editingShipper.id, submitData);
+        const result = await apiService.updateShipper(editingShipper.id, submitData);
+        console.log('Update result:', result);
+        
+        // Handle both response formats (wrapped and unwrapped)
+        let success = false;
+        let updatedData = null;
+        
+        if (result && result.success) {
+          // Wrapped response format
+          success = true;
+          updatedData = result.data;
+        } else if (result && result.id) {
+          // Unwrapped response format (direct shipper data)
+          success = true;
+          updatedData = result;
+        }
+        
+        if (success && updatedData) {
+          setShippers(shippers.map(s => s.id === editingShipper.id ? updatedData : s));
+          alert('Expéditeur mis à jour avec succès!');
+          // Dispatch custom event to notify other components
+          window.dispatchEvent(new CustomEvent('shipper-updated', { 
+            detail: { shipperId: editingShipper.id, action: 'updated' } 
+          }));
+        } else {
+          console.error('Update failed - no success response:', result);
+          alert('Erreur: La mise à jour a échoué. Vérifiez les données et réessayez.');
+        }
+      } else {
+        // Create new shipper
+        const result = await apiService.createShipper(submitData);
+        if (result && result.success) {
+          setShippers([...shippers, result.data]);
+          alert('Expéditeur créé avec succès!');
+          // Dispatch custom event to notify other components
+          window.dispatchEvent(new CustomEvent('shipper-updated', { 
+            detail: { shipperId: result.data.id, action: 'created' } 
+          }));
+        }
+      }
+      setIsAddModalOpen(false);
+      setEditingShipper(null);
+      setFormData({
+        formType: "individual",
+        code: "",
+        password: "",
+        name: "",
+        email: "",
+        phone: "",
+        agency: "",
+        commercial_id: "",
+        delivery_fees: 0,
+        return_fees: 0,
         status: "Actif",
-      };
-      setShippers([...shippers, newShipper]);
+        identity_number: "",
+        id_document: null,
+        company_name: "",
+        fiscal_number: "",
+        company_address: "",
+        company_governorate: "",
+        company_documents: null,
+      });
+    } catch (error) {
+      console.error('Error saving shipper:', error);
+      const errorMessage = error.message || 'Error saving shipper. Please try again.';
+      alert(errorMessage);
     }
-    // Ne pas fermer le modal, juste réinitialiser le formulaire
-    setFormData({
-      name: "",
-      email: "",
-      phone: "",
-      address: "",
-      company: "",
-      siret: "",
-      defaultLivreurId: "",
-      code: "",
-      gouvernorat: "Tunis",
-      identityNumber: "",
-      passportNumber: "",
-      fiscalNumber: "",
-      agence: "",
-      commercial: "",
-      deliveryFee: 0,
-      returnFee: 0,
-      documents: [],
-    });
-    setEditingShipper(null);
   };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleFormTypeChange = (formType) => {
+    setFormData(prev => ({ ...prev, formType }));
+  };
+
+  const handleFileUpload = (e, fieldName) => {
+    const file = e.target.files[0];
+    if (file) {
+      setFormData(prev => ({ ...prev, [fieldName]: file }));
+    }
   };
 
   // Fonctions CRUD pour les colis
@@ -514,14 +619,48 @@ const Expediteur = () => {
     setIsPaymentModalOpen(true);
   };
 
-  const handleDeletePayment = (payment) => {
+  const handleDeletePayment = async (payment) => {
     if (window.confirm("Êtes-vous sûr de vouloir supprimer ce paiement ?")) {
-      const updatedShipper = {
-        ...selectedShipper,
-        payments: selectedShipper.payments.filter(p => p.id !== payment.id)
-      };
-      setShippers(shippers.map(s => s.id === selectedShipper.id ? updatedShipper : s));
-      setSelectedShipper(updatedShipper);
+      try {
+        await apiService.deletePayment(payment.id);
+        
+        // Update local state
+        const updatedShipper = {
+          ...selectedShipper,
+          payments: selectedShipper.payments.filter(p => p.id !== payment.id)
+        };
+        setShippers(shippers.map(s => s.id === selectedShipper.id ? updatedShipper : s));
+        setSelectedShipper(updatedShipper);
+        
+        alert('Paiement supprimé avec succès!');
+      } catch (error) {
+        console.error('Error deleting payment:', error);
+        alert('Erreur lors de la suppression du paiement: ' + error.message);
+      }
+    }
+  };
+
+  const handleDeleteAllPayments = async (shipper) => {
+    const confirmMessage = `Êtes-vous sûr de vouloir supprimer TOUS les paiements de ${shipper.name} ?\n\nCette action ne peut pas être annulée !`;
+    if (window.confirm(confirmMessage)) {
+      try {
+        const result = await apiService.deleteAllShipperPayments(shipper.id);
+        
+        // Update local state
+        const updatedShipper = {
+          ...shipper,
+          payments: []
+        };
+        setShippers(shippers.map(s => s.id === shipper.id ? updatedShipper : s));
+        if (selectedShipper && selectedShipper.id === shipper.id) {
+          setSelectedShipper(updatedShipper);
+        }
+        
+        alert(`✅ ${result.message}`);
+      } catch (error) {
+        console.error('Error deleting all payments:', error);
+        alert('Erreur lors de la suppression des paiements: ' + error.message);
+      }
     }
   };
 
@@ -752,419 +891,195 @@ const Expediteur = () => {
         showActions={false}
       />
 
-      {/* Détails de l'expéditeur sélectionné */}
+      {/* Expéditeur Details Modal */}
       {selectedShipper && (
-        <div className="bg-white rounded-2xl shadow-xl p-8 border border-blue-100">
-          {/* Header des détails */}
-          <div className="flex justify-between items-center mb-8">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900">Détails de l'expéditeur</h2>
-              <p className="text-gray-600 mt-1">{selectedShipper.name} - {selectedShipper.company}</p>
+        <Modal
+          isOpen={!!selectedShipper}
+          onClose={() => setSelectedShipper(null)}
+          size="xl"
+        >
+          <div className="p-6">
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Détails de l'expéditeur</h2>
+                <p className="text-gray-600 mt-1">{selectedShipper.name} - {selectedShipper.company}</p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setSelectedShipper(null)}
+                  className="text-gray-600 hover:text-gray-800 px-4 py-2 rounded-md border border-gray-300 hover:bg-gray-50"
+                >
+                  Fermer
+                </button>
+                <button
+                  onClick={handleExportPDF}
+                  disabled={isExporting}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium disabled:opacity-50"
+                >
+                  {isExporting ? "Export en cours..." : "Exporter en PDF"}
+                </button>
+              </div>
             </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setSelectedShipper(null)}
-                className="text-gray-600 hover:text-gray-800 px-4 py-2 rounded-md border border-gray-300 hover:bg-gray-50"
-              >
-                Fermer
-              </button>
-              <button
-                onClick={handleExportPDF}
-                disabled={isExporting}
-                className="bg-gradient-to-r from-blue-500 to-blue-700 text-white px-4 py-2 rounded-lg font-semibold shadow hover:scale-105 transition-transform disabled:opacity-50"
-              >
-                {isExporting ? "Export en cours..." : "Exporter en PDF"}
-              </button>
-            </div>
-          </div>
 
-          {/* Contenu des détails */}
-          <div ref={detailRef}>
-            {isExporting && (
-              <div className="text-center mb-8">
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">Dashboard de l'expéditeur</h1>
-                <p className="text-xl text-gray-600">{selectedShipper.name} - {selectedShipper.company}</p>
-                <p className="text-sm text-gray-500 mt-2">Généré le {new Date().toLocaleDateString('fr-FR')}</p>
+            {loadingDetails ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                <p className="mt-4 text-gray-600">Chargement des détails...</p>
+              </div>
+            ) : (
+              <div ref={detailRef}>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                  <div className="bg-white p-6 rounded-xl border">
+                    <h3 className="text-lg font-semibold mb-4">Informations de contact</h3>
+                    <div className="space-y-3">
+                      <div className="flex justify-between">
+                        <span className="font-medium">Nom:</span>
+                        <span>{shipperDetails?.shipper?.name || selectedShipper.name}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-medium">Email:</span>
+                        <span>{shipperDetails?.shipper?.email || selectedShipper.email}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-medium">Téléphone:</span>
+                        <span>{shipperDetails?.shipper?.phone || selectedShipper.phone}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-medium">Entreprise:</span>
+                        <span>{shipperDetails?.shipper?.company_name || selectedShipper.company}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-medium">SIRET:</span>
+                        <span>{shipperDetails?.shipper?.tax_number || "N/A"}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-white p-6 rounded-xl border">
+                    <h3 className="text-lg font-semibold mb-4">Statistiques</h3>
+                    <div className="space-y-3">
+                      <div className="flex justify-between">
+                        <span className="font-medium">Total colis:</span>
+                        <span>{shipperDetails?.statistics?.totalParcels || 0}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-medium">Colis réussis:</span>
+                        <span className="text-green-600">{shipperDetails?.statistics?.deliveredParcels || 0}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-medium">Taux de réussite:</span>
+                        <span className="text-blue-600">{shipperDetails?.statistics?.successRate || "0.0"}%</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-medium">Chiffre d'affaires:</span>
+                        <span className="text-green-600 font-semibold">€{shipperDetails?.statistics?.totalRevenue || "0.00"}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-medium">Date d'inscription:</span>
+                        <span>{shipperDetails?.shipper?.created_at ? new Date(shipperDetails.shipper.created_at).toLocaleDateString() : "N/A"}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Recent Payments */}
+                <div className="bg-white p-6 rounded-xl border mb-6">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-semibold">Paiements à cet expéditeur</h3>
+                    {shipperDetails?.payments?.length > 0 && (
+                      <button
+                        onClick={() => handleDeleteAllPayments(shipperDetails.shipper)}
+                        className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-md text-sm font-medium transition-colors"
+                        title="Supprimer tous les paiements"
+                      >
+                        🗑️ Supprimer tous les paiements
+                      </button>
+                    )}
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Montant</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Méthode</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Référence</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {shipperDetails?.payments?.length === 0 ? (
+                          <tr><td colSpan={5} className="text-center py-4 text-gray-400">Aucun paiement trouvé pour cet expéditeur.</td></tr>
+                        ) : (
+                          shipperDetails?.payments?.map(payment => (
+                            <tr key={payment.id}>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {payment.date ? new Date(payment.date).toLocaleDateString() : "N/A"}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-green-700 font-semibold">
+                                €{parseFloat(payment.amount || 0).toFixed(2)}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{payment.payment_method || "N/A"}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{payment.reference || "N/A"}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                <span className={`px-2 py-1 text-xs font-medium rounded-full ${payment.status === "paid" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}`}>
+                                  {payment.status === "paid" ? "Payé" : "En attente"}
+                                </span>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Recent Parcels */}
+                <div className="bg-white p-6 rounded-xl border">
+                  <h3 className="text-lg font-semibold mb-4">Colis récents</h3>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Poids (kg)</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {shipperDetails?.parcels?.length === 0 ? (
+                          <tr><td colSpan={4} className="text-center py-4 text-gray-400">Aucun colis trouvé pour cet expéditeur.</td></tr>
+                        ) : (
+                          shipperDetails?.parcels?.map((colis) => (
+                            <tr key={colis.id}>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{colis.tracking_number || colis.id}</td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                  colis.status === "delivered" ? "bg-green-100 text-green-800" :
+                                  colis.status === "in_transit" ? "bg-blue-100 text-blue-800" :
+                                  "bg-yellow-100 text-yellow-800"
+                                }`}>
+                                  {colis.status === "delivered" ? "Livés" :
+                                   colis.status === "in_transit" ? "En cours" :
+                                   colis.status === "pending" ? "En attente" : colis.status}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {colis.created_date ? new Date(colis.created_date).toLocaleDateString() : "N/A"}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{parseFloat(colis.weight || 0).toFixed(2)} kg</td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               </div>
             )}
-
-            {/* Informations principales */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-              <div className="lg:col-span-2 space-y-4">
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-xl border border-blue-200">
-                  <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                    <span className="inline-block bg-blue-100 text-blue-700 rounded-full px-3 py-1 text-xs font-bold">Informations personnelles</span>
-                  </h3>
-                  <div className="mb-6 flex flex-col md:flex-row md:items-center md:gap-6">
-                    <div className="flex-1">
-                      <div className="text-2xl font-extrabold text-blue-900 flex items-center gap-2">
-                        <span>{selectedShipper.name}</span>
-                        <span className="inline-block bg-blue-200 text-blue-800 rounded-full px-3 py-1 text-xs font-bold ml-2">{selectedShipper.company}</span>
-                      </div>
-                      <div className="text-sm text-gray-500 mt-1">{selectedShipper.code}</div>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 border-t border-blue-100 pt-4">
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-gray-700">Email :</span>
-                        <span className="text-gray-900 flex items-center gap-1"><svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12H8m8 0a4 4 0 11-8 0 4 4 0 018 0zm0 0v4m0-4V8" /></svg>{selectedShipper.email}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-gray-700">Téléphone :</span>
-                        <span className="text-gray-900 flex items-center gap-1"><svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H5a2 2 0 01-2-2V5zm0 12a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5a2 2 0 00-2 2v2zm12-12a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5a2 2 0 012-2h2zm0 12a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2a2 2 0 012-2h2z" /></svg>{selectedShipper.phone}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-gray-700">Adresse :</span>
-                        <span className="text-gray-900 flex items-center gap-1"><svg className="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 12.414a2 2 0 00-2.828 0l-4.243 4.243A8 8 0 1116 8a8 8 0 01-1.657 8.657z" /></svg>{selectedShipper.address}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-gray-700">Gouvernorat :</span>
-                        <span className="text-gray-900">{selectedShipper.gouvernorat}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-gray-700">Numéro d'identité :</span>
-                        <span className="text-gray-900">{selectedShipper.identityNumber}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-gray-700">Numéro de passeport :</span>
-                        <span className="text-gray-900">{selectedShipper.passportNumber}</span>
-                      </div>
-                    </div>
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-gray-700">Matricule fiscal :</span>
-                        <span className="text-gray-900">{selectedShipper.fiscalNumber}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-gray-700">Agence :</span>
-                        <span className="text-gray-900">{selectedShipper.agence}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-gray-700">Commercial :</span>
-                        <span className="text-gray-900">{selectedShipper.commercial}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-gray-700">Frais de livraison (€) :</span>
-                        <span className="text-gray-900">{selectedShipper.deliveryFee}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-gray-700">Frais de retour (€) :</span>
-                        <span className="text-gray-900">{selectedShipper.returnFee}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-gray-700">Documents :</span>
-                        <span className="text-gray-900">
-                          {getSafeShipper(selectedShipper).documents.map((doc, index) => (
-                            <span key={index} className="inline-block px-2 py-1 rounded-full border text-xs font-semibold mr-1 mb-1">
-                              {doc}
-                            </span>
-                          ))}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-gray-700">Réduction documents :</span>
-                        <span className="text-gray-900">
-                          {getSafeShipper(selectedShipper).documents.reduce((sum, doc) => {
-                            if (doc === "Carte d'identité") return sum + 3;
-                            if (doc === "Passeport") return sum + 3;
-                            return sum;
-                          }, 0)}%
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-6 rounded-xl border border-purple-200">
-                  <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                    <span className="inline-block bg-purple-100 text-purple-700 rounded-full px-3 py-1 text-xs font-bold">Informations bancaires</span>
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <span className="font-semibold text-gray-700">Banque :</span>
-                      <div className="text-gray-900">{getSafeShipper(selectedShipper).bankInfo.bank}</div>
-                    </div>
-                    <div>
-                      <span className="font-semibold text-gray-700">IBAN :</span>
-                      <div className="text-gray-900 font-mono text-sm">{getSafeShipper(selectedShipper).bankInfo.iban}</div>
-                    </div>
-                    <div>
-                      <span className="font-semibold text-gray-700">BIC :</span>
-                      <div className="text-gray-900 font-mono text-sm">{getSafeShipper(selectedShipper).bankInfo.bic}</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-6 rounded-xl border border-green-200">
-                  <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                    <span className="inline-block bg-green-100 text-green-700 rounded-full px-3 py-1 text-xs font-bold">Statistiques</span>
-                  </h3>
-                  <div className="space-y-4">
-                    <div className="text-center p-3 bg-white rounded-lg shadow">
-                      <div className="text-2xl font-bold text-blue-600">{getSafeShipper(selectedShipper).statistics.totalRevenue}€</div>
-                      <div className="text-xs text-gray-600">Chiffre d'affaires</div>
-                    </div>
-                    <div className="text-center p-3 bg-white rounded-lg shadow">
-                      <div className="text-2xl font-bold text-green-600">{getSafeShipper(selectedShipper).statistics.averagePerShipment}€</div>
-                      <div className="text-xs text-gray-600">Moyenne/colis</div>
-                    </div>
-                    <div className="text-center p-3 bg-white rounded-lg shadow">
-                      <div className="text-2xl font-bold text-purple-600">{getSafeShipper(selectedShipper).statistics.onTimeDelivery}%</div>
-                      <div className="text-xs text-gray-600">Livraison à temps</div>
-                    </div>
-                    <div className="text-center p-3 bg-white rounded-lg shadow">
-                      <div className="text-2xl font-bold text-orange-600">{getSafeShipper(selectedShipper).statistics.customerRating}/5</div>
-                      <div className="text-xs text-gray-600">Note client</div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-gradient-to-r from-yellow-50 to-orange-50 p-6 rounded-xl border border-yellow-200">
-                  <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                    <span className="inline-block bg-yellow-100 text-yellow-700 rounded-full px-3 py-1 text-xs font-bold">Informations système</span>
-                  </h3>
-                  <div className="space-y-3">
-                    <div className="flex justify-between">
-                      <span className="font-semibold text-gray-700">Date d'inscription :</span>
-                      <span className="text-gray-900">{selectedShipper.registrationDate}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="font-semibold text-gray-700">Dernière activité :</span>
-                      <span className="text-gray-900">{selectedShipper.lastActivity}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="font-semibold text-gray-700">Total colis :</span>
-                      <span className="text-gray-900 font-bold">{selectedShipper.totalShipments}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="font-semibold text-gray-700">Colis réussis :</span>
-                      <span className="text-gray-900 font-bold text-green-600">{getSafeShipper(selectedShipper).successfulShipments}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="font-semibold text-gray-700">Taux de réussite :</span>
-                      <span className="text-gray-900 font-bold">{selectedShipper.totalShipments > 0 ? Math.round((getSafeShipper(selectedShipper).successfulShipments / selectedShipper.totalShipments) * 100) : 0}%</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="font-semibold text-gray-700">Livreur par défaut :</span>
-                      <span className="text-gray-900">{mockDrivers.find(d => d.id === Number(selectedShipper.defaultLivreurId))?.name || "Aucun"}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Colis récents */}
-            <div className="bg-gradient-to-r from-orange-50 to-yellow-50 p-6 rounded-xl border border-orange-200 mb-8">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                  <span className="inline-block bg-orange-100 text-orange-700 rounded-full px-3 py-1 text-xs font-bold">Historique des colis</span>
-                  <span className="text-xs text-gray-400">({getSafeShipper(selectedShipper).colis.length})</span>
-                </h3>
-                {!isCommercialUser && (
-                  <button
-                    onClick={handleAddColis}
-                    className="bg-orange-600 hover:bg-orange-700 text-white px-3 py-1 rounded-md text-sm font-medium"
-                  >
-                    Ajouter un colis
-                  </button>
-                )}
-              </div>
-              
-              {/* Search bar for parcels */}
-              <div className="mb-4">
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Rechercher dans les colis (ID, destination, type, statut, date, montant)..."
-                    value={colisSearchTerm}
-                    onChange={(e) => setColisSearchTerm(e.target.value)}
-                    className="w-full px-4 py-2 pl-10 pr-10 border border-orange-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white"
-                  />
-                  <svg className="absolute left-3 top-2.5 h-5 w-5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                  {colisSearchTerm && (
-                    <button
-                      onClick={() => setColisSearchTerm("")}
-                      className="absolute right-3 top-2.5 h-5 w-5 text-orange-400 hover:text-orange-600"
-                    >
-                      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  )}
-                </div>
-                {colisSearchTerm && (
-                  <div className="mt-2 text-sm text-orange-600">
-                    {getFilteredColis(getSafeShipper(selectedShipper).colis).length} résultat(s) trouvé(s)
-                  </div>
-                )}
-              </div>
-              
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-orange-200">
-                      <th className="text-left py-2 font-semibold text-gray-700">ID Colis</th>
-                      <th className="text-left py-2 font-semibold text-gray-700">Destination</th>
-                      <th className="text-left py-2 font-semibold text-gray-700">Type</th>
-                      <th className="text-left py-2 font-semibold text-gray-700">Poids</th>
-                      <th className="text-left py-2 font-semibold text-gray-700">Statut</th>
-                      <th className="text-left py-2 font-semibold text-gray-700">Date</th>
-                      <th className="text-right py-2 font-semibold text-gray-700">Montant</th>
-                      {!isCommercialUser && (
-                        <th className="text-center py-2 font-semibold text-gray-700">Actions</th>
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {getFilteredColis(getSafeShipper(selectedShipper).colis).map((colis) => (
-                      <tr key={colis.id} className="border-b border-orange-100">
-                        <td className="py-2 font-medium text-blue-700">{colis.id}</td>
-                        <td className="py-2 text-gray-600">{colis.destination || "Non renseigné"}</td>
-                        <td className="py-2 text-gray-600">{colis.type || "Standard"}</td>
-                        <td className="py-2 text-gray-600">{colis.weight || "Non renseigné"}</td>
-                        <td className="py-2">{getStatusBadge(colis.status)}</td>
-                        <td className="py-2 text-gray-600">{colis.date}</td>
-                        <td className="py-2 text-right font-semibold">{colis.amount}€</td>
-                        {!isCommercialUser && (
-                          <td className="py-2 text-center">
-                            <div className="flex justify-center gap-1">
-                              <button
-                                onClick={() => handleEditColis(colis)}
-                                className="text-green-600 hover:text-green-800 p-1 rounded-full hover:bg-green-50 transition-colors"
-                                title="Modifier"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                </svg>
-                              </button>
-                              <button
-                                onClick={() => handleDeleteColis(colis)}
-                                className="text-red-600 hover:text-red-800 p-1 rounded-full hover:bg-red-50 transition-colors"
-                                title="Supprimer"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                </svg>
-                              </button>
-                            </div>
-                          </td>
-                        )}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Historique des paiements */}
-            <div className="bg-gradient-to-r from-indigo-50 to-blue-50 p-6 rounded-xl border border-indigo-200">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                  <span className="inline-block bg-indigo-100 text-indigo-700 rounded-full px-3 py-1 text-xs font-bold">Historique des paiements</span>
-                  <span className="text-xs text-gray-400">({getSafeShipper(selectedShipper).payments.length})</span>
-                </h3>
-                {!isCommercialUser && (
-                  <button
-                    onClick={handleAddPayment}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded-md text-sm font-medium"
-                  >
-                    Ajouter un paiement
-                  </button>
-                )}
-              </div>
-              
-              {/* Search bar for payments */}
-              <div className="mb-4">
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Rechercher dans les paiements (ID, référence, méthode, statut, date, montant)..."
-                    value={paymentSearchTerm}
-                    onChange={(e) => setPaymentSearchTerm(e.target.value)}
-                    className="w-full px-4 py-2 pl-10 pr-10 border border-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
-                  />
-                  <svg className="absolute left-3 top-2.5 h-5 w-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                  {paymentSearchTerm && (
-                    <button
-                      onClick={() => setPaymentSearchTerm("")}
-                      className="absolute right-3 top-2.5 h-5 w-5 text-indigo-400 hover:text-indigo-600"
-                    >
-                      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  )}
-                </div>
-                {paymentSearchTerm && (
-                  <div className="mt-2 text-sm text-indigo-600">
-                    {getFilteredPayments(getSafeShipper(selectedShipper).payments).length} résultat(s) trouvé(s)
-                  </div>
-                )}
-              </div>
-              
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-indigo-200">
-                      <th className="text-left py-2 font-semibold text-gray-700">ID Paiement</th>
-                      <th className="text-left py-2 font-semibold text-gray-700">Référence</th>
-                      <th className="text-left py-2 font-semibold text-gray-700">Méthode</th>
-                      <th className="text-left py-2 font-semibold text-gray-700">Statut</th>
-                      <th className="text-left py-2 font-semibold text-gray-700">Date</th>
-                      <th className="text-right py-2 font-semibold text-gray-700">Montant</th>
-                      {!isCommercialUser && (
-                        <th className="text-center py-2 font-semibold text-gray-700">Actions</th>
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {getFilteredPayments(getSafeShipper(selectedShipper).payments).map((payment) => (
-                      <tr key={payment.id} className="border-b border-indigo-100">
-                        <td className="py-2 font-medium text-indigo-700">{payment.id}</td>
-                        <td className="py-2 text-gray-600">{payment.reference || "Non renseigné"}</td>
-                        <td className="py-2 text-gray-600">{payment.method}</td>
-                        <td className="py-2">{getPaymentStatusBadge(payment.status)}</td>
-                        <td className="py-2 text-gray-600">{payment.date}</td>
-                        <td className="py-2 text-right font-semibold">{payment.amount}€</td>
-                        {!isCommercialUser && (
-                          <td className="py-2 text-center">
-                            <div className="flex justify-center gap-1">
-                              <button
-                                onClick={() => handleEditPayment(payment)}
-                                className="text-green-600 hover:text-green-800 p-1 rounded-full hover:bg-green-50 transition-colors"
-                                title="Modifier"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                </svg>
-                              </button>
-                              <button
-                                onClick={() => handleDeletePayment(payment)}
-                                className="text-red-600 hover:text-red-800 p-1 rounded-full hover:bg-red-50 transition-colors"
-                                title="Supprimer"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                </svg>
-                              </button>
-                            </div>
-                          </td>
-                        )}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
           </div>
-        </div>
+        </Modal>
       )}
 
       {/* Form Add/Edit */}
@@ -1174,123 +1089,327 @@ const Expediteur = () => {
           setIsAddModalOpen(false);
           setEditingShipper(null);
           setFormData({
+            formType: "individual",
+            code: "",
+            password: "",
             name: "",
             email: "",
             phone: "",
-            address: "",
-            company: "",
-            siret: "",
-            defaultLivreurId: "",
-            code: "",
-            gouvernorat: "Tunis",
-            identityNumber: "",
-            passportNumber: "",
-            fiscalNumber: "",
-            agence: "",
-            commercial: "",
-            deliveryFee: 0,
-            returnFee: 0,
-            documents: [],
+            agency: "",
+            commercial_id: "",
+            delivery_fees: 0,
+            return_fees: 0,
+            status: "Actif",
+            identity_number: "",
+            id_document: null,
+            company_name: "",
+            fiscal_number: "",
+            company_address: "",
+            company_governorate: "",
+            company_documents: null,
           });
         }}
         title={editingShipper ? "Modifier l'expéditeur" : "Nouvel expéditeur"}
-        size="md"
+        size="xl"
       >
         <form onSubmit={e => { e.preventDefault(); handleSubmit(); }}>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-left">Code</label>
-              <input type="text" name="code" value={formData.code || ''} readOnly className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-500" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-left">Nom et prénom *</label>
-              <input type="text" name="name" value={formData.name} onChange={handleInputChange} required className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-left">Entreprise</label>
-              <input type="text" name="company" value={formData.company} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-left">Email *</label>
-              <input type="email" name="email" value={formData.email} onChange={handleInputChange} required className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-left">Téléphone *</label>
-              <input type="tel" name="phone" value={formData.phone} onChange={handleInputChange} required className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-left">Adresse *</label>
-              <input type="text" name="address" value={formData.address} onChange={handleInputChange} required className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-left">Gouvernorat</label>
-              <select name="gouvernorat" value={formData.gouvernorat || 'Tunis'} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                {["Ariana","Béja","Ben Arous","Bizerte","Gabès","Gafsa","Jendouba","Kairouan","Kasserine","Kébili","Kef","Mahdia","Manouba","Médenine","Monastir","Nabeul","Sfax","Sidi Bouzid","Siliana","Sousse","Tataouine","Tozeur","Tunis","Zaghouan"].map(gov => (
-                  <option key={gov} value={gov}>{gov}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-left">Numéro d'identité</label>
-              <input type="text" name="identityNumber" value={formData.identityNumber || ''} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-left">Numéro de passeport</label>
-              <input type="text" name="passportNumber" value={formData.passportNumber || ''} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-left">Matricule fiscal</label>
-              <input type="text" name="fiscalNumber" value={formData.fiscalNumber || ''} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-left">Agence</label>
-              <select name="agence" value={formData.agence || ''} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <option value="">Sélectionner</option>
-                <option value="Tunis Sud">Tunis Sud</option>
-                <option value="Tunis Nord">Tunis Nord</option>
-                <option value="Tunis Est">Tunis Est</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-left">Commercial</label>
-              <input type="text" name="commercial" value={formData.commercial || ''} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-left">Frais de livraison (€)</label>
-              <input type="number" name="deliveryFee" value={formData.deliveryFee || 0} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-left">Frais de retour (€)</label>
-              <input type="number" name="returnFee" value={formData.returnFee || 0} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-left">Documents</label>
-              <div className="flex flex-wrap gap-4">
-                {['Carte d\'identité', 'Passeport', 'Patente'].map(doc => (
-                  <label key={doc} className="flex items-center gap-2 text-sm font-normal text-gray-700 text-left">
-                    <input
-                      type="checkbox"
-                      value={doc}
-                      checked={formData.documents && formData.documents.includes(doc)}
-                      onChange={e => {
-                        const checked = e.target.checked;
-                        setFormData(prev => ({
-                          ...prev,
-                          documents: checked
-                            ? [...(prev.documents || []), doc]
-                            : (prev.documents || []).filter(d => d !== doc)
-                        }));
-                      }}
-                    />
-                    {doc}
-                  </label>
-                ))}
-              </div>
+          {/* Form Type Selection */}
+          <div className="mb-6">
+            <div className="flex gap-4 mb-4">
+              <label className="flex items-center font-semibold text-gray-700">
+                <input
+                  type="radio"
+                  name="formType"
+                  value="individual"
+                  checked={formData.formType === "individual"}
+                  onChange={() => handleFormTypeChange("individual")}
+                  className="mr-2 accent-blue-600"
+                />
+                <span>Carte d'identité</span>
+              </label>
+              <label className="flex items-center font-semibold text-gray-700">
+                <input
+                  type="radio"
+                  name="formType"
+                  value="company"
+                  checked={formData.formType === "company"}
+                  onChange={() => handleFormTypeChange("company")}
+                  className="mr-2 accent-blue-600"
+                />
+                <span>Patente</span>
+              </label>
             </div>
           </div>
-          <div className="flex justify-end space-x-3 space-x-reverse pt-4">
-            <button type="button" onClick={() => setIsAddModalOpen(false)} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md">Fermer</button>
-            <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md">{editingShipper ? "Mettre à jour" : "Ajouter"}</button>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Left Column - Common Fields */}
+            <div className="space-y-6 bg-blue-50 p-6 rounded-lg border border-blue-200 shadow-sm">
+              <h3 className="text-lg font-bold text-blue-800 mb-4 flex items-center">
+                <span className="text-2xl mr-2">👤</span>
+                Informations générales
+              </h3>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Code *</label>
+                <input 
+                  type="text" 
+                  name="code" 
+                  value={editingShipper ? (formData.code || '') : "Généré automatiquement"} 
+                  onChange={handleInputChange} 
+                  required
+                  readOnly={!editingShipper}
+                  className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${!editingShipper ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
+                />
+                {!editingShipper && (
+                  <p className="text-xs text-gray-500 mt-1">Le code sera généré automatiquement (EXP001, EXP002, etc.)</p>
+                )}
+              </div>
+
+              {!editingShipper && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Mot de passe *</label>
+                  <input 
+                    type="password" 
+                    name="password" 
+                    value={formData.password || ''} 
+                    onChange={handleInputChange} 
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500" 
+                  />
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Nom et prénom *</label>
+                <input 
+                  type="text" 
+                  name="name" 
+                  value={formData.name} 
+                  onChange={handleInputChange} 
+                  required 
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500" 
+                />
+              </div>
+
+              {formData.formType === "individual" && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Numéro d'identité *</label>
+                  <input 
+                    type="text" 
+                    name="identity_number" 
+                    value={formData.identity_number || ''} 
+                    onChange={handleInputChange} 
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500" 
+                  />
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Email *</label>
+                <input 
+                  type="email" 
+                  name="email" 
+                  value={formData.email} 
+                  onChange={handleInputChange} 
+                  required 
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500" 
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Téléphone *</label>
+                <input 
+                  type="tel" 
+                  name="phone" 
+                  value={formData.phone} 
+                  onChange={handleInputChange} 
+                  required 
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500" 
+                />
+              </div>
+
+
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Agence *</label>
+                <select 
+                  name="agency" 
+                  value={formData.agency || ''} 
+                  onChange={handleInputChange} 
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">Sélectionner une agence</option>
+                  {agencies.map(agency => (
+                    <option key={agency.id} value={agency.name}>{agency.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Commercial</label>
+                <select 
+                  name="commercial_id" 
+                  value={formData.commercial_id || ''} 
+                  onChange={handleInputChange} 
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">Sélectionner un commercial (optionnel)</option>
+                  {commercials.map(commercial => (
+                    <option key={commercial.id} value={commercial.id}>
+                      {commercial.name} - {commercial.email}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Frais de livraison (€)</label>
+                <input 
+                  type="number" 
+                  name="delivery_fees" 
+                  value={formData.delivery_fees || 0} 
+                  onChange={handleInputChange} 
+                  step="0.01"
+                  min="0"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500" 
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Frais de retour (€)</label>
+                <input 
+                  type="number" 
+                  name="return_fees" 
+                  value={formData.return_fees || 0} 
+                  onChange={handleInputChange} 
+                  step="0.01"
+                  min="0"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500" 
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Statut</label>
+                <select 
+                  name="status" 
+                  value={formData.status || 'Actif'} 
+                  onChange={handleInputChange} 
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="Actif">Actif</option>
+                  <option value="Inactif">Inactif</option>
+                </select>
+              </div>
+
+              {/* Document Upload for Individual */}
+              {formData.formType === "individual" && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Télécharger la carte d'identité</label>
+                  <input 
+                    type="file" 
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={(e) => handleFileUpload(e, 'id_document')}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500" 
+                  />
+                  {formData.id_document && (
+                    <p className="text-sm text-green-600 mt-1">Fichier sélectionné: {formData.id_document.name}</p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Right Column - Company Fields (only shown when company is selected) */}
+            {formData.formType === "company" && (
+              <div className="space-y-6 bg-green-50 p-6 rounded-lg border border-green-200 shadow-sm">
+                <h3 className="text-lg font-bold text-green-800 mb-4 flex items-center">
+                  <span className="text-2xl mr-2">🏢</span>
+                  Informations de l'entreprise
+                </h3>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Entreprise *</label>
+                  <input 
+                    type="text" 
+                    name="company_name" 
+                    value={formData.company_name || ''} 
+                    onChange={handleInputChange} 
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500" 
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Matricule fiscal *</label>
+                  <input 
+                    type="text" 
+                    name="fiscal_number" 
+                    value={formData.fiscal_number || ''} 
+                    onChange={handleInputChange} 
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500" 
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Adresse sociale *</label>
+                  <textarea 
+                    name="company_address" 
+                    value={formData.company_address || ''} 
+                    onChange={handleInputChange} 
+                    required
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500" 
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Gouvernorat de l'entreprise *</label>
+                  <select 
+                    name="company_governorate" 
+                    value={formData.company_governorate || ''} 
+                    onChange={handleInputChange} 
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Sélectionner un gouvernorat</option>
+                    {governorates.map(governorate => (
+                      <option key={governorate} value={governorate}>{governorate}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Télécharger les documents de l'entreprise</label>
+                  <input 
+                    type="file" 
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={(e) => handleFileUpload(e, 'company_documents')}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500" 
+                  />
+                  {formData.company_documents && (
+                    <p className="text-sm text-green-600 mt-1">Fichier sélectionné: {formData.company_documents.name}</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200 mt-8">
+            <button 
+              type="button" 
+              onClick={() => setIsAddModalOpen(false)} 
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
+            >
+              Fermer
+            </button>
+            <button 
+              type="submit" 
+              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md shadow"
+            >
+              {editingShipper ? "Mettre à jour" : "Ajouter"}
+            </button>
           </div>
         </form>
       </Modal>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { getFilteredMenu, hasAccess } from "../config/permissions.jsx";
+import { apiService } from "../services/api";
 
 const Sidebar = ({ onSelect, selectedKey }) => {
   const [openDropdown, setOpenDropdown] = useState(null);
@@ -145,9 +146,7 @@ const Sidebar = ({ onSelect, selectedKey }) => {
       <div className="mt-auto pt-3">
         <button
           onClick={() => {
-            localStorage.removeItem('currentUser');
-            localStorage.removeItem('isLoggedIn');
-            window.location.href = '/';
+            apiService.logout();
           }}
           className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-[#FBE9E7] hover:text-[#D32F2F] rounded-lg transition-all duration-200 shadow-sm border border-gray-200"
         >

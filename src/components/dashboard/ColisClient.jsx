@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import DataTable from "./common/DataTable";
 import Modal from "./common/Modal";
 import ColisTimeline from "./common/ColisTimeline";
@@ -9,560 +9,126 @@ import { useAppStore } from "../../stores/useAppStore";
 import { useForm } from "react-hook-form";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
+import { apiService } from "../../services/api";
 
 const ColisClient = () => {
   const { parcels, loading, selectedParcel, setSelectedParcel } = useAppStore();
   const { data: parcelsData, isLoading } = useParcels();
 
-  // Mock data for Expéditeur parcels
-  const mockParcelsData = [
-    {
-      id: "COL001",
-      shipper: "Ahmed Mohamed",
-      destination: "123 Rue de la Paix, 1000 Tunis",
-      status: "En attente",
-      weight: "2.5 kg",
-      dateCreated: "2024-01-15",
-      estimatedDelivery: "2024-01-20",
-      price: "25,00 €",
-      phone: "+216 71 234 567",
-      email: "ahmed.mohamed@email.com",
-      reference: "REF-001",
-      description: "Colis fragile - Électronique"
-    },
-    {
-      id: "COL002",
-      shipper: "Ahmed Mohamed",
-      destination: "456 Avenue Habib Bourguiba, 4000 Sousse",
-      status: "En attente",
-      weight: "1.8 kg",
-      dateCreated: "2024-01-16",
-      estimatedDelivery: "2024-01-21",
-      price: "18,50 €",
-      phone: "+216 71 234 567",
-      email: "ahmed.mohamed@email.com",
-      reference: "REF-002",
-      description: "Colis standard - Vêtements"
-    },
-    {
-      id: "COL003",
-      shipper: "Ahmed Mohamed",
-      destination: "789 Rue de la Liberté, 3000 Sfax",
-      status: "En attente",
-      weight: "3.2 kg",
-      dateCreated: "2024-01-17",
-      estimatedDelivery: "2024-01-22",
-      price: "32,00 €",
-      phone: "+216 71 234 567",
-      email: "ahmed.mohamed@email.com",
-      reference: "REF-003",
-      description: "Colis lourd - Livres"
-    },
-    {
-      id: "COL004",
-      shipper: "Ahmed Mohamed",
-      destination: "321 Boulevard Central, 5000 Monastir",
-      status: "À enlever",
-      weight: "1.5 kg",
-      dateCreated: "2024-01-14",
-      estimatedDelivery: "2024-01-19",
-      price: "15,00 €",
-      phone: "+216 71 234 567",
-      email: "ahmed.mohamed@email.com",
-      reference: "REF-004",
-      description: "Colis express - Documents"
-    },
-    {
-      id: "COL005",
-      shipper: "Ahmed Mohamed",
-      destination: "654 Rue du Commerce, 6000 Gabès",
-      status: "À enlever",
-      weight: "2.0 kg",
-      dateCreated: "2024-01-13",
-      estimatedDelivery: "2024-01-18",
-      price: "20,00 €",
-      phone: "+216 71 234 567",
-      email: "ahmed.mohamed@email.com",
-      reference: "REF-005",
-      description: "Colis standard - Accessoires"
-    },
-    {
-      id: "COL006",
-      shipper: "Ahmed Mohamed",
-      destination: "987 Avenue des Fleurs, 7000 Bizerte",
-      status: "À enlever",
-      weight: "4.1 kg",
-      dateCreated: "2024-01-12",
-      estimatedDelivery: "2024-01-17",
-      price: "41,00 €",
-      phone: "+216 71 234 567",
-      email: "ahmed.mohamed@email.com",
-      reference: "REF-006",
-      description: "Colis volumineux - Meubles"
-    },
-    {
-      id: "COL007",
-      shipper: "Ahmed Mohamed",
-      destination: "147 Rue de la Mer, 8000 Nabeul",
-      status: "Enlevé",
-      weight: "1.2 kg",
-      dateCreated: "2024-01-11",
-      estimatedDelivery: "2024-01-16",
-      price: "12,00 €",
-      phone: "+216 71 234 567",
-      email: "ahmed.mohamed@email.com",
-      reference: "REF-007",
-      description: "Colis léger - Bijoux"
-    },
-    {
-      id: "COL008",
-      shipper: "Ahmed Mohamed",
-      destination: "258 Boulevard du Sud, 9000 Médenine",
-      status: "Enlevé",
-      weight: "2.8 kg",
-      dateCreated: "2024-01-10",
-      estimatedDelivery: "2024-01-15",
-      price: "28,00 €",
-      phone: "+216 71 234 567",
-      email: "ahmed.mohamed@email.com",
-      reference: "REF-008",
-      description: "Colis standard - Électroménager"
-    },
-    {
-      id: "COL009",
-      shipper: "Ahmed Mohamed",
-      destination: "369 Rue de l'Est, 10000 Tataouine",
-      status: "Enlevé",
-      weight: "1.9 kg",
-      dateCreated: "2024-01-09",
-      estimatedDelivery: "2024-01-14",
-      price: "19,00 €",
-      phone: "+216 71 234 567",
-      email: "ahmed.mohamed@email.com",
-      reference: "REF-009",
-      description: "Colis fragile - Verre"
-    },
-    {
-      id: "COL010",
-      shipper: "Ahmed Mohamed",
-      destination: "741 Avenue du Nord, 11000 Le Kef",
-      status: "Au dépôt",
-      weight: "3.5 kg",
-      dateCreated: "2024-01-08",
-      estimatedDelivery: "2024-01-13",
-      price: "35,00 €",
-      phone: "+216 71 234 567",
-      email: "ahmed.mohamed@email.com",
-      reference: "REF-010",
-      description: "Colis lourd - Outils"
-    },
-    {
-      id: "COL011",
-      shipper: "Ahmed Mohamed",
-      destination: "852 Rue de l'Ouest, 12000 Siliana",
-      status: "Au dépôt",
-      weight: "2.1 kg",
-      dateCreated: "2024-01-07",
-      estimatedDelivery: "2024-01-12",
-      price: "21,00 €",
-      phone: "+216 71 234 567",
-      email: "ahmed.mohamed@email.com",
-      reference: "REF-011",
-      description: "Colis standard - Textile"
-    },
-    {
-      id: "COL012",
-      shipper: "Ahmed Mohamed",
-      destination: "963 Boulevard Central, 13000 Zaghouan",
-      status: "Au dépôt",
-      weight: "1.6 kg",
-      dateCreated: "2024-01-06",
-      estimatedDelivery: "2024-01-11",
-      price: "16,00 €",
-      phone: "+216 71 234 567",
-      email: "ahmed.mohamed@email.com",
-      reference: "REF-012",
-      description: "Colis express - Médicaments"
-    },
-    {
-      id: "COL013",
-      shipper: "Ahmed Mohamed",
-      destination: "159 Rue de la Paix, 14000 Kairouan",
-      status: "En cours",
-      weight: "2.3 kg",
-      dateCreated: "2024-01-05",
-      estimatedDelivery: "2024-01-10",
-      price: "23,00 €",
-      phone: "+216 71 234 567",
-      email: "ahmed.mohamed@email.com",
-      reference: "REF-013",
-      description: "Colis standard - Alimentation"
-    },
-    {
-      id: "COL014",
-      shipper: "Ahmed Mohamed",
-      destination: "357 Avenue des Arts, 15000 Kasserine",
-      status: "En cours",
-      weight: "1.7 kg",
-      dateCreated: "2024-01-04",
-      estimatedDelivery: "2024-01-09",
-      price: "17,00 €",
-      phone: "+216 71 234 567",
-      email: "ahmed.mohamed@email.com",
-      reference: "REF-014",
-      description: "Colis fragile - Art"
-    },
-    {
-      id: "COL015",
-      shipper: "Ahmed Mohamed",
-      destination: "486 Rue du Sport, 16000 Gafsa",
-      status: "En cours",
-      weight: "2.9 kg",
-      dateCreated: "2024-01-03",
-      estimatedDelivery: "2024-01-08",
-      price: "29,00 €",
-      phone: "+216 71 234 567",
-      email: "ahmed.mohamed@email.com",
-      reference: "REF-015",
-      description: "Colis lourd - Équipement sportif"
-    },
-    {
-      id: "COL016",
-      shipper: "Ahmed Mohamed",
-      destination: "753 Boulevard de la Mer, 17000 Tozeur",
-      status: "RTN dépôt",
-      weight: "1.4 kg",
-      dateCreated: "2024-01-02",
-      estimatedDelivery: "2024-01-07",
-      price: "14,00 €",
-      phone: "+216 71 234 567",
-      email: "ahmed.mohamed@email.com",
-      reference: "REF-016",
-      description: "Colis retour - Adresse incorrecte"
-    },
-    {
-      id: "COL017",
-      shipper: "Ahmed Mohamed",
-      destination: "951 Rue de la Montagne, 18000 Kébili",
-      status: "RTN dépôt",
-      weight: "2.6 kg",
-      dateCreated: "2024-01-01",
-      estimatedDelivery: "2024-01-06",
-      price: "26,00 €",
-      phone: "+216 71 234 567",
-      email: "ahmed.mohamed@email.com",
-      reference: "REF-017",
-      description: "Colis retour - Destinataire absent"
-    },
-    {
-      id: "COL018",
-      shipper: "Ahmed Mohamed",
-      destination: "264 Avenue du Désert, 19000 Jendouba",
-      status: "RTN dépôt",
-      weight: "1.8 kg",
-      dateCreated: "2023-12-31",
-      estimatedDelivery: "2024-01-05",
-      price: "18,00 €",
-      phone: "+216 71 234 567",
-      email: "ahmed.mohamed@email.com",
-      reference: "REF-018",
-      description: "Colis retour - Refusé"
-    },
-    {
-      id: "COL019",
-      shipper: "Ahmed Mohamed",
-      destination: "837 Rue de la Forêt, 20000 Béja",
-      status: "Livrés",
-      weight: "2.2 kg",
-      dateCreated: "2023-12-30",
-      estimatedDelivery: "2024-01-04",
-      price: "22,00 €",
-      phone: "+216 71 234 567",
-      email: "ahmed.mohamed@email.com",
-      reference: "REF-019",
-      description: "Colis livré avec succès"
-    },
-    {
-      id: "COL020",
-      shipper: "Ahmed Mohamed",
-      destination: "648 Boulevard du Lac, 21000 Ben Arous",
-      status: "Livrés",
-      weight: "3.1 kg",
-      dateCreated: "2023-12-29",
-      estimatedDelivery: "2024-01-03",
-      price: "31,00 €",
-      phone: "+216 71 234 567",
-      email: "ahmed.mohamed@email.com",
-      reference: "REF-020",
-      description: "Colis livré avec succès"
-    },
-    {
-      id: "COL021",
-      shipper: "Ahmed Mohamed",
-      destination: "429 Rue de la Plage, 22000 Manouba",
-      status: "Livrés",
-      weight: "1.9 kg",
-      dateCreated: "2023-12-28",
-      estimatedDelivery: "2024-01-02",
-      price: "19,00 €",
-      phone: "+216 71 234 567",
-      email: "ahmed.mohamed@email.com",
-      reference: "REF-021",
-      description: "Colis livré avec succès"
-    },
-    {
-      id: "COL022",
-      shipper: "Ahmed Mohamed",
-      destination: "573 Avenue du Centre, 23000 Ariana",
-      status: "Livrés payés",
-      weight: "2.4 kg",
-      dateCreated: "2023-12-27",
-      estimatedDelivery: "2024-01-01",
-      price: "24,00 €",
-      phone: "+216 71 234 567",
-      email: "ahmed.mohamed@email.com",
-      reference: "REF-022",
-      description: "Colis livré et payé"
-    },
-    {
-      id: "COL023",
-      shipper: "Ahmed Mohamed",
-      destination: "816 Rue de la Ville, 24000 Mahdia",
-      status: "Livrés payés",
-      weight: "1.6 kg",
-      dateCreated: "2023-12-26",
-      estimatedDelivery: "2023-12-31",
-      price: "16,00 €",
-      phone: "+216 71 234 567",
-      email: "ahmed.mohamed@email.com",
-      reference: "REF-023",
-      description: "Colis livré et payé"
-    },
-    {
-      id: "COL024",
-      shipper: "Ahmed Mohamed",
-      destination: "295 Boulevard de la Côte, 25000 Monastir",
-      status: "Livrés payés",
-      weight: "2.7 kg",
-      dateCreated: "2023-12-25",
-      estimatedDelivery: "2023-12-30",
-      price: "27,00 €",
-      phone: "+216 71 234 567",
-      email: "ahmed.mohamed@email.com",
-      reference: "REF-024",
-      description: "Colis livré et payé"
-    },
-    {
-      id: "COL025",
-      shipper: "Ahmed Mohamed",
-      destination: "738 Rue de la Vallée, 26000 Sidi Bouzid",
-      status: "Retour définitif",
-      weight: "1.3 kg",
-      dateCreated: "2023-12-24",
-      estimatedDelivery: "2023-12-29",
-      price: "13,00 €",
-      phone: "+216 71 234 567",
-      email: "ahmed.mohamed@email.com",
-      reference: "REF-025",
-      description: "Colis retour définitif"
-    },
-    {
-      id: "COL026",
-      shipper: "Ahmed Mohamed",
-      destination: "147 Avenue du Soleil, 27000 Sfax",
-      status: "Retour définitif",
-      weight: "2.8 kg",
-      dateCreated: "2023-12-23",
-      estimatedDelivery: "2023-12-28",
-      price: "28,00 €",
-      phone: "+216 71 234 567",
-      email: "ahmed.mohamed@email.com",
-      reference: "REF-026",
-      description: "Colis retour définitif"
-    },
-    {
-      id: "COL027",
-      shipper: "Ahmed Mohamed",
-      destination: "369 Rue de la Lune, 28000 Gabès",
-      status: "Retour définitif",
-      weight: "1.5 kg",
-      dateCreated: "2023-12-22",
-      estimatedDelivery: "2023-12-27",
-      price: "15,00 €",
-      phone: "+216 71 234 567",
-      email: "ahmed.mohamed@email.com",
-      reference: "REF-027",
-      description: "Colis retour définitif"
-    },
-    {
-      id: "COL028",
-      shipper: "Ahmed Mohamed",
-      destination: "582 Boulevard de l'Étoile, 29000 Gafsa",
-      status: "RTN client agence",
-      weight: "2.1 kg",
-      dateCreated: "2023-12-21",
-      estimatedDelivery: "2023-12-26",
-      price: "21,00 €",
-      phone: "+216 71 234 567",
-      email: "ahmed.mohamed@email.com",
-      reference: "REF-028",
-      description: "Retour à l'agence client"
-    },
-    {
-      id: "COL029",
-      shipper: "Ahmed Mohamed",
-      destination: "794 Rue de la Planète, 30000 Kairouan",
-      status: "RTN client agence",
-      weight: "1.7 kg",
-      dateCreated: "2023-12-20",
-      estimatedDelivery: "2023-12-25",
-      price: "17,00 €",
-      phone: "+216 71 234 567",
-      email: "ahmed.mohamed@email.com",
-      reference: "REF-029",
-      description: "Retour à l'agence client"
-    },
-    {
-      id: "COL030",
-      shipper: "Ahmed Mohamed",
-      destination: "916 Avenue de la Galaxie, 31000 Kasserine",
-      status: "RTN client agence",
-      weight: "3.3 kg",
-      dateCreated: "2023-12-19",
-      estimatedDelivery: "2023-12-24",
-      price: "33,00 €",
-      phone: "+216 71 234 567",
-      email: "ahmed.mohamed@email.com",
-      reference: "REF-030",
-      description: "Retour à l'agence client"
-    },
-    {
-      id: "COL031",
-      shipper: "Ahmed Mohamed",
-      destination: "258 Rue de l'Univers, 32000 Le Kef",
-      status: "Retour Expéditeur",
-      weight: "1.9 kg",
-      dateCreated: "2023-12-18",
-      estimatedDelivery: "2023-12-23",
-      price: "19,00 €",
-      phone: "+216 71 234 567",
-      email: "ahmed.mohamed@email.com",
-      reference: "REF-031",
-      description: "Retour vers l'expéditeur"
-    },
-    {
-      id: "COL032",
-      shipper: "Ahmed Mohamed",
-      destination: "471 Boulevard du Cosmos, 33000 Siliana",
-      status: "Retour Expéditeur",
-      weight: "2.5 kg",
-      dateCreated: "2023-12-17",
-      estimatedDelivery: "2023-12-22",
-      price: "25,00 €",
-      phone: "+216 71 234 567",
-      email: "ahmed.mohamed@email.com",
-      reference: "REF-032",
-      description: "Retour vers l'expéditeur"
-    },
-    {
-      id: "COL033",
-      shipper: "Ahmed Mohamed",
-      destination: "683 Avenue de l'Infini, 34000 Zaghouan",
-      status: "Retour Expéditeur",
-      weight: "1.8 kg",
-      dateCreated: "2023-12-16",
-      estimatedDelivery: "2023-12-21",
-      price: "18,00 €",
-      phone: "+216 71 234 567",
-      email: "ahmed.mohamed@email.com",
-      reference: "REF-033",
-      description: "Retour vers l'expéditeur"
-    },
-    {
-      id: "COL034",
-      shipper: "Ahmed Mohamed",
-      destination: "895 Rue de l'Éternité, 35000 Béja",
-      status: "Retour En Cours d'expédition",
-      weight: "2.2 kg",
-      dateCreated: "2023-12-15",
-      estimatedDelivery: "2023-12-20",
-      price: "22,00 €",
-      phone: "+216 71 234 567",
-      email: "ahmed.mohamed@email.com",
-      reference: "REF-034",
-      description: "Retour en cours d'expédition"
-    },
-    {
-      id: "COL035",
-      shipper: "Ahmed Mohamed",
-      destination: "127 Boulevard de l'Immortalité, 36000 Jendouba",
-      status: "Retour En Cours d'expédition",
-      weight: "1.4 kg",
-      dateCreated: "2023-12-14",
-      estimatedDelivery: "2023-12-19",
-      price: "14,00 €",
-      phone: "+216 71 234 567",
-      email: "ahmed.mohamed@email.com",
-      reference: "REF-035",
-      description: "Retour en cours d'expédition"
-    },
-    {
-      id: "COL036",
-      shipper: "Ahmed Mohamed",
-      destination: "349 Avenue de la Vie, 37000 Kébili",
-      status: "Retour En Cours d'expédition",
-      weight: "2.9 kg",
-      dateCreated: "2023-12-13",
-      estimatedDelivery: "2023-12-18",
-      price: "29,00 €",
-      phone: "+216 71 234 567",
-      email: "ahmed.mohamed@email.com",
-      reference: "REF-036",
-      description: "Retour en cours d'expédition"
-    },
-    {
-      id: "COL037",
-      shipper: "Ahmed Mohamed",
-      destination: "561 Rue de la Mort, 38000 Tataouine",
-      status: "Retour reçu",
-      weight: "1.6 kg",
-      dateCreated: "2023-12-12",
-      estimatedDelivery: "2023-12-17",
-      price: "16,00 €",
-      phone: "+216 71 234 567",
-      email: "ahmed.mohamed@email.com",
-      reference: "REF-037",
-      description: "Retour reçu par l'expéditeur"
-    },
-    {
-      id: "COL038",
-      shipper: "Ahmed Mohamed",
-      destination: "783 Boulevard de la Résurrection, 39000 Tozeur",
-      status: "Retour reçu",
-      weight: "2.3 kg",
-      dateCreated: "2023-12-11",
-      estimatedDelivery: "2023-12-16",
-      price: "23,00 €",
-      phone: "+216 71 234 567",
-      email: "ahmed.mohamed@email.com",
-      reference: "REF-038",
-      description: "Retour reçu par l'expéditeur"
-    },
-    {
-      id: "COL039",
-      shipper: "Ahmed Mohamed",
-      destination: "995 Avenue de la Renaissance, 40000 Médenine",
-      status: "Retour reçu",
-      weight: "1.7 kg",
-      dateCreated: "2023-12-10",
-      estimatedDelivery: "2023-12-15",
-      price: "17,00 €",
-      phone: "+216 71 234 567",
-      email: "ahmed.mohamed@email.com",
-      reference: "REF-039",
-      description: "Retour reçu par l'expéditeur"
-    }
-  ];
+  // Get current user
+  const [currentUser] = useState(() => {
+    const user = JSON.parse(localStorage.getItem('currentUser') || 'null');
+    return user;
+  });
+
+  // State for real parcel data
+  const [realParcelsData, setRealParcelsData] = useState([]);
+  const [loadingParcels, setLoadingParcels] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Status mapping function
+  const mapStatusToFrench = (status) => {
+    const statusMap = {
+      'pending': 'En attente',
+      'to_pickup': 'À enlever',
+      'picked_up': 'Enlevé',
+      'at_warehouse': 'Au dépôt',
+      'in_transit': 'En cours',
+      'return_to_warehouse': 'RTN dépôt',
+      'delivered': 'Livrés',
+      'delivered_paid': 'Livrés payés',
+      'definitive_return': 'Retour définitif',
+      'return_to_client_agency': 'RTN client agence',
+      'return_to_sender': 'Retour Expéditeur',
+      'return_in_transit': 'Retour En Cours',
+      'return_received': 'Retour reçu'
+    };
+    return statusMap[status] || status;
+  };
+
+  // Fetch real parcel data for the logged-in expéditeur
+  useEffect(() => {
+    const fetchParcels = async () => {
+      try {
+        setLoadingParcels(true);
+        setError(null);
+        
+        if (currentUser && currentUser.email) {
+          console.log('Fetching parcels for user:', currentUser.email);
+          
+          // Use the new expediteur-specific API endpoint
+          const userParcels = await apiService.getExpediteurParcels(currentUser.email);
+          console.log('User parcels received:', userParcels);
+          
+          // Transform the data to match the expected format
+          const transformedParcels = userParcels.map(parcel => ({
+            id: parcel.tracking_number || parcel.id,
+            shipper: parcel.shipper_name || currentUser.name || "Expéditeur",
+            destination: parcel.destination || "Adresse non spécifiée",
+            status: mapStatusToFrench(parcel.status) || "En attente",
+            weight: `${parcel.weight || 0} kg`,
+            dateCreated: parcel.created_at ? new Date(parcel.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+            estimatedDelivery: parcel.estimated_delivery_date ? new Date(parcel.estimated_delivery_date).toISOString().split('T')[0] : new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            price: `${parseFloat(parcel.price || 0).toFixed(2)} €`,
+            phone: parcel.shipper_phone || "N/A",
+            email: parcel.shipper_email || "N/A",
+            reference: parcel.tracking_number || parcel.id,
+            description: parcel.type || "Colis standard",
+            // Add shipper city information for timeline
+            shipper_city: parcel.shipper_city || currentUser.governorate || "Tunis",
+            // Keep original parcel data for timeline
+            tracking_number: parcel.tracking_number,
+            created_at: parcel.created_at,
+            type: parcel.type
+          }));
+          
+          console.log('Transformed parcels:', transformedParcels);
+          setRealParcelsData(transformedParcels);
+        } else {
+          console.log('No current user found');
+          setRealParcelsData([]);
+        }
+      } catch (error) {
+        console.error('Error fetching parcels:', error);
+        setError('Erreur lors du chargement des colis');
+        setRealParcelsData([]);
+      } finally {
+        setLoadingParcels(false);
+      }
+    };
+
+    fetchParcels();
+  }, [currentUser]);
+
+  // Use real data instead of mock data
+  const parcelsToDisplay = realParcelsData;
+
+  // Calculate statistics from real data
+  const statistics = useMemo(() => {
+    const total = parcelsToDisplay.length;
+    const statusCounts = parcelsToDisplay.reduce((acc, parcel) => {
+      acc[parcel.status] = (acc[parcel.status] || 0) + 1;
+      return acc;
+    }, {});
+
+    return {
+      total,
+      "En attente": statusCounts["En attente"] || statusCounts["pending"] || 0,
+      "À enlever": statusCounts["À enlever"] || statusCounts["to_pickup"] || 0,
+      "Enlevé": statusCounts["Enlevé"] || statusCounts["picked_up"] || 0,
+      "Au dépôt": statusCounts["Au dépôt"] || statusCounts["at_warehouse"] || 0,
+      "En cours": statusCounts["En cours"] || statusCounts["in_transit"] || 0,
+      "RTN dépôt": statusCounts["RTN dépôt"] || statusCounts["return_to_warehouse"] || 0,
+      "Livrés": statusCounts["Livrés"] || statusCounts["delivered"] || 0,
+      "Livrés payés": statusCounts["Livrés payés"] || statusCounts["delivered_paid"] || 0,
+      "Retour définitif": statusCounts["Retour définitif"] || statusCounts["definitive_return"] || 0,
+      "RTN client agence": statusCounts["RTN client agence"] || statusCounts["return_to_client_agency"] || 0,
+      "Retour Expéditeur": statusCounts["Retour Expéditeur"] || statusCounts["return_to_sender"] || 0,
+      "Retour En Cours": statusCounts["Retour En Cours"] || statusCounts["return_in_transit"] || 0,
+      "Retour reçu": statusCounts["Retour reçu"] || statusCounts["return_received"] || 0,
+    };
+  }, [parcelsToDisplay]);
+
   const createParcelMutation = useCreateParcel();
   const updateParcelMutation = useUpdateParcel();
   const deleteParcelMutation = useDeleteParcel();
@@ -656,14 +222,21 @@ const ColisClient = () => {
 
   // Memoized filtered data for better performance
   const filteredParcels = useMemo(() => {
-    // Use mock data instead of API data for now
-    const dataToUse = mockParcelsData;
+    // Use real data from API
+    const dataToUse = parcelsToDisplay;
     
-    return dataToUse.filter((parcel) => {
+    console.log('🔍 Filtering parcels:', {
+      totalParcels: dataToUse.length,
+      searchTerm,
+      advancedFilters,
+      sampleParcel: dataToUse[0]
+    });
+    
+    const filtered = dataToUse.filter((parcel) => {
       // Recherche simple
       const matchesSearch = searchTerm === "" || 
         Object.values(parcel).some(value =>
-          value.toString().toLowerCase().includes(searchTerm.toLowerCase())
+          value && value.toString().toLowerCase().includes(searchTerm.toLowerCase())
         );
 
       // Filtres avancés
@@ -681,13 +254,30 @@ const ColisClient = () => {
       return matchesSearch && matchesStatus && matchesShipper && 
              matchesDestination && matchesDateFrom && matchesDateTo;
     });
-  }, [searchTerm, advancedFilters]);
+    
+    console.log('✅ Filtered parcels:', {
+      filteredCount: filtered.length,
+      sampleFiltered: filtered[0]
+    });
+    
+    return filtered;
+  }, [parcelsToDisplay, searchTerm, advancedFilters]);
 
   // Pagination logic
   const indexOfLastParcel = currentPage * parcelsPerPage;
   const indexOfFirstParcel = indexOfLastParcel - parcelsPerPage;
   const currentParcels = filteredParcels.slice(indexOfFirstParcel, indexOfLastParcel);
   const totalPages = Math.ceil(filteredParcels.length / parcelsPerPage);
+  
+  console.log('📄 Pagination:', {
+    currentPage,
+    parcelsPerPage,
+    indexOfFirstParcel,
+    indexOfLastParcel,
+    totalPages,
+    currentParcelsCount: currentParcels.length,
+    sampleCurrentParcel: currentParcels[0]
+  });
 
   // Reset to first page when filters change
   React.useEffect(() => {
@@ -765,36 +355,51 @@ const ColisClient = () => {
     setFactureColis(parcel);
   };
 
-  // Données mock pour le bon de livraison (à remplacer par les vraies données si dispo)
-  const getBonLivraisonData = (parcel) => ({
+  // Données réelles pour le bon de livraison
+  const getBonLivraisonData = (parcel) => {
+    // Get current user for expéditeur information
+    const currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
+    
+    // Extract governorates from destination (format: "Client Name - address, Governorate")
+    const destinationParts = parcel.destination?.split(', ') || [];
+    const destinationGovernorate = destinationParts[destinationParts.length - 1] || "Tunis";
+    
+    // Get origin governorate (expéditeur's city)
+    const originGovernorate = parcel.shipper_city || currentUser?.governorate || "Tunis";
+    
+    // Create route: Origin >> ---- Dispatch ---- >> Destination
+    const route = `${originGovernorate} >> ---- Dispatch ---- >> ${destinationGovernorate}`;
+    
+    return {
     colis: {
-      code: parcel.id,
-      nom: parcel.description || "Colis démo",
+        code: parcel.tracking_number || parcel.id,
+        nom: parcel.description || "Colis",
       adresse: parcel.destination,
       poids: parcel.weight,
     },
     expediteur: {
-      nom: "Bon Prix Sousse",
-      adresse: "sousse",
-      tel: "23814555",
-      nif: "1678798WNM000",
+        nom: parcel.shipper || currentUser?.name || "Expéditeur",
+        adresse: parcel.shipper_city || currentUser?.governorate || "Tunis",
+        tel: parcel.phone || currentUser?.phone || "N/A",
+        nif: currentUser?.fiscalNumber || "N/A",
     },
     destinataire: {
-      nom: parcel.shipper,
+        nom: destinationParts[0] || parcel.shipper || "Client",
       adresse: parcel.destination,
-      tel: parcel.phone,
-    },
-    route: "Sousse >> ---- Dispatch ---- >> Mednine",
-    date: new Date().toISOString().split('T')[0],
-    docNumber: parcel.id,
-    instructions: "Burkini noir flowers 34 ????? ?????? ??????",
+        tel: parcel.phone || "N/A",
+      },
+      route: route,
+      date: parcel.dateCreated || new Date().toISOString().split('T')[0],
+      docNumber: parcel.tracking_number || parcel.id,
+      instructions: parcel.description || "Colis standard",
     montant: parcel.price,
-    tva: "0.471 DT",
+      tva: "0.00 DT", // Calculate based on price if needed
     quantite: 1,
-    designation: "Coli",
-    pageCount: 2,
+      designation: parcel.description || "Colis",
+      pageCount: 1,
     pageIndex: 1,
-  });
+    };
+  };
 
   const exportToExcel = () => {
     if (!statusModal.parcels.length) return;
@@ -818,10 +423,34 @@ const ColisClient = () => {
     saveAs(data, `colis_${statusModal.status}_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
-  if (isLoading) {
+  if (loadingParcels) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Chargement de vos colis...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="text-red-600 mb-4">
+            <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+          </div>
+          <p className="text-red-600 font-medium">{error}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="mt-4 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+          >
+            Réessayer
+          </button>
+        </div>
       </div>
     );
   }
@@ -853,7 +482,7 @@ const ColisClient = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-medium text-gray-600">Total</p>
-              <p className="text-xl font-bold text-blue-600">{totalParcels}</p>
+              <p className="text-xl font-bold text-blue-600">{statistics.total}</p>
             </div>
             <div className="p-2 bg-blue-100 rounded-full">
               <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -870,7 +499,7 @@ const ColisClient = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-medium text-gray-600">En attente</p>
-              <p className="text-xl font-bold text-yellow-600">{statusStatistics["En attente"]}</p>
+              <p className="text-xl font-bold text-yellow-600">{statistics["En attente"]}</p>
             </div>
             <div className="p-2 bg-yellow-100 rounded-full">
               <svg className="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -887,7 +516,7 @@ const ColisClient = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-medium text-gray-600">À enlever</p>
-              <p className="text-xl font-bold text-orange-600">{statusStatistics["À enlever"]}</p>
+              <p className="text-xl font-bold text-orange-600">{statistics["À enlever"]}</p>
             </div>
             <div className="p-2 bg-orange-100 rounded-full">
               <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -904,7 +533,7 @@ const ColisClient = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-medium text-gray-600">Enlevé</p>
-              <p className="text-xl font-bold text-blue-600">{statusStatistics["Enlevé"]}</p>
+              <p className="text-xl font-bold text-blue-600">{statistics["Enlevé"]}</p>
             </div>
             <div className="p-2 bg-blue-100 rounded-full">
               <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -921,7 +550,7 @@ const ColisClient = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-medium text-gray-600">Au dépôt</p>
-              <p className="text-xl font-bold text-indigo-600">{statusStatistics["Au dépôt"]}</p>
+              <p className="text-xl font-bold text-indigo-600">{statistics["Au dépôt"]}</p>
             </div>
             <div className="p-2 bg-indigo-100 rounded-full">
               <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -938,7 +567,7 @@ const ColisClient = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-medium text-gray-600">En cours</p>
-              <p className="text-xl font-bold text-purple-600">{statusStatistics["En cours"]}</p>
+              <p className="text-xl font-bold text-purple-600">{statistics["En cours"]}</p>
             </div>
             <div className="p-2 bg-purple-100 rounded-full">
               <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -955,7 +584,7 @@ const ColisClient = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-medium text-gray-600">RTN dépôt</p>
-              <p className="text-xl font-bold text-pink-600">{statusStatistics["RTN dépôt"]}</p>
+              <p className="text-xl font-bold text-pink-600">{statistics["RTN dépôt"]}</p>
             </div>
             <div className="p-2 bg-pink-100 rounded-full">
               <svg className="w-5 h-5 text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -972,7 +601,7 @@ const ColisClient = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-medium text-gray-600">Livrés</p>
-              <p className="text-xl font-bold text-green-600">{statusStatistics["Livrés"]}</p>
+              <p className="text-xl font-bold text-green-600">{statistics["Livrés"]}</p>
             </div>
             <div className="p-2 bg-green-100 rounded-full">
               <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -989,7 +618,7 @@ const ColisClient = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-medium text-gray-600">Livrés payés</p>
-              <p className="text-xl font-bold text-emerald-600">{statusStatistics["Livrés payés"]}</p>
+              <p className="text-xl font-bold text-emerald-600">{statistics["Livrés payés"]}</p>
             </div>
             <div className="p-2 bg-emerald-100 rounded-full">
               <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1006,7 +635,7 @@ const ColisClient = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-medium text-gray-600">Retour définitif</p>
-              <p className="text-xl font-bold text-red-600">{statusStatistics["Retour définitif"]}</p>
+              <p className="text-xl font-bold text-red-600">{statistics["Retour définitif"]}</p>
             </div>
             <div className="p-2 bg-red-100 rounded-full">
               <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1023,11 +652,11 @@ const ColisClient = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-medium text-gray-600">RTN client agence</p>
-              <p className="text-xl font-bold text-rose-600">{statusStatistics["RTN client agence"]}</p>
+              <p className="text-xl font-bold text-pink-600">{statistics["RTN client agence"]}</p>
             </div>
-            <div className="p-2 bg-rose-100 rounded-full">
-              <svg className="w-5 h-5 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+            <div className="p-2 bg-pink-100 rounded-full">
+              <svg className="w-5 h-5 text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
               </svg>
             </div>
           </div>
@@ -1040,7 +669,7 @@ const ColisClient = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-medium text-gray-600">Retour Expéditeur</p>
-              <p className="text-xl font-bold text-gray-600">{statusStatistics["Retour Expéditeur"]}</p>
+              <p className="text-xl font-bold text-gray-600">{statistics["Retour Expéditeur"]}</p>
             </div>
             <div className="p-2 bg-gray-100 rounded-full">
               <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1052,15 +681,15 @@ const ColisClient = () => {
 
         <div 
           className="bg-white p-4 rounded-xl shadow-lg border border-gray-100 cursor-pointer hover:shadow-xl transition-shadow"
-          onClick={() => handleStatusCardClick("Retour En Cours d'expédition")}
+          onClick={() => handleStatusCardClick("Retour En Cours")}
         >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-medium text-gray-600">Retour En Cours</p>
-              <p className="text-xl font-bold text-violet-600">{statusStatistics["Retour En Cours d'expédition"]}</p>
+              <p className="text-xl font-bold text-indigo-600">{statistics["Retour En Cours"]}</p>
             </div>
-            <div className="p-2 bg-violet-100 rounded-full">
-              <svg className="w-5 h-5 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="p-2 bg-indigo-100 rounded-full">
+              <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
             </div>
@@ -1074,7 +703,7 @@ const ColisClient = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-medium text-gray-600">Retour reçu</p>
-              <p className="text-xl font-bold text-cyan-600">{statusStatistics["Retour reçu"]}</p>
+              <p className="text-xl font-bold text-cyan-600">{statistics["Retour reçu"]}</p>
             </div>
             <div className="p-2 bg-cyan-100 rounded-full">
               <svg className="w-5 h-5 text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1153,6 +782,11 @@ const ColisClient = () => {
       </div>
 
       {/* Data Table */}
+      {console.log('🎯 DataTable props:', {
+        dataLength: currentParcels.length,
+        sampleData: currentParcels[0],
+        columns: columns.length
+      })}
       <DataTable
         data={currentParcels}
         columns={columns}

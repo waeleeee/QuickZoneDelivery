@@ -99,7 +99,7 @@ const Dashboard = ({ selectedKey = "dashboard" }) => {
         return <CommercialPayments />;
       }
       if (currentUser?.role === "Expéditeur") {
-        return <ClientPayments />;
+        return <PaimentExpediteur />;
       }
       return <PaimentExpediteur />;
     }

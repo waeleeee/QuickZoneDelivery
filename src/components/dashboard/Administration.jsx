@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import DataTable from "./common/DataTable";
 import Modal from "./common/Modal";
+import { apiService } from "../../services/api";
 
 // List of Tunisian governorates
 const gouvernorats = [
@@ -11,35 +12,24 @@ const gouvernorats = [
 ];
 
 const Administration = () => {
-  const [administrators, setAdministrators] = useState([
-    {
-      id: "ADM001",
-      name: "Pierre Dubois",
-      email: "pierre.dubois@quickzone.com",
-      role: "Administrateur système",
-      phone: "+33 1 23 45 67 89",
-      address: "123 Rue de la Paix, 75001 Paris, France",
-      gouvernorat: "Tunis",
-    },
-    {
-      id: "ADM002",
-      name: "Sarah Ahmed",
-      email: "sarah.ahmed@quickzone.com",
-      role: "Gestionnaire utilisateurs",
-      phone: "+33 1 98 76 54 32",
-      address: "456 Avenue des Champs-Élysées, 75008 Paris, France",
-      gouvernorat: "Sousse",
-    },
-    {
-      id: "ADM003",
-      name: "Mohamed Ali",
-      email: "mohamed.ali@quickzone.com",
-      role: "Responsable sécurité",
-      phone: "+33 1 11 22 33 44",
-      address: "789 Boulevard Saint-Germain, 75006 Paris, France",
-      gouvernorat: "Sfax",
-    },
-  ]);
+  const [administrators, setAdministrators] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchAdministrators = async () => {
+      try {
+        const data = await apiService.getAdministrators();
+        console.log('Administrators data:', data); // Debug log
+        setAdministrators(data || []);
+      } catch (error) {
+        console.error('Error fetching administrators:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAdministrators();
+  }, []);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -48,10 +38,11 @@ const Administration = () => {
     id: "",
     name: "",
     email: "",
+    password: "",
     phone: "",
     address: "",
     role: "admin",
-    gouvernorat: "Tunis"
+    governorate: "Tunis"
   });
 
   const columns = [
@@ -59,7 +50,7 @@ const Administration = () => {
     { key: "name", header: "Nom" },
     { key: "email", header: "Email" },
     { key: "phone", header: "Téléphone" },
-    { key: "gouvernorat", header: "Gouvernorat" },
+    { key: "governorate", header: "Gouvernorat" },
     { key: "address", header: "Adresse" },
     { key: "role", header: "Rôle" },
   ];
@@ -70,10 +61,11 @@ const Administration = () => {
       id: "",
       name: "",
       email: "",
+      password: "",
       phone: "",
       address: "",
       role: "admin",
-      gouvernorat: "Tunis"
+      governorate: "Tunis"
     });
     setIsModalOpen(true);
   };
@@ -84,27 +76,62 @@ const Administration = () => {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (admin) => {
+  const handleDelete = async (admin) => {
     if (window.confirm("Êtes-vous sûr de vouloir supprimer cet administrateur ?")) {
-      setAdministrators(administrators.filter((a) => a.id !== admin.id));
+      try {
+        const result = await apiService.deleteAdministrator(admin.id);
+        if (result && result.success) {
+          setAdministrators(administrators.filter((a) => a.id !== admin.id));
+        }
+          } catch (error) {
+      console.error('Error deleting administrator:', error);
+      const errorMessage = error.message || 'Error deleting administrator. Please try again.';
+      alert(errorMessage);
+    }
     }
   };
 
-  const handleSubmit = () => {
-    if (editingAdmin) {
-      setAdministrators(
-        administrators.map((admin) =>
-          admin.id === editingAdmin.id ? { ...formData, id: admin.id } : admin
-        )
-      );
-    } else {
-      const newAdmin = {
-        ...formData,
-        id: `ADM${String(administrators.length + 1).padStart(3, '0')}`,
-      };
-      setAdministrators([...administrators, newAdmin]);
+  const handleSubmit = async () => {
+    try {
+      // Validate required fields
+      if (!formData.name.trim()) {
+        alert('Le nom est requis');
+        return;
+      }
+      if (!formData.email.trim()) {
+        alert('L\'email est requis');
+        return;
+      }
+      if (!editingAdmin && !formData.password.trim()) {
+        alert('Le mot de passe est requis pour créer un nouvel administrateur');
+        return;
+      }
+      
+      if (editingAdmin) {
+        // Update existing administrator
+        const result = await apiService.updateAdministrator(editingAdmin.id, formData);
+        if (result && result.success) {
+          setAdministrators(
+            administrators.map((admin) =>
+              admin.id === editingAdmin.id ? result.data : admin
+            )
+          );
+          alert('Administrateur mis à jour avec succès!');
+        }
+      } else {
+        // Create new administrator
+        const result = await apiService.createAdministrator(formData);
+        if (result && result.success) {
+          setAdministrators([...administrators, result.data]);
+          alert('Administrateur créé avec succès!');
+        }
+      }
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error('Error saving administrator:', error);
+      const errorMessage = error.message || 'Error saving administrator. Please try again.';
+      alert(errorMessage);
     }
-    setIsModalOpen(false);
   };
 
   const handleInputChange = (e) => {
@@ -127,19 +154,25 @@ const Administration = () => {
           onClick={handleAdd}
           className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
         >
-          Ajouter Admin
+          Ajouter employé
         </button>
       </div>
 
       {/* Tableau des administrateurs */}
-      <DataTable
-        data={administrators}
-        columns={columns}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
-        searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
-      />
+      {loading ? (
+        <div className="animate-pulse">
+          <div className="h-64 bg-gray-200 rounded"></div>
+        </div>
+      ) : (
+        <DataTable
+          data={administrators}
+          columns={columns}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+          searchTerm={searchTerm}
+          onSearchChange={setSearchTerm}
+        />
+      )}
 
       {/* Modal d'ajout/édition */}
       <Modal
@@ -189,6 +222,23 @@ const Administration = () => {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1 text-left">
+                Mot de passe {!editingAdmin && <span className="text-red-500">*</span>}
+              </label>
+              <input
+                type="password"
+                name="password"
+                value={formData.password}
+                onChange={handleInputChange}
+                required={!editingAdmin}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                placeholder={editingAdmin ? "Laisser vide pour ne pas changer" : "Entrez le mot de passe"}
+              />
+              {editingAdmin && (
+                <p className="text-xs text-gray-500 mt-1">Laisser vide pour conserver le mot de passe actuel</p>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1 text-left">
                 Téléphone
               </label>
               <input
@@ -204,8 +254,8 @@ const Administration = () => {
                 Gouvernorat
               </label>
               <select
-                name="gouvernorat"
-                value={formData.gouvernorat}
+                name="governorate"
+                value={formData.governorate}
                 onChange={handleInputChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
               >

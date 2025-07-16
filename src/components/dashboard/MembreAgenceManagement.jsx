@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import DataTable from "./common/DataTable";
 import Modal from "./common/Modal";
+import { apiService } from "../../services/api";
 
 // List of Tunisian governorates
 const gouvernorats = [
@@ -11,56 +12,28 @@ const gouvernorats = [
 ];
 
 const MembreAgenceManagement = () => {
-  const [members, setMembers] = useState([
-    {
-      id: "MEM001",
-      name: "Pierre Dubois",
-      email: "pierre.membre@email.com",
-      phone: "+33 1 23 45 67 89",
-      address: "12 Rue de Paris, Tunis",
-      agence: "Tunis",
-      role: "Responsable d'agence",
-      gouvernorat: "Tunis",
-      status: "Actif",
-      dateCreation: "2024-01-15"
-    },
-    {
-      id: "MEM002",
-      name: "Sarah Ahmed",
-      email: "sarah.membre@email.com",
-      phone: "+33 1 98 76 54 32",
-      address: "34 Avenue Habib Bourguiba, Sousse",
-      agence: "Sousse",
-      role: "Agent d'accueil",
-      gouvernorat: "Sousse",
-      status: "Actif",
-      dateCreation: "2024-01-20"
-    },
-    {
-      id: "MEM003",
-      name: "Mohamed Ali",
-      email: "mohamed.membre@email.com",
-      phone: "+33 1 11 22 33 44",
-      address: "56 Rue de la Liberté, Sfax",
-      agence: "Sfax",
-      role: "Gestionnaire de stock",
-      gouvernorat: "Sfax",
-      status: "Actif",
-      dateCreation: "2024-02-01"
-    },
-    {
-      id: "MEM004",
-      name: "Fatima Ben Salem",
-      email: "fatima.membre@email.com",
-      phone: "+33 1 44 55 66 77",
-      address: "78 Boulevard Central, Monastir",
-      agence: "Monastir",
-      role: "Agent de livraison",
-      gouvernorat: "Monastir",
-      status: "Inactif",
-      dateCreation: "2024-01-10"
-    }
-  ]);
+  const [members, setMembers] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch members from backend
+  useEffect(() => {
+    const fetchMembers = async () => {
+      try {
+        setLoading(true);
+        console.log('Fetching agency members...');
+        const data = await apiService.getAgencyMembers();
+        console.log('Agency members data:', data);
+        setMembers(data || []);
+      } catch (error) {
+        console.error('Error fetching agency members:', error);
+        setMembers([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchMembers();
+  }, []);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -69,23 +42,42 @@ const MembreAgenceManagement = () => {
     name: "",
     email: "",
     phone: "",
-    address: "",
-    agence: "Tunis",
-    role: "",
-    gouvernorat: "Tunis",
+    governorate: "Tunis",
+    agency: "Tunis",
+    role: "Agent d'accueil",
     status: "Actif"
   });
 
   const columns = [
-    { key: "id", header: "ID" },
+    { 
+      key: "id", 
+      header: "ID",
+      render: value => value ? `MEM${String(value).padStart(3, '0')}` : 'N/A'
+    },
     { key: "name", header: "Nom et prénom" },
     { key: "email", header: "Email" },
     { key: "phone", header: "Téléphone" },
-    { key: "gouvernorat", header: "Gouvernorat" },
-    { key: "agence", header: "Agence" },
+    { key: "governorate", header: "Gouvernorat" },
+    { key: "agency", header: "Agence" },
     { key: "role", header: "Rôle" },
-    { key: "status", header: "Statut" },
-    { key: "dateCreation", header: "Date de création" }
+    { 
+      key: "status", 
+      header: "Statut",
+      render: value => (
+        <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${
+          value === 'Actif' 
+            ? 'bg-green-100 text-green-800 border border-green-300' 
+            : 'bg-red-100 text-red-800 border border-red-300'
+        }`}>
+          {value}
+        </span>
+      )
+    },
+    { 
+      key: "created_at", 
+      header: "Date de création",
+      render: value => value ? new Date(value).toLocaleDateString('fr-FR') : 'N/A'
+    }
   ];
 
   const handleAdd = () => {
@@ -94,10 +86,9 @@ const MembreAgenceManagement = () => {
       name: "",
       email: "",
       phone: "",
-      address: "",
-      agence: "Tunis",
-      role: "",
-      gouvernorat: "Tunis",
+      governorate: "Tunis",
+      agency: "Tunis",
+      role: "Agent d'accueil",
       status: "Actif"
     });
     setIsModalOpen(true);
@@ -109,28 +100,51 @@ const MembreAgenceManagement = () => {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (member) => {
+  const handleDelete = async (member) => {
     if (window.confirm("Êtes-vous sûr de vouloir supprimer ce membre d'agence ?")) {
-      setMembers(members.filter((m) => m.id !== member.id));
+      try {
+        const result = await apiService.deleteAgencyMember(member.id);
+        if (result && result.success) {
+          setMembers(members.filter((m) => m.id !== member.id));
+          alert('Membre d\'agence supprimé avec succès!');
+        } else {
+          throw new Error(result?.message || 'Failed to delete member');
+        }
+      } catch (error) {
+        console.error('Error deleting agency member:', error);
+        const errorMessage = error.message || 'Error deleting agency member. Please try again.';
+        alert(errorMessage);
+      }
     }
   };
 
-  const handleSubmit = () => {
-    if (editingMember) {
-      setMembers(
-        members.map((member) =>
-          member.id === editingMember.id ? { ...formData, id: member.id, dateCreation: member.dateCreation } : member
-        )
-      );
-    } else {
-      const newMember = {
-        ...formData,
-        id: `MEM${String(members.length + 1).padStart(3, '0')}`,
-        dateCreation: new Date().toISOString().split('T')[0]
-      };
-      setMembers([...members, newMember]);
+  const handleSubmit = async () => {
+    try {
+      if (editingMember) {
+        // Update existing member
+        const result = await apiService.updateAgencyMember(editingMember.id, formData);
+        if (result && result.success) {
+          setMembers(members.map(m => m.id === editingMember.id ? result.data : m));
+          alert('Membre d\'agence mis à jour avec succès!');
+        } else {
+          throw new Error(result?.message || 'Failed to update member');
+        }
+      } else {
+        // Create new member
+        const result = await apiService.createAgencyMember(formData);
+        if (result && result.success) {
+          setMembers([...members, result.data]);
+          alert('Membre d\'agence créé avec succès!');
+        } else {
+          throw new Error(result?.message || 'Failed to create member');
+        }
+      }
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error('Error saving agency member:', error);
+      const errorMessage = error.message || 'Error saving agency member. Please try again.';
+      alert(errorMessage);
     }
-    setIsModalOpen(false);
   };
 
   const handleInputChange = (e) => {
@@ -145,7 +159,7 @@ const MembreAgenceManagement = () => {
   const totalMembers = members.length;
   const activeMembers = members.filter(m => m.status === "Actif").length;
   const inactiveMembers = members.filter(m => m.status === "Inactif").length;
-  const agencies = [...new Set(members.map(m => m.agence))].length;
+  const agencies = [...new Set(members.map(m => m.agency))].length;
 
   return (
     <div className="space-y-6">
@@ -223,14 +237,22 @@ const MembreAgenceManagement = () => {
       </div>
 
       {/* Members Table */}
-      <DataTable
-        data={members}
-        columns={columns}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
-        searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
-      />
+      {loading ? (
+        <div className="bg-white rounded-lg shadow-sm border p-8">
+          <div className="animate-pulse">
+            <div className="h-64 bg-gray-200 rounded"></div>
+          </div>
+        </div>
+      ) : (
+        <DataTable
+          data={members}
+          columns={columns}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+          searchTerm={searchTerm}
+          onSearchChange={setSearchTerm}
+        />
+      )}
 
       {/* Add/Edit Modal */}
       <Modal
@@ -277,8 +299,8 @@ const MembreAgenceManagement = () => {
             <div>
               <label className="block text-sm font-medium text-left">Gouvernorat</label>
               <select 
-                name="gouvernorat" 
-                value={formData.gouvernorat} 
+                name="governorate" 
+                value={formData.governorate} 
                 onChange={handleInputChange} 
                 required
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
@@ -288,22 +310,11 @@ const MembreAgenceManagement = () => {
                 ))}
               </select>
             </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-left">Adresse</label>
-              <input 
-                type="text" 
-                name="address" 
-                value={formData.address} 
-                onChange={handleInputChange} 
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500" 
-              />
-            </div>
             <div>
               <label className="block text-sm font-medium text-left">Agence</label>
               <select 
-                name="agence" 
-                value={formData.agence} 
+                name="agency" 
+                value={formData.agency} 
                 onChange={handleInputChange} 
                 required
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
@@ -326,12 +337,11 @@ const MembreAgenceManagement = () => {
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="">Sélectionner un rôle</option>
-                <option value="Responsable d'agence">Responsable d'agence</option>
-                <option value="Agent d'accueil">Agent d'accueil</option>
-                <option value="Gestionnaire de stock">Gestionnaire de stock</option>
-                <option value="Agent de livraison">Agent de livraison</option>
-                <option value="Agent administratif">Agent administratif</option>
-                <option value="Superviseur">Superviseur</option>
+                <option value="Magasinier">Magasinier</option>
+                <option value="Agent Débriefing Livreurs">Agent Débriefing Livreurs</option>
+                <option value="Magasinier de Nuit">Magasinier de Nuit</option>
+                <option value="Chargé des Opérations Logistiques">Chargé des Opérations Logistiques</option>
+                <option value="Sinior OPS Membre">Sinior OPS Membre</option>
               </select>
             </div>
             <div>

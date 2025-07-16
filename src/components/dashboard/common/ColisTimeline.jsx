@@ -1,57 +1,73 @@
 import React from "react";
 
-const timelineData = [
-  {
-    date: "2025-06-13 14:32",
-    label: "En attente",
-    city: "Sousse",
-    status: "en_attente",
-    icon: "clock",
+const statusConfig = {
+  "En attente": {
     emoji: "⏳",
     color: "yellow",
+    icon: "clock",
     comment: "Colis enregistré dans le système."
   },
-  {
-    date: "2025-06-13 20:46",
-    label: "Au dépôt",
-    city: "Sousse",
-    status: "au_depot",
-    icon: "box",
+  "Au dépôt": {
     emoji: "📦",
     color: "blue",
-    comment: "Colis reçu au dépôt de Sousse."
+    icon: "box",
+    comment: "Colis reçu au dépôt."
   },
-  {
-    date: "2025-06-14 08:16",
-    label: "En cours",
-    city: "Bizerte",
-    status: "en_cours",
-    icon: "truck",
+  "En cours": {
     emoji: "🚚",
     color: "purple",
+    icon: "truck",
     comment: "Colis en cours de livraison."
   },
-  {
-    date: "2025-06-14 14:29",
-    label: "Livés",
-    city: "Bizerte",
-    status: "livre",
-    icon: "check",
+  "RTN dépôt": {
+    emoji: "🔄",
+    color: "orange",
+    icon: "truck",
+    comment: "Colis retourné au dépôt."
+  },
+  "Livrés": {
     emoji: "✅",
     color: "green",
+    icon: "check",
     comment: "Colis livré au client."
   },
-  {
-    date: "2025-06-17 15:46",
-    label: "Livrés payés",
-    city: "Bizerte",
-    status: "paye",
-    icon: "euro",
+  "Livrés payés": {
     emoji: "💶",
     color: "emerald",
+    icon: "euro",
     comment: "Paiement reçu."
   },
-];
+  "Retour définitif": {
+    emoji: "❌",
+    color: "red",
+    icon: "check",
+    comment: "Retour définitif."
+  },
+  "RTN client agence": {
+    emoji: "🏢",
+    color: "pink",
+    icon: "box",
+    comment: "Retour à l'agence client."
+  },
+  "Retour Expéditeur": {
+    emoji: "📤",
+    color: "gray",
+    icon: "truck",
+    comment: "Retour à l'expéditeur."
+  },
+  "Retour En Cours d'expédition": {
+    emoji: "🔄",
+    color: "indigo",
+    icon: "truck",
+    comment: "Retour en cours d'expédition."
+  },
+  "Retour reçu": {
+    emoji: "📥",
+    color: "cyan",
+    icon: "box",
+    comment: "Retour reçu."
+  }
+};
 
 const colorMap = {
   yellow: "bg-yellow-400 text-yellow-700 border-yellow-400",
@@ -77,9 +93,6 @@ const icons = {
   truck: (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 3v5a2 2 0 01-2 2h-1"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
   ),
-  delivery: (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 3v5a2 2 0 01-2 2h-1"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
-  ),
   check: (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"/></svg>
   ),
@@ -93,11 +106,32 @@ const handleExport = () => {
 };
 
 const ColisTimeline = ({ parcel, onClose }) => {
+  // Get current status configuration
+  const currentStatus = parcel?.status || "En attente";
+  const statusInfo = statusConfig[currentStatus] || statusConfig["En attente"];
+  
+  // Get current user for fallback city
+  const currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
+  
+  // Create timeline data with only current status
+  const timelineData = [
+    {
+      date: parcel?.created_at ? new Date(parcel.created_at).toLocaleString('fr-FR') : new Date().toLocaleString('fr-FR'),
+      label: currentStatus,
+      city: parcel?.shipper_city || currentUser?.governorate || "Tunis", // Use shipper's city (origin) instead of destination
+      status: currentStatus,
+      icon: statusInfo.icon,
+      emoji: statusInfo.emoji,
+      color: statusInfo.color,
+      comment: statusInfo.comment
+    }
+  ];
+
   return (
     <div className="max-w-2xl mx-auto">
       {/* Header du modal avec titre, bouton download et fermer (masqué à l'impression) */}
       <div className="flex justify-between items-center mb-2 print:hidden">
-        <h2 className="text-xl font-bold">Historique du colis {parcel?.id || "Colis"}</h2>
+        <h2 className="text-xl font-bold">Détails du colis {parcel?.tracking_number || parcel?.id || "Colis"}</h2>
         <div className="flex gap-2">
           <button
             onClick={handleExport}
@@ -111,13 +145,13 @@ const ColisTimeline = ({ parcel, onClose }) => {
       {/* Carte infos colis */}
       <div className="bg-white rounded-xl shadow-lg p-6 mb-8 flex flex-wrap justify-between items-center gap-4">
         <div className="text-sm text-gray-700 min-w-[180px]">
-          <div><b>Client:</b> {parcel?.shipper || "-"}</div>
-          <div><b>Montant:</b> {parcel?.price || "-"}</div>
-          <div><b>Téléphone:</b> 52 097 552</div>
+          <div><b>Client:</b> {parcel?.shipper || parcel?.shipper_name || "-"}</div>
+          <div><b>Montant:</b> {parcel?.price ? `${parcel.price} €` : "-"}</div>
+          <div><b>Téléphone:</b> {parcel?.shipper_phone || "N/A"}</div>
         </div>
         <div className="text-sm text-gray-700 text-right min-w-[180px]">
           <div><b>Adresse:</b> {parcel?.destination || "-"}</div>
-          <div><b>Désignation:</b> Colis</div>
+          <div><b>Désignation:</b> {parcel?.type || "Colis"}</div>
           <div><b>Nombre des articles:</b> 1</div>
         </div>
       </div>
@@ -145,6 +179,16 @@ const ColisTimeline = ({ parcel, onClose }) => {
               </div>
             </div>
           ))}
+        </div>
+      </div>
+      
+      {/* Message informatif */}
+      <div className="mt-8 text-center">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <p className="text-sm text-blue-700">
+            <strong>Note:</strong> Ce colis est actuellement au statut "{currentStatus}". 
+            L'historique détaillé des statuts sera disponible une fois que le système de suivi sera complètement opérationnel.
+          </p>
         </div>
       </div>
     </div>

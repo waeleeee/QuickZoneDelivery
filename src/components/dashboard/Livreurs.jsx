@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import DataTable from "./common/DataTable";
 import Modal from "./common/Modal";
+import { apiService } from "../../services/api";
 
 // List of Tunisian governorates
 const gouvernorats = [
@@ -10,37 +11,18 @@ const gouvernorats = [
   "Tozeur", "Tunis", "Zaghouan"
 ];
 
-const Livreurs = () => {
-  const [drivers, setDrivers] = useState([
-    {
-      id: "LIV001",
-      name: "Pierre Dubois",
-      email: "pierre.livreur@email.com",
-      phone: "+33 1 23 45 67 89",
-      address: "12 Rue de Paris, Tunis",
-      vehicle: "Renault Kangoo",
-      gouvernorat: "Tunis",
-    },
-    {
-      id: "LIV002",
-      name: "Sarah Ahmed",
-      email: "sarah.livreur@email.com",
-      phone: "+33 1 98 76 54 32",
-      address: "34 Avenue Habib Bourguiba, Sousse",
-      vehicle: "Peugeot Partner",
-      gouvernorat: "Sousse",
-    },
-    {
-      id: "LIV003",
-      name: "Mohamed Ali",
-      email: "mohamed.livreur@email.com",
-      phone: "+33 1 11 22 33 44",
-      address: "56 Rue de la Liberté, Sfax",
-      vehicle: "Citroën Berlingo",
-      gouvernorat: "Sfax",
-    },
-  ]);
+// Agency options
+const agencyOptions = [
+  "Siège",
+  "Tunis", 
+  "Sousse",
+  "Sfax",
+  "Monastir"
+];
 
+const Livreurs = () => {
+  const [drivers, setDrivers] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDriver, setEditingDriver] = useState(null);
@@ -49,18 +31,147 @@ const Livreurs = () => {
     email: "",
     phone: "",
     address: "",
-    vehicle: "",
-    gouvernorat: "Tunis",
+    governorate: "Tunis",
+    cin_number: "",
+    driving_license: "",
+    car_number: "",
+    car_type: "",
+    insurance_number: "",
+    agency: "Siège",
+    photo_url: "",
+    personal_documents_url: "",
+    car_documents_url: "",
+    photo_url_file: null,
+    personal_documents_url_file: null,
+    car_documents_url_file: null,
+    photo_url_preview: "",
+    personal_documents_url_preview: "",
+    car_documents_url_preview: "",
+    photo_url_loading: false,
+    personal_documents_url_loading: false,
+    car_documents_url_loading: false
   });
 
+  // Fetch drivers from backend
+  useEffect(() => {
+    const fetchDrivers = async () => {
+      try {
+        console.log('🔄 Starting to fetch drivers...');
+        setLoading(true);
+        const data = await apiService.getDrivers();
+        console.log('📊 Drivers data received in component:', data);
+        console.log('📊 Drivers data type:', typeof data);
+        console.log('📊 Drivers data length:', Array.isArray(data) ? data.length : 'Not an array');
+        
+        setDrivers(data || []);
+        console.log('✅ Drivers state updated');
+      } catch (error) {
+        console.error('❌ Error fetching drivers:', error);
+        setDrivers([]);
+      } finally {
+        setLoading(false);
+        console.log('🏁 Loading finished');
+      }
+    };
+
+    fetchDrivers();
+  }, []);
+
   const columns = [
-    { key: "id", header: "ID" },
+    { 
+      key: "photo_url", 
+      header: "Photo",
+      render: (value, row) => (
+        <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
+          {value && (value.startsWith('http') || value.startsWith('blob:') || value.startsWith('data:') || value.trim() !== '') ? (
+            <img 
+              src={value.startsWith('http') ? value : `http://localhost:5000${value}`} 
+              alt={`Photo de ${row.name}`}
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                console.error('Error loading table image:', e.target.src);
+                e.target.style.display = 'none';
+                e.target.nextSibling.style.display = 'flex';
+              }}
+            />
+          ) : null}
+          <span className={`text-gray-400 text-lg ${value && (value.startsWith('http') || value.startsWith('blob:') || value.startsWith('data:') || value.trim() !== '') ? 'hidden' : 'flex'} items-center justify-center w-full h-full`}>
+            👤
+          </span>
+        </div>
+      )
+    },
     { key: "name", header: "Nom" },
     { key: "email", header: "Email" },
     { key: "phone", header: "Téléphone" },
-    { key: "gouvernorat", header: "Gouvernorat" },
-    { key: "address", header: "Adresse" },
-    { key: "vehicle", header: "Véhicule" },
+    { key: "governorate", header: "Gouvernorat" },
+    { key: "car_number", header: "Numéro de voiture" },
+    { key: "car_type", header: "Type de voiture" },
+    { key: "agency", header: "Agence" },
+    { 
+      key: "documents", 
+      header: "Documents",
+      render: (value, row) => (
+        <div className="flex space-x-1">
+          {row.personal_documents_url && (
+            <button
+              onClick={() => {
+                if (row.personal_documents_url.startsWith('blob:')) {
+                  // For blob URLs, try to open in new tab
+                  try {
+                    window.open(row.personal_documents_url, '_blank');
+                  } catch (error) {
+                    console.error('Error opening document:', error);
+                    alert('Document non disponible. Veuillez réessayer.');
+                  }
+                } else if (row.personal_documents_url.startsWith('http')) {
+                  // For server URLs, open in new tab
+                  window.open(row.personal_documents_url, '_blank');
+                } else if (row.personal_documents_url && row.personal_documents_url.trim() !== '') {
+                  // For server URLs without http, construct the full URL
+                  const fullUrl = `http://localhost:5000${row.personal_documents_url}`;
+                  window.open(fullUrl, '_blank');
+                } else {
+                  alert('Document non disponible.');
+                }
+              }}
+              className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
+              title="Voir documents personnels"
+            >
+              📄
+            </button>
+          )}
+          {row.car_documents_url && (
+            <button
+              onClick={() => {
+                if (row.car_documents_url.startsWith('blob:')) {
+                  // For blob URLs, try to open in new tab
+                  try {
+                    window.open(row.car_documents_url, '_blank');
+                  } catch (error) {
+                    console.error('Error opening document:', error);
+                    alert('Document non disponible. Veuillez réessayer.');
+                  }
+                } else if (row.car_documents_url.startsWith('http')) {
+                  // For server URLs, open in new tab
+                  window.open(row.car_documents_url, '_blank');
+                } else if (row.car_documents_url && row.car_documents_url.trim() !== '') {
+                  // For server URLs without http, construct the full URL
+                  const fullUrl = `http://localhost:5000${row.car_documents_url}`;
+                  window.open(fullUrl, '_blank');
+                } else {
+                  alert('Document non disponible.');
+                }
+              }}
+              className="px-2 py-1 text-xs bg-green-500 text-white rounded hover:bg-green-600"
+              title="Voir documents voiture"
+            >
+              🚗
+            </button>
+          )}
+        </div>
+      )
+    },
   ];
 
   const handleAdd = () => {
@@ -70,39 +181,121 @@ const Livreurs = () => {
       email: "",
       phone: "",
       address: "",
-      vehicle: "",
-      gouvernorat: "Tunis",
+      governorate: "Tunis",
+      cin_number: "",
+      driving_license: "",
+      car_number: "",
+      car_type: "",
+      insurance_number: "",
+      agency: "Siège",
+      photo_url: "",
+      personal_documents_url: "",
+      car_documents_url: "",
+      photo_url_file: null,
+      personal_documents_url_file: null,
+      car_documents_url_file: null,
+      photo_url_preview: "",
+      personal_documents_url_preview: "",
+      car_documents_url_preview: "",
+      photo_url_loading: false,
+      personal_documents_url_loading: false,
+      car_documents_url_loading: false
     });
     setIsModalOpen(true);
   };
 
   const handleEdit = (driver) => {
     setEditingDriver(driver);
-    setFormData(driver);
+    // Ensure all fields have default values to avoid controlled/uncontrolled input issues
+    setFormData({
+      name: driver.name || "",
+      email: driver.email || "",
+      phone: driver.phone || "",
+      address: driver.address || "",
+      governorate: driver.governorate || "Tunis",
+      cin_number: driver.cin_number || "",
+      driving_license: driver.driving_license || "",
+      car_number: driver.car_number || "",
+      car_type: driver.car_type || "",
+      insurance_number: driver.insurance_number || "",
+      agency: driver.agency || "Siège",
+      photo_url: driver.photo_url || "",
+      personal_documents_url: driver.personal_documents_url || "",
+      car_documents_url: driver.car_documents_url || "",
+      photo_url_file: null,
+      personal_documents_url_file: null,
+      car_documents_url_file: null,
+      photo_url_preview: driver.photo_url || "",
+      personal_documents_url_preview: driver.personal_documents_url || "",
+      car_documents_url_preview: driver.car_documents_url || "",
+      photo_url_loading: false,
+      personal_documents_url_loading: false,
+      car_documents_url_loading: false
+    });
     setIsModalOpen(true);
   };
 
-  const handleDelete = (driver) => {
+  const handleDelete = async (driver) => {
     if (window.confirm("Êtes-vous sûr de vouloir supprimer ce livreur ?")) {
+      try {
+        await apiService.deleteDriver(driver.id);
       setDrivers(drivers.filter((d) => d.id !== driver.id));
+        alert('Livreur supprimé avec succès!');
+      } catch (error) {
+        console.error('Error deleting driver:', error);
+        const errorMessage = error.response?.data?.message || error.message || 'Erreur lors de la suppression du livreur';
+        alert(errorMessage);
+      }
     }
   };
 
-  const handleSubmit = () => {
-    if (editingDriver) {
-      setDrivers(
-        drivers.map((driver) =>
-          driver.id === editingDriver.id ? { ...formData, id: driver.id } : driver
-        )
-      );
-    } else {
-      const newDriver = {
-        ...formData,
-        id: `LIV${String(drivers.length + 1).padStart(3, '0')}`,
+    const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      console.log('Submitting form data:', formData);
+      
+      // Create a copy of formData with only the data we want to send to API
+      const apiData = {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        address: formData.address,
+        governorate: formData.governorate,
+        cin_number: formData.cin_number,
+        driving_license: formData.driving_license,
+        car_number: formData.car_number,
+        car_type: formData.car_type,
+        insurance_number: formData.insurance_number,
+        agency: formData.agency,
+        photo_url: formData.photo_url,
+        personal_documents_url: formData.personal_documents_url,
+        car_documents_url: formData.car_documents_url
       };
-      setDrivers([...drivers, newDriver]);
+      
+      console.log('Submitting with server URLs for files');
+      
+      if (editingDriver) {
+        console.log('Updating driver with ID:', editingDriver.id);
+        const updatedDriver = await apiService.updateDriver(editingDriver.id, apiData);
+        console.log('Update response:', updatedDriver);
+        setDrivers(drivers.map((driver) =>
+          driver.id === editingDriver.id ? updatedDriver : driver
+        ));
+        alert('Livreur mis à jour avec succès!');
+      } else {
+        console.log('Creating new driver');
+        const newDriver = await apiService.createDriver(apiData);
+        console.log('Create response:', newDriver);
+        setDrivers([...drivers, newDriver]);
+        alert('Livreur créé avec succès!');
+      }
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error('Error saving driver:', error);
+      console.error('Error response:', error.response?.data);
+      const errorMessage = error.response?.data?.message || error.message || 'Erreur lors de la sauvegarde du livreur';
+      alert(errorMessage);
     }
-    setIsModalOpen(false);
   };
 
   const handleInputChange = (e) => {
@@ -112,6 +305,104 @@ const Livreurs = () => {
       [name]: value,
     }));
   };
+
+  const handleFileChange = async (e, fieldName) => {
+    const file = e.target.files[0];
+    if (file) {
+      try {
+        console.log('Starting file upload for:', fieldName, file.name);
+        
+        // Show loading state
+        setFormData((prev) => ({
+          ...prev,
+          [`${fieldName}_loading`]: true
+        }));
+
+        // Upload file to server
+        const uploadResult = await apiService.uploadFile(file);
+        console.log('Upload result:', uploadResult);
+        
+        if (uploadResult && uploadResult.success) {
+          // Create blob URL for preview
+          const blobUrl = URL.createObjectURL(file);
+          
+          console.log('Setting form data with URL:', uploadResult.data.url);
+          
+          setFormData((prev) => ({
+            ...prev,
+            [fieldName]: uploadResult.data.url, // Store server URL
+            [`${fieldName}_preview`]: blobUrl, // Store blob URL for preview
+            [`${fieldName}_file`]: file, // Store file object
+            [`${fieldName}_loading`]: false
+          }));
+        } else {
+          console.error('Upload failed - no success flag:', uploadResult);
+          throw new Error(uploadResult?.message || 'Upload failed');
+        }
+      } catch (error) {
+        console.error('File upload error:', error);
+        console.error('Error details:', error.response?.data);
+        alert('Erreur lors du téléchargement du fichier: ' + error.message);
+        setFormData((prev) => ({
+          ...prev,
+          [`${fieldName}_loading`]: false
+        }));
+      }
+    }
+  };
+
+  const handleViewDocument = (documentUrl, documentName, fileObject = null) => {
+    if (documentUrl) {
+      if (documentUrl.startsWith('blob:') && fileObject) {
+        // For blob URLs with file object, create a proper download
+        const link = document.createElement('a');
+        link.href = documentUrl;
+        link.download = fileObject.name || documentName || 'document';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else if (documentUrl.startsWith('blob:')) {
+        // For blob URLs without file object, try to open in new tab
+        try {
+          window.open(documentUrl, '_blank');
+        } catch (error) {
+          console.error('Error opening blob URL:', error);
+          alert('Impossible d\'ouvrir le document. Veuillez réessayer.');
+        }
+      } else if (documentUrl.startsWith('http')) {
+        // For server URLs, download it
+        const link = document.createElement('a');
+        link.href = documentUrl;
+        link.download = documentName || 'document';
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        // For other URLs, try to open in new tab
+        window.open(documentUrl, '_blank');
+      }
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Gestion des livreurs</h1>
+            <p className="text-gray-600 mt-1">Liste des livreurs et leurs informations</p>
+          </div>
+        </div>
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Chargement des livreurs...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -144,11 +435,61 @@ const Livreurs = () => {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title={editingDriver ? "Modifier le livreur" : "Ajouter un livreur"}
-        size="md"
+        size="xl"
       >
-        <form onSubmit={e => { e.preventDefault(); handleSubmit(); }}>
+        <form onSubmit={handleSubmit} className="space-y-8">
+          
+          {/* 📦 Informations du livreur */}
+          <div className="bg-blue-50 p-6 rounded-lg border border-blue-200">
+            <h3 className="text-lg font-semibold text-blue-800 mb-4 flex items-center">
+              <span className="text-2xl mr-2">📦</span>
+              Coordonnées livreur
+            </h3>
+            
+            {/* Photo upload at top center */}
+            <div className="flex justify-center mb-6">
+              <div className="text-center">
+                <div className="w-32 h-32 border-2 border-dashed border-blue-300 rounded-full mx-auto mb-2 flex items-center justify-center bg-white">
+                  {formData.photo_url_loading ? (
+                    <div className="flex items-center justify-center w-full h-full">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                    </div>
+                  ) : (formData.photo_url_preview || formData.photo_url) ? (
+                    <img 
+                      src={formData.photo_url_preview || (formData.photo_url.startsWith('http') ? formData.photo_url : `http://localhost:5000${formData.photo_url}`)} 
+                      alt="Photo du livreur" 
+                      className="w-full h-full object-cover rounded-full"
+                      onError={(e) => {
+                        console.error('Error loading image:', e.target.src);
+                        e.target.style.display = 'none';
+                        e.target.nextSibling.style.display = 'flex';
+                      }}
+                    />
+                  ) : null}
+                  <span className={`text-blue-400 text-4xl ${(formData.photo_url_preview || formData.photo_url) ? 'hidden' : 'flex'} items-center justify-center w-full h-full`}>
+                    📷
+                  </span>
+                </div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleFileChange(e, 'photo_url')}
+                  className="hidden"
+                  id="photo-upload"
+                />
+                <label 
+                  htmlFor="photo-upload"
+                  className="cursor-pointer text-blue-600 hover:text-blue-800 text-sm font-medium"
+                >
+                  {formData.photo_url ? 'Changer la photo' : 'Ajouter une photo'}
+                </label>
+                {formData.photo_url && !formData.photo_url.startsWith('http') && !formData.photo_url.startsWith('blob:') && (
+                  <p className="text-sm text-gray-500 mt-1">Fichier sélectionné: {formData.photo_url}</p>
+                )}
+              </div>
+            </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* If you want to show ID, add here as md:col-span-2 */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Nom</label>
               <input
@@ -157,6 +498,7 @@ const Livreurs = () => {
                 value={formData.name}
                 onChange={handleInputChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  required
               />
             </div>
             <div>
@@ -167,6 +509,7 @@ const Livreurs = () => {
                 value={formData.email}
                 onChange={handleInputChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  required
               />
             </div>
             <div>
@@ -177,15 +520,17 @@ const Livreurs = () => {
                 value={formData.phone}
                 onChange={handleInputChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  required
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Gouvernorat</label>
               <select
-                name="gouvernorat"
-                value={formData.gouvernorat}
+                  name="governorate"
+                  value={formData.governorate}
                 onChange={handleInputChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  required
               >
                 {gouvernorats.map(gov => (
                   <option key={gov} value={gov}>{gov}</option>
@@ -200,20 +545,175 @@ const Livreurs = () => {
                 value={formData.address}
                 onChange={handleInputChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Numéro CIN</label>
+                <input
+                  type="text"
+                  name="cin_number"
+                  value={formData.cin_number}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  required
               />
             </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Véhicule</label>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Numéro permis</label>
               <input
                 type="text"
-                name="vehicle"
-                value={formData.vehicle}
+                  name="driving_license"
+                  value={formData.driving_license}
                 onChange={handleInputChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-              />
+                  required
+                />
+              </div>
             </div>
           </div>
-          <div className="flex justify-end space-x-3 space-x-reverse pt-4">
+
+          {/* 🚗 Informations de la voiture */}
+          <div className="bg-green-50 p-6 rounded-lg border border-green-200">
+            <h3 className="text-lg font-semibold text-green-800 mb-4 flex items-center">
+              <span className="text-2xl mr-2">🚗</span>
+              Coordonnées voiture
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Numéro de voiture</label>
+                <input
+                  type="text"
+                  name="car_number"
+                  value={formData.car_number}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Type de voiture</label>
+                <input
+                  type="text"
+                  name="car_type"
+                  value={formData.car_type}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500"
+                  placeholder="Ex: Renault Kangoo"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Numéro d'assurance</label>
+                <input
+                  type="text"
+                  name="insurance_number"
+                  value={formData.insurance_number}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Agence</label>
+                <select
+                  name="agency"
+                  value={formData.agency}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500"
+                  required
+                >
+                  {agencyOptions.map(agency => (
+                    <option key={agency} value={agency}>{agency}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Document uploads */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1 text-left">
+                  Documents personnels
+                </label>
+                <input
+                  type="file"
+                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                  onChange={(e) => handleFileChange(e, 'personal_documents_url')}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500"
+                />
+                {formData.personal_documents_url_loading ? (
+                  <div className="flex items-center space-x-2 mt-1">
+                    <p className="text-sm text-blue-600">⏳ Téléchargement en cours...</p>
+                  </div>
+                ) : (formData.personal_documents_url_preview || formData.personal_documents_url) ? (
+                  <div className="flex items-center space-x-2 mt-1">
+                    <p className="text-sm text-green-600">✓ Document sélectionné</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const url = formData.personal_documents_url_preview || formData.personal_documents_url;
+                        if (url.startsWith('blob:') || url.startsWith('http')) {
+                          window.open(url, '_blank');
+                        } else if (url && url.trim() !== '') {
+                          // For server URLs, construct the full URL
+                          const fullUrl = url.startsWith('http') ? url : `http://localhost:5000${url}`;
+                          window.open(fullUrl, '_blank');
+                        } else {
+                          alert('Document non disponible pour la prévisualisation.');
+                        }
+                      }}
+                      className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
+                    >
+                      Voir
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1 text-left">
+                  Documents de la voiture
+                </label>
+                <input
+                  type="file"
+                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                  onChange={(e) => handleFileChange(e, 'car_documents_url')}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500"
+                />
+                {formData.car_documents_url_loading ? (
+                  <div className="flex items-center space-x-2 mt-1">
+                    <p className="text-sm text-blue-600">⏳ Téléchargement en cours...</p>
+                  </div>
+                ) : (formData.car_documents_url_preview || formData.car_documents_url) ? (
+                  <div className="flex items-center space-x-2 mt-1">
+                    <p className="text-sm text-green-600">✓ Document sélectionné</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const url = formData.car_documents_url_preview || formData.car_documents_url;
+                        if (url.startsWith('blob:') || url.startsWith('http')) {
+                          window.open(url, '_blank');
+                        } else if (url && url.trim() !== '') {
+                          // For server URLs, construct the full URL
+                          const fullUrl = url.startsWith('http') ? url : `http://localhost:5000${url}`;
+                          window.open(fullUrl, '_blank');
+                        } else {
+                          alert('Document non disponible pour la prévisualisation.');
+                        }
+                      }}
+                      className="px-2 py-1 text-xs bg-green-500 text-white rounded hover:bg-green-600"
+                    >
+                      Voir
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </div>
+
+          {/* Form buttons */}
+          <div className="flex justify-end space-x-3 pt-4">
             <button
               type="button"
               onClick={() => setIsModalOpen(false)}

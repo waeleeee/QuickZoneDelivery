@@ -1,3 +1,5 @@
+import React from 'react';
+
 // Role-based Access Control Configuration
 export const ROLE_PERMISSIONS = {
   // ADMINISTRATION - Full access to everything

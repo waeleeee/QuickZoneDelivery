@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import DataTable from "./common/DataTable";
 import Modal from "./common/Modal";
 import html2pdf from "html2pdf.js";
@@ -7,6 +7,7 @@ import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import FactureColis from "./FactureColis";
 import BonLivraisonColis from "./BonLivraisonColis";
+import { warehousesService } from "../../services/api";
 
 // List of Tunisian governorates
 const gouvernorats = [
@@ -14,50 +15,6 @@ const gouvernorats = [
   "Kairouan", "Kasserine", "Kébili", "Kef", "Mahdia", "Manouba", "Médenine", 
   "Monastir", "Nabeul", "Sfax", "Sidi Bouzid", "Siliana", "Sousse", "Tataouine", 
   "Tozeur", "Tunis", "Zaghouan"
-];
-
-// Mock data for chef d'agence (chefs d'agence)
-const chefsAgence = [
-  {
-    id: 1,
-    name: "Pierre Dubois",
-    email: "pierre.chef@email.com",
-    phone: "+33 1 23 45 67 89",
-    gouvernorat: "Tunis",
-    agence: "Tunis",
-  },
-  {
-    id: 2,
-    name: "Sarah Ahmed",
-    email: "sarah.chef@email.com",
-    phone: "+33 1 98 76 54 32",
-    gouvernorat: "Sousse",
-    agence: "Sousse",
-  },
-  {
-    id: 3,
-    name: "Mohamed Ali",
-    email: "mohamed.chef@email.com",
-    phone: "+33 1 11 22 33 44",
-    gouvernorat: "Sfax",
-    agence: "Sfax",
-  },
-  {
-    id: 4,
-    name: "Leila Trabelsi",
-    email: "leila.chef@email.com",
-    phone: "+33 1 44 55 66 77",
-    gouvernorat: "Monastir",
-    agence: "Monastir",
-  },
-  {
-    id: 5,
-    name: "Sami Ben Ali",
-    email: "sami.chef@email.com",
-    phone: "+33 1 88 99 00 11",
-    gouvernorat: "Gabès",
-    agence: "Gabès",
-  },
 ];
 
 // Statuses and their colors (matching the legend)
@@ -73,179 +30,14 @@ const COLIS_STATUSES = [
   { key: "Retour définitif", label: "Retour définitif", color: "#EF4444" },
   { key: "Rtn Client Agence", label: "RTN client agence", color: "#EC4899" },
   { key: "Retour Expéditeur", label: "Retour Expéditeur", color: "#6B7280" },
-  { key: "Retour en cours d’expédition", label: "Retour En Cours d'expédition", color: "#6366F1" },
+  { key: "Retour en cours d'expédition", label: "Retour En Cours d'expédition", color: "#6366F1" },
   { key: "Retour reçu", label: "Retour reçu", color: "#06B6D4" },
 ];
 
-// Mock colis data generator
-function generateMockColis(warehouseId) {
-  const clients = [
-    { name: "Pierre Dubois", phone: "+33 6 12 34 56 78" },
-    { name: "Marie Dupont", phone: "+33 6 98 76 54 32" },
-    { name: "Jean Martin", phone: "+33 6 55 44 33 22" },
-    { name: "Sophie Bernard", phone: "+33 6 77 66 55 44" },
-    { name: "Thomas Leroy", phone: "+33 6 11 22 33 44" },
-    { name: "Emma Rousseau", phone: "+33 6 99 88 77 66" },
-    { name: "Fatima Benali", phone: "+33 6 77 66 55 44" },
-  ];
-  let colis = [];
-  let id = 1;
-  COLIS_STATUSES.forEach((status, idx) => {
-    for (let i = 0; i < 3; i++) {
-      const client = clients[(idx + i) % clients.length];
-      colis.push({
-        id: `${warehouseId}-${status.key}-${i+1}`,
-        code: `QZ${warehouseId}${status.key.substring(0,2).toUpperCase()}${i+1}`,
-        client: client.name,
-        phone: client.phone,
-        date: `2023-03-${10 + idx + i}`,
-        status: status.key,
-      });
-      id++;
-    }
-  });
-  return colis;
-}
-
 const Entrepots = () => {
-  const [warehouses, setWarehouses] = useState([
-    {
-      id: "ENT001",
-      name: "Entrepôt Tunis Central",
-      location: "Tunis",
-      gouvernorat: "Tunis",
-      manager: "Pierre Dubois",
-      currentStock: "75%",
-      status: "Actif",
-      address: "123 Rue de la Paix, 1000 Tunis",
-      phone: "+216 71 234 567",
-      email: "tunis@quickzone.tn",
-      createdAt: "2023-01-15",
-      users: [
-        {
-          id: 1,
-          name: "Marie Dupont",
-          role: "Chef d'équipe",
-          email: "marie.dupont@quickzone.fr",
-          phone: "+33 6 12 34 56 78",
-          status: "Actif",
-          joinDate: "2023-02-01",
-          packages: 45,
-          performance: "95%"
-        },
-        {
-          id: 2,
-          name: "Jean Martin",
-          role: "Livreur",
-          email: "jean.martin@quickzone.fr",
-          phone: "+33 6 98 76 54 32",
-          status: "Actif",
-          joinDate: "2023-03-15",
-          packages: 38,
-          performance: "88%"
-        },
-        {
-          id: 3,
-          name: "Sophie Bernard",
-          role: "Agent de tri",
-          email: "sophie.bernard@quickzone.fr",
-          phone: "+33 6 55 44 33 22",
-          status: "Actif",
-          joinDate: "2023-01-20",
-          packages: 52,
-          performance: "92%"
-        }
-      ],
-      statistics: {
-        totalPackages: 135,
-        deliveredToday: 28,
-        pendingPackages: 12,
-        averageDeliveryTime: "2.3h",
-        monthlyGrowth: "+15%",
-        customerSatisfaction: "4.8/5"
-      }
-    },
-    {
-      id: "ENT002",
-      name: "Entrepôt Sousse",
-      location: "Sousse",
-      gouvernorat: "Sousse",
-      manager: "Sarah Ahmed",
-      currentStock: "60%",
-      status: "Actif",
-      address: "456 Avenue Habib Bourguiba, 4000 Sousse",
-      phone: "+216 73 456 789",
-      email: "sousse@quickzone.tn",
-      createdAt: "2023-03-10",
-      users: [
-        {
-          id: 4,
-          name: "Thomas Leroy",
-          role: "Chef d'équipe",
-          email: "thomas.leroy@quickzone.fr",
-          phone: "+33 6 11 22 33 44",
-          status: "Actif",
-          joinDate: "2023-04-01",
-          packages: 42,
-          performance: "91%"
-        },
-        {
-          id: 5,
-          name: "Emma Rousseau",
-          role: "Livreur",
-          email: "emma.rousseau@quickzone.fr",
-          phone: "+33 6 99 88 77 66",
-          status: "Actif",
-          joinDate: "2023-05-10",
-          packages: 35,
-          performance: "85%"
-        }
-      ],
-      statistics: {
-        totalPackages: 77,
-        deliveredToday: 15,
-        pendingPackages: 8,
-        averageDeliveryTime: "2.8h",
-        monthlyGrowth: "+12%",
-        customerSatisfaction: "4.6/5"
-      }
-    },
-    {
-      id: "ENT003",
-      name: "Entrepôt Sfax",
-      location: "Sfax",
-      gouvernorat: "Sfax",
-      manager: "Mohamed Ali",
-      currentStock: "90%",
-      status: "Inactif",
-      address: "789 Rue de la Liberté, 3000 Sfax",
-      phone: "+216 74 789 012",
-      email: "sfax@quickzone.tn",
-      createdAt: "2023-02-20",
-      users: [
-        {
-          id: 6,
-          name: "Fatima Benali",
-          role: "Chef d'équipe",
-          email: "fatima.benali@quickzone.fr",
-          phone: "+33 6 77 66 55 44",
-          status: "Inactif",
-          joinDate: "2023-03-01",
-          packages: 0,
-          performance: "0%"
-        }
-      ],
-      statistics: {
-        totalPackages: 0,
-        deliveredToday: 0,
-        pendingPackages: 0,
-        averageDeliveryTime: "0h",
-        monthlyGrowth: "0%",
-        customerSatisfaction: "0/5"
-      }
-    },
-  ].map((w, idx) => ({ ...w, mockColis: generateMockColis(w.id) })));
-
+  const [warehouses, setWarehouses] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingWarehouse, setEditingWarehouse] = useState(null);
@@ -256,9 +48,159 @@ const Entrepots = () => {
     manager: "",
     status: "Actif",
   });
+  const [chefAgences, setChefAgences] = useState([]);
   const [colisModal, setColisModal] = useState({ open: false, status: null, colis: [] });
   const [factureColis, setFactureColis] = useState(null);
   const [bonLivraisonColis, setBonLivraisonColis] = useState(null);
+  const [selectedParcel, setSelectedParcel] = useState(null);
+  const [parcelDetailsModal, setParcelDetailsModal] = useState(false);
+
+
+  // Fetch warehouses data on component mount
+  useEffect(() => {
+    fetchWarehouses();
+    fetchChefAgences();
+  }, []);
+
+  const fetchWarehouses = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      console.log('🔍 Fetching warehouses data...');
+      
+      const response = await warehousesService.getWarehouses();
+      console.log('📦 Warehouses data received:', response);
+      
+      // Handle both expected format (response.success && response.data) and direct array format
+      let warehousesData = [];
+      if (response && response.success && response.data) {
+        warehousesData = response.data;
+      } else if (Array.isArray(response)) {
+        warehousesData = response;
+      } else {
+        console.warn('⚠️ Unexpected warehouses response format:', response);
+        setWarehouses([]);
+        return;
+      }
+      
+      // Transform the data to match the expected format
+      const transformedWarehouses = warehousesData.map(warehouse => ({
+          id: warehouse.id,
+          name: warehouse.name,
+          location: warehouse.governorate,
+          gouvernorat: warehouse.governorate,
+          manager: warehouse.manager_name || 'Non assigné',
+          currentStock: warehouse.current_stock && warehouse.capacity ? `${Math.round((warehouse.current_stock / warehouse.capacity) * 100)}%` : '0%',
+          status: warehouse.status || 'Actif',
+          address: warehouse.address || 'Non renseignée',
+          phone: warehouse.manager_phone || 'Non renseigné',
+          email: warehouse.manager_email || 'Non renseigné',
+          createdAt: new Date(warehouse.created_at).toLocaleDateString('fr-FR'),
+          capacity: warehouse.capacity || 100,
+          current_stock: warehouse.current_stock || 0,
+          manager_id: warehouse.manager_id,
+          // Default statistics (will be updated when warehouse details are fetched)
+          statistics: {
+            totalPackages: 0,
+            deliveredToday: 0,
+            pendingPackages: 0,
+            averageDeliveryTime: '0h',
+            monthlyGrowth: '0%',
+            customerSatisfaction: '0/5'
+          },
+          users: [],
+          parcelsByStatus: []
+        }));
+        
+        setWarehouses(transformedWarehouses);
+        console.log('✅ Warehouses data transformed and set:', transformedWarehouses);
+    } catch (error) {
+      console.error('❌ Error fetching warehouses:', error);
+      setError('Failed to fetch warehouses data');
+      setWarehouses([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchChefAgences = async () => {
+    try {
+      console.log('🔍 Fetching Chef d\'agence users...');
+      const response = await fetch('http://localhost:5000/api/personnel/users?role=Chef d\'agence');
+      const data = await response.json();
+      
+      if (data.success && data.data) {
+        const chefAgencesList = data.data.map(user => ({
+          id: user.id,
+          name: `${user.first_name} ${user.last_name}`,
+          email: user.email
+        }));
+        setChefAgences(chefAgencesList);
+        console.log('✅ Chef d\'agence users loaded:', chefAgencesList);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching Chef d\'agence users:', error);
+    }
+  };
+
+  const fetchWarehouseDetails = async (warehouseId) => {
+    try {
+      console.log('🔍 Fetching warehouse details for ID:', warehouseId);
+      const response = await warehousesService.getWarehouseDetails(warehouseId);
+      console.log('📦 Warehouse details received:', response);
+      
+      // Handle both response formats: {success: true, data: {...}} and direct data object
+      let details;
+      if (response && response.success && response.data) {
+        details = response.data;
+      } else if (response && response.id) {
+        // Direct data object format
+        details = response;
+      } else {
+        console.warn('⚠️ Unexpected warehouse details response format:', response);
+        return;
+      }
+      
+        console.log('📊 Details data:', details);
+        console.log('📊 Statistics:', details.statistics);
+        console.log('📊 Parcels by status:', details.parcelsByStatus);
+        
+        // Update the warehouse with detailed information
+        setWarehouses(prevWarehouses => 
+          prevWarehouses.map(warehouse => 
+            warehouse.id === warehouseId 
+              ? {
+                  ...warehouse,
+                currentStock: details.current_stock && details.capacity ? `${Math.round((details.current_stock / details.capacity) * 100)}%` : '0%',
+                current_stock: details.current_stock || 0,
+                capacity: details.capacity || 100,
+                  statistics: details.statistics || warehouse.statistics,
+                  users: details.users || warehouse.users,
+                  parcelsByStatus: details.parcelsByStatus || warehouse.parcelsByStatus
+                }
+              : warehouse
+          )
+        );
+        
+      // Update selected warehouse with the detailed information
+      setSelectedWarehouse(prev => {
+        if (prev && prev.id === warehouseId) {
+          return {
+            ...prev,
+            currentStock: details.current_stock && details.capacity ? `${Math.round((details.current_stock / details.capacity) * 100)}%` : '0%',
+            current_stock: details.current_stock || 0,
+            capacity: details.capacity || 100,
+            statistics: details.statistics || prev.statistics,
+            users: details.users || prev.users,
+            parcelsByStatus: details.parcelsByStatus || prev.parcelsByStatus
+          };
+        }
+        return prev;
+      });
+    } catch (error) {
+      console.error('❌ Error fetching warehouse details:', error);
+    }
+  };
 
   const columns = [
     { key: "id", header: "ID" },
@@ -281,7 +223,6 @@ const Entrepots = () => {
         </div>
       ),
     },
-
     {
       key: "actions",
       header: "Actions",
@@ -300,6 +241,7 @@ const Entrepots = () => {
     setFormData({
       name: "",
       gouvernorat: "Tunis",
+      address: "",
       manager: "",
       status: "Actif",
     });
@@ -308,52 +250,63 @@ const Entrepots = () => {
 
   const handleEdit = (warehouse) => {
     setEditingWarehouse(warehouse);
-    setFormData(warehouse);
+    setFormData({
+      name: warehouse.name,
+      gouvernorat: warehouse.gouvernorat,
+      address: warehouse.address || "",
+      manager: warehouse.manager_id || warehouse.manager,
+      status: warehouse.status,
+    });
     setIsModalOpen(true);
   };
 
-  const handleDelete = (warehouse) => {
+  const handleDelete = async (warehouse) => {
     if (window.confirm("Êtes-vous sûr de vouloir supprimer cet entrepôt ?")) {
+      try {
+        await warehousesService.deleteWarehouse(warehouse.id);
       setWarehouses(warehouses.filter((w) => w.id !== warehouse.id));
       if (selectedWarehouse?.id === warehouse.id) {
         setSelectedWarehouse(null);
       }
+      } catch (error) {
+        console.error('❌ Error deleting warehouse:', error);
+        alert('Erreur lors de la suppression de l\'entrepôt');
+      }
     }
   };
 
-  const handleViewDetails = (warehouse) => {
-    setSelectedWarehouse(selectedWarehouse?.id === warehouse.id ? null : warehouse);
+  const handleViewDetails = async (warehouse) => {
+    setSelectedWarehouse(warehouse);
+    // Always fetch detailed information when viewing a warehouse
+    console.log('🔍 Fetching details for warehouse:', warehouse.id);
+    await fetchWarehouseDetails(warehouse.id);
   };
 
-  const handleSubmit = () => {
-    if (editingWarehouse) {
-      setWarehouses(
-        warehouses.map((warehouse) =>
-          warehouse.id === editingWarehouse.id ? { ...formData, id: warehouse.id, currentStock: warehouse.currentStock } : warehouse
-        )
-      );
-    } else {
-      const newWarehouse = {
-        ...formData,
-        id: `ENT${String(warehouses.length + 1).padStart(3, '0')}`,
-        currentStock: "0%",
-        address: "",
-        phone: "",
-        email: "",
-        createdAt: new Date().toISOString().split('T')[0],
-        users: [],
-        statistics: {
-          totalPackages: 0,
-          deliveredToday: 0,
-          pendingPackages: 0,
-          averageDeliveryTime: "0h",
-          monthlyGrowth: "0%",
-          customerSatisfaction: "0/5"
-        }
+  const handleSubmit = async () => {
+    try {
+      const warehouseData = {
+        name: formData.name,
+        governorate: formData.gouvernorat,
+        address: formData.address || '',
+        manager_id: formData.manager || null,
+        capacity: 100,
+        status: formData.status
       };
-      setWarehouses([...warehouses, newWarehouse]);
+
+      if (editingWarehouse) {
+        await warehousesService.updateWarehouse(editingWarehouse.id, warehouseData);
+        // Refresh the warehouses list
+        await fetchWarehouses();
+      } else {
+        await warehousesService.createWarehouse(warehouseData);
+        // Refresh the warehouses list
+        await fetchWarehouses();
     }
     setIsModalOpen(false);
+    } catch (error) {
+      console.error('❌ Error saving warehouse:', error);
+      alert('Erreur lors de la sauvegarde de l\'entrepôt');
+    }
   };
 
   const handleInputChange = (e) => {
@@ -364,22 +317,112 @@ const Entrepots = () => {
     }));
   };
 
+  const handleStatusCardClick = async (status, count) => {
+    if (count === 0) return; // Don't open modal if no parcels
+    
+    try {
+      console.log('🔍 Fetching parcels for status:', status, 'in warehouse:', selectedWarehouse.id);
+      
+      // Fetch parcels for this specific status and warehouse
+      const response = await fetch(`http://localhost:5000/api/parcels?warehouse_id=${selectedWarehouse.id}&status=${encodeURIComponent(status)}`);
+      const data = await response.json();
+      
+      if (data.success && data.data) {
+        const parcels = data.data.map(parcel => ({
+          id: parcel.id,
+          code: parcel.tracking_number || parcel.id,
+          expediteur: parcel.shipper_name || 'N/A',
+          destination: parcel.destination || 'N/A',
+          status: parcel.status,
+          poids: parcel.weight ? `${parseFloat(parcel.weight).toFixed(2)} kg` : 'N/A',
+          date_creation: parcel.created_at ? new Date(parcel.created_at).toLocaleDateString('fr-FR') : 'N/A',
+          prix: parcel.price ? `${parseFloat(parcel.price).toFixed(2)} €` : 'N/A',
+          phone: parcel.sender_phone || parcel.shipper_phone || 'N/A',
+          adresse: parcel.destination || 'N/A',
+          designation: parcel.type || 'Livraison',
+          nombre_articles: 1,
+          // Additional fields for Bon de Livraison and Facture
+          shipper_name: parcel.shipper_name || 'N/A',
+          shipper_address: parcel.shipper_address || 'N/A',
+          shipper_phone: parcel.shipper_phone || 'N/A',
+          shipper_email: parcel.shipper_email || 'N/A',
+          shipper_tax_number: parcel.shipper_tax_number || 'N/A',
+          recipient_name: parcel.recipient_name || parcel.destination || 'N/A',
+          recipient_address: parcel.recipient_address || parcel.destination || 'N/A',
+          recipient_phone: parcel.recipient_phone || 'N/A',
+          created_at: parcel.created_at,
+          tracking_number: parcel.tracking_number || parcel.id,
+          type: parcel.type || 'Livraison'
+        }));
+        
+        console.log('📦 Found parcels:', parcels.length, 'for status:', status);
+        
+        setColisModal({
+          open: true,
+          status: status,
+          colis: parcels
+        });
+      } else {
+        console.warn('No parcels found for status:', status);
+        setColisModal({
+          open: true,
+          status: status,
+          colis: []
+        });
+      }
+    } catch (error) {
+      console.error('❌ Error fetching parcels for status:', error);
+      setColisModal({
+        open: true,
+        status: status,
+        colis: []
+      });
+    }
+  };
+
   const exportToExcel = () => {
     if (!selectedWarehouse) return;
-    const allColis = selectedWarehouse.mockColis;
-    const data = allColis.map(colis => ({
-      Code: colis.code,
-      Client: colis.client,
-      Téléphone: colis.phone,
-      Date: colis.date,
-      Statut: colis.status,
-    }));
+    
+    // Use real parcel data if available, otherwise show empty data
+    const data = selectedWarehouse.parcelsByStatus?.map(item => ({
+      Statut: item.status,
+      Nombre: item.count
+    })) || [];
+    
     const worksheet = XLSX.utils.json_to_sheet(data);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Colis");
     const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
     const blob = new Blob([excelBuffer], { type: "application/octet-stream" });
     saveAs(blob, `entrepot_${selectedWarehouse.name.replace(/\s+/g, '_')}_colis_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
+  const exportParcelsToExcel = () => {
+    if (!colisModal.colis || colisModal.colis.length === 0) return;
+    
+    const data = colisModal.colis.map(parcel => ({
+      'N° Colis': parcel.code,
+      'Expéditeur': parcel.expediteur,
+      'Destination': parcel.destination,
+      'Statut': parcel.status,
+      'Poids': parcel.poids,
+      'Date de création': parcel.date_creation,
+      'Date de livraison estimée': parcel.date_livraison,
+      'Prix': parcel.prix
+    }));
+    
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Colis");
+    const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+    const blob = new Blob([excelBuffer], { type: "application/octet-stream" });
+    saveAs(blob, `colis_${colisModal.status}_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
+  const handleParcelClick = (parcel) => {
+    // Show parcel details modal
+    setSelectedParcel(parcel);
+    setParcelDetailsModal(true);
   };
 
   const renderUserTable = (users) => (
@@ -398,7 +441,7 @@ const Entrepots = () => {
           </tr>
         </thead>
         <tbody className="bg-white divide-y divide-gray-200">
-          {users.map((user) => (
+          {users && users.length > 0 ? users.map((user) => (
             <tr key={user.id}>
               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{user.name}</td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.role}</td>
@@ -411,11 +454,19 @@ const Entrepots = () => {
                   {user.status}
                 </span>
               </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.joinDate}</td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.packages}</td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.performance}</td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                {user.entry_date ? new Date(user.entry_date).toLocaleDateString('fr-FR') : 'N/A'}
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.packages_processed || 0}</td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.performance_percentage || 0}%</td>
             </tr>
-          ))}
+          )) : (
+            <tr>
+              <td colSpan="8" className="px-6 py-4 text-center text-sm text-gray-500">
+                Aucun utilisateur assigné à cet entrepôt
+              </td>
+            </tr>
+          )}
         </tbody>
       </table>
     </div>
@@ -456,11 +507,11 @@ const Entrepots = () => {
       <div className="bg-white p-6 rounded-lg shadow border">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Performance des utilisateurs</h3>
         <div className="space-y-4">
-          {warehouse.users.map((user) => (
+          {warehouse.users && warehouse.users.length > 0 ? warehouse.users.map((user) => (
             <div key={user.id} className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
                 <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                  <span className="text-sm font-medium text-blue-600">{user.name.charAt(0)}</span>
+                  <span className="text-sm font-medium text-blue-600">{user.name?.charAt(0) || 'U'}</span>
                 </div>
                 <div>
                   <div className="text-sm font-medium text-gray-900">{user.name}</div>
@@ -471,13 +522,17 @@ const Entrepots = () => {
                 <div className="w-20 bg-gray-200 rounded-full h-2">
                   <div 
                     className="bg-blue-600 h-2 rounded-full" 
-                    style={{ width: user.performance }}
+                    style={{ width: `${user.performance_percentage || 0}%` }}
                   ></div>
                 </div>
-                <span className="text-sm text-gray-600 w-12">{user.performance}</span>
+                <span className="text-sm text-gray-600 w-12">{user.performance_percentage || 0}%</span>
               </div>
             </div>
-          ))}
+          )) : (
+            <div className="text-center text-gray-500 py-4">
+              Aucun utilisateur assigné
+            </div>
+          )}
         </div>
       </div>
 
@@ -485,46 +540,46 @@ const Entrepots = () => {
       <div className="bg-white p-6 rounded-lg shadow border">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Répartition des colis</h3>
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-600">Livrés aujourd'hui</span>
-            <div className="flex items-center space-x-2">
-              <div className="w-16 bg-green-200 rounded-full h-2">
-                <div 
-                  className="bg-green-600 h-2 rounded-full" 
-                  style={{ width: `${(warehouse.statistics.deliveredToday / warehouse.statistics.totalPackages) * 100}%` }}
-                ></div>
-              </div>
-              <span className="text-sm font-medium">{warehouse.statistics.deliveredToday}</span>
-            </div>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-600">En attente</span>
-            <div className="flex items-center space-x-2">
-              <div className="w-16 bg-yellow-200 rounded-full h-2">
-                <div 
-                  className="bg-yellow-600 h-2 rounded-full" 
-                  style={{ width: `${(warehouse.statistics.pendingPackages / warehouse.statistics.totalPackages) * 100}%` }}
-                ></div>
-              </div>
-              <span className="text-sm font-medium">{warehouse.statistics.pendingPackages}</span>
-            </div>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-600">Total traité</span>
+          {warehouse.parcelsByStatus && warehouse.parcelsByStatus.length > 0 ? (
+            warehouse.parcelsByStatus.map((item) => (
+              <div key={item.status} className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">{item.status}</span>
             <div className="flex items-center space-x-2">
               <div className="w-16 bg-blue-200 rounded-full h-2">
                 <div 
                   className="bg-blue-600 h-2 rounded-full" 
-                  style={{ width: `${((warehouse.statistics.totalPackages - warehouse.statistics.pendingPackages) / warehouse.statistics.totalPackages) * 100}%` }}
+                      style={{ width: `${(item.count / warehouse.statistics.totalPackages) * 100}%` }}
                 ></div>
+                  </div>
+                  <span className="text-sm font-medium">{item.count}</span>
+                </div>
               </div>
-              <span className="text-sm font-medium">{warehouse.statistics.totalPackages - warehouse.statistics.pendingPackages}</span>
+            ))
+          ) : (
+            <div className="text-center text-gray-500 py-4">
+              Aucun colis dans cet entrepôt
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
   );
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="text-lg text-gray-600">Chargement des entrepôts...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="text-lg text-red-600">Erreur: {error}</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -597,213 +652,391 @@ const Entrepots = () => {
             {renderStatistics(selectedWarehouse.statistics)}
           </div>
 
-          {/* Status cards grid (moved here) */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-6">
+          {/* Status cards grid */}
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Répartition des colis par statut</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 gap-4">
+              {/* Total Card */}
+              <div className="bg-white p-4 rounded-xl shadow-lg border border-gray-100">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-gray-600">Total</p>
+                    <p className="text-xl font-bold text-blue-600">{selectedWarehouse.statistics?.totalPackages || 0}</p>
+                  </div>
+                  <div className="p-2 bg-blue-100 rounded-full">
+                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+
+              {/* Status Cards */}
             {COLIS_STATUSES.map((status) => {
-              const count = selectedWarehouse.mockColis.filter(c => c.status === status.key).length;
+              const statusData = selectedWarehouse.parcelsByStatus?.find(s => s.status === status.key);
+              const count = statusData ? statusData.count : 0;
               return (
                 <div
                   key={status.key}
-                  className="flex items-center space-x-3 bg-white border shadow rounded-lg p-3 cursor-pointer hover:shadow-lg transition"
-                  style={{ borderColor: status.color }}
-                  onClick={() => setColisModal({ open: true, status: status.key, colis: selectedWarehouse.mockColis.filter(c => c.status === status.key) })}
+                    className={`bg-white p-4 rounded-xl shadow-lg border border-gray-100 cursor-pointer hover:shadow-xl transition-shadow ${count === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    onClick={() => count > 0 && handleStatusCardClick(status.key, count)}
                 >
-                  <span className="inline-block w-4 h-4 rounded-full" style={{ background: status.color }}></span>
-                  <span className="font-medium text-gray-800">{status.label}</span>
-                  <span className="ml-auto text-xs font-bold" style={{ color: status.color }}>{count}</span>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs font-medium text-gray-600">{status.label}</p>
+                        <p className="text-xl font-bold" style={{ color: status.color }}>{count}</p>
+                      </div>
+                      <div className="p-2 rounded-full" style={{ backgroundColor: `${status.color}20` }}>
+                        <svg className="w-5 h-5" style={{ color: status.color }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                        </svg>
+                      </div>
+                    </div>
                 </div>
               );
             })}
+            </div>
           </div>
 
-          {/* Liste des utilisateurs */}
-          <div>
+          {/* Charts */}
+          {renderCharts(selectedWarehouse)}
+
+          {/* Utilisateurs de l'entrepôt */}
+          <div className="mb-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Utilisateurs de l'entrepôt ({selectedWarehouse.users.length})
+              Utilisateurs de l'entrepôt ({selectedWarehouse.users?.length || 0})
             </h3>
-            {selectedWarehouse.users.length > 0 ? (
-              renderUserTable(selectedWarehouse.users)
-            ) : (
-              <div className="text-center py-8 text-gray-500">
-                Aucun utilisateur assigné à cet entrepôt
-              </div>
-            )}
+            {renderUserTable(selectedWarehouse.users)}
           </div>
         </div>
       )}
 
-      {/* Modal d'ajout/édition */}
+      {/* Modal pour ajouter/modifier un entrepôt */}
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title={editingWarehouse ? "Modifier l'entrepôt" : "Ajouter un entrepôt"}
-        size="md"
       >
-        <form onSubmit={e => { e.preventDefault(); handleSubmit(); }}>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-2">
-            <div className="md:col-span-2">
-              <label className="block text-sm font-semibold text-gray-700 mb-1 text-left">Nom de l'entrepôt</label>
-              <input type="text" name="name" value={formData.name} onChange={handleInputChange} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Nom de l'entrepôt
+            </label>
+            <input
+              type="text"
+              name="name"
+              value={formData.name}
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Entrez le nom de l'entrepôt"
+            />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1 text-left">Gouvernorat</label>
-              <select name="gouvernorat" value={formData.gouvernorat} onChange={handleInputChange} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                {gouvernorats.map(gouv => (
-                  <option key={gouv} value={gouv}>{gouv}</option>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Gouvernorat
+            </label>
+            <select
+              name="gouvernorat"
+              value={formData.gouvernorat}
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {gouvernorats.map((gouvernorat) => (
+                <option key={gouvernorat} value={gouvernorat}>
+                  {gouvernorat}
+                </option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1 text-left">Responsable</label>
-              <select name="manager" value={formData.manager} onChange={handleInputChange} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                <option value="">Sélectionner un chef d'agence</option>
-                {chefsAgence.map(chef => (
-                  <option key={chef.name} value={chef.name}>{chef.name}</option>
-                ))}
-              </select>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Adresse
+            </label>
+            <input
+              type="text"
+              name="address"
+              value={formData.address}
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Entrez l'adresse de l'entrepôt"
+            />
             </div>
+                      <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Responsable
+            </label>
+            <select
+              name="manager"
+              value={formData.manager}
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Sélectionnez un responsable</option>
+              {chefAgences.map((chef) => (
+                <option key={chef.id} value={chef.id}>
+                  {chef.name} ({chef.email})
+                </option>
+              ))}
+            </select>
+          </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1 text-left">Statut</label>
-              <select name="status" value={formData.status} onChange={handleInputChange} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Statut
+            </label>
+            <select
+              name="status"
+              value={formData.status}
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
                 <option value="Actif">Actif</option>
                 <option value="Inactif">Inactif</option>
               </select>
             </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm font-semibold text-gray-700 mb-1 text-left">Adresse</label>
-              <input type="text" name="address" value={formData.address || ''} onChange={handleInputChange} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
-            </div>
+          <div className="flex justify-end space-x-3 pt-4">
+            <button
+              onClick={() => setIsModalOpen(false)}
+              className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+            >
+              Annuler
+            </button>
+            <button
+              onClick={handleSubmit}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            >
+              {editingWarehouse ? "Modifier" : "Ajouter"}
+            </button>
           </div>
-          <div className="flex justify-end space-x-3 space-x-reverse pt-6">
-            <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2 text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg">Fermer</button>
-            <button type="submit" className="px-5 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow">{editingWarehouse ? "Mettre à jour" : "Ajouter"}</button>
           </div>
-        </form>
       </Modal>
 
-      {/* Modal for colis by status */}
+      {/* Modal pour les colis par statut */}
       <Modal
         isOpen={colisModal.open}
         onClose={() => setColisModal({ open: false, status: null, colis: [] })}
-        title={colisModal.status ? `Colis - ${colisModal.status}` : "Colis"}
+        title={`Colis - ${colisModal.status}`}
         size="xl"
       >
+        <div className="space-y-4">
+          {colisModal.colis.length > 0 ? (
+            <>
+              <div className="flex justify-between items-center mb-4">
+                <div className="text-sm text-gray-600">
+                  {colisModal.colis.length} colis trouvés
+                </div>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={exportParcelsToExcel}
+                    className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm"
+                  >
+                    Exporter en Excel
+                  </button>
+                  <button
+                    onClick={() => setColisModal({ open: false, status: null, colis: [] })}
+                    className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 text-sm"
+                  >
+                    Fermer
+                  </button>
+                </div>
+              </div>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Code</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Client</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Téléphone</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">N° Colis</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Expéditeur</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Destination</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Poids</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date de création</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prix</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {colisModal.colis.length === 0 ? (
-                <tr><td colSpan={6} className="text-center py-8 text-gray-500">Aucun colis pour ce statut</td></tr>
-              ) : colisModal.colis.map((colis) => (
-                <tr key={colis.id}>
-                  <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{colis.code}</td>
-                  <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">{colis.client}</td>
-                  <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">{colis.phone}</td>
-                  <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-700">{colis.date}</td>
-                  <td className="px-4 py-2 whitespace-nowrap text-sm" style={{ color: COLIS_STATUSES.find(s => s.key === colis.status)?.color }}>{colis.status}</td>
-                  <td className="px-4 py-2 whitespace-nowrap text-sm">
-                    <button
-                      className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-50 transition-colors"
-                      title="Voir Bon de Livraison"
-                      onClick={() => setBonLivraisonColis(colis)}
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                      </svg>
-                    </button>
-                  </td>
+                  {colisModal.colis.map((colis) => (
+                      <tr key={colis.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{colis.code}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{colis.expediteur}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{colis.destination}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{colis.poids}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{colis.date_creation}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{colis.prix}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <div className="flex space-x-2">
+                            <button 
+                              className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-50 transition-colors"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleParcelClick(colis);
+                              }}
+                              title="Voir détails"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                              </svg>
+                            </button>
+                            <button 
+                              className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-50 transition-colors"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setBonLivraisonColis([colis]);
+                              }}
+                              title="Bon de livraison"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                            </button>
+                            <button 
+                              className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-50 transition-colors"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setFactureColis([colis]);
+                              }}
+                              title="Facture"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                              </svg>
+                            </button>
+                          </div>
+                        </td>
                 </tr>
               ))}
             </tbody>
           </table>
+            </div>
+            </>
+          ) : (
+            <div className="text-center text-gray-500 py-8">
+              Aucun colis trouvé pour ce statut
+            </div>
+          )}
         </div>
       </Modal>
 
-      {/* Modal for FactureColis (single colis invoice) */}
-      <Modal
-        isOpen={!!factureColis}
-        onClose={() => setFactureColis(null)}
-        size="xl"
-      >
+      {/* Modals pour facture et bon de livraison */}
         {factureColis && (
-          <FactureColis
-            colis={{
-              code: factureColis.code,
-              nom: factureColis.code || "Colis démo",
-              adresse: factureColis.client ? `Livraison: ${factureColis.client}` : "-",
-              poids: 1.0,
-            }}
-            client={{
-              nom: factureColis.client || "-",
-              tel: factureColis.phone || "-",
-            }}
-            expediteur={{
-              nif: "1904056B/NM/000",
-              tel: "+216 23 613 518",
-              societe: "Roura ever shop",
-              nom: "Sarah Mathlouthi",
-              adresse: "33 rue Rabta beb jdidi Tunis",
-            }}
-            prix={{
-              livraisonBase: "8.00 DT",
-              suppPoids: "0.00 DT",
-              suppRapide: "0.00 DT",
-              totalLivraison: "8.00 DT",
-              ht: "29.17 DT",
-              tva: "5.83 DT",
-              prixColis: "250,00 DT",
-              ttc: "43.00 DT",
-            }}
-            note={"Le jeudi svp"}
-          />
-        )}
-      </Modal>
+          <Modal
+            isOpen={!!factureColis}
+          onClose={() => setFactureColis(null)}
+            title="Facture"
+            size="xl"
+          >
+            <FactureColis
+              colis={{
+                code: factureColis[0]?.code || factureColis[0]?.tracking_number,
+                nom: factureColis[0]?.expediteur,
+                adresse: factureColis[0]?.destination,
+                poids: factureColis[0]?.poids?.replace(' kg', '') || '0'
+              }}
+              client={{
+                nom: factureColis[0]?.expediteur,
+                tel: factureColis[0]?.phone
+              }}
+              expediteur={{
+                nom: factureColis[0]?.shipper_name || factureColis[0]?.expediteur,
+                tel: factureColis[0]?.shipper_phone,
+                adresse: factureColis[0]?.shipper_address,
+                nif: factureColis[0]?.shipper_tax_number
+              }}
+              prix={{
+                ttc: factureColis[0]?.prix || '0.00 €',
+                ht: factureColis[0]?.prix || '0.00 €',
+                tva: '0.00 €',
+                totalLivraison: factureColis[0]?.prix || '0.00 €'
+              }}
+        />
+          </Modal>
+      )}
 
-      {/* Modal for BonLivraisonColis (single colis delivery slip) */}
-      <Modal
-        isOpen={!!bonLivraisonColis}
-        onClose={() => setBonLivraisonColis(null)}
-        size="xl"
-      >
         {bonLivraisonColis && (
-          <BonLivraisonColis
-            colis={{
-              code: bonLivraisonColis.code,
-            }}
-            expediteur={{
-              nom: "Bon Prix Sousse",
-              adresse: "sousse",
-              tel: "23814555",
-              nif: "1678798WNM000",
-            }}
-            destinataire={{
-              nom: bonLivraisonColis.client || "Safa ben yedder",
-              tel: bonLivraisonColis.phone || "50255473",
-              adresse: "Jerba roubana Djerba - Midoun ROBBANA Médenine",
-            }}
-            route={"Sousse >> ---- Dispatch ---- >> Mednine"}
-            date={"2025-06-13"}
-            docNumber={bonLivraisonColis.code || "518138215801"}
-            instructions={"Burkini noir flowers 34 ????? ?????? ??????"}
-            montant={"68,000 DT"}
-            tva={"0.471 DT"}
-            quantite={1}
-            designation={"Coli"}
-            pageCount={2}
-            pageIndex={1}
-          />
+          <Modal
+            isOpen={!!bonLivraisonColis}
+          onClose={() => setBonLivraisonColis(null)}
+            title="Bon de Livraison"
+            size="xl"
+          >
+            <BonLivraisonColis
+              colis={{
+                code: bonLivraisonColis[0]?.code || bonLivraisonColis[0]?.tracking_number
+              }}
+              expediteur={{
+                nom: bonLivraisonColis[0]?.shipper_name || bonLivraisonColis[0]?.expediteur,
+                adresse: bonLivraisonColis[0]?.shipper_address || 'Tunis',
+                tel: bonLivraisonColis[0]?.shipper_phone || '+216 20 123 456',
+                nif: bonLivraisonColis[0]?.shipper_tax_number || 'N/A'
+              }}
+              destinataire={{
+                nom: bonLivraisonColis[0]?.recipient_name || bonLivraisonColis[0]?.destination,
+                adresse: bonLivraisonColis[0]?.recipient_address || bonLivraisonColis[0]?.destination,
+                tel: bonLivraisonColis[0]?.recipient_phone || '+216 20 123 456'
+              }}
+              route="Tunis >> ---- Dispatch ---- >> Monastir"
+              date={bonLivraisonColis[0]?.date_creation || new Date().toLocaleDateString('fr-FR')}
+              docNumber={bonLivraisonColis[0]?.code || bonLivraisonColis[0]?.tracking_number}
+              montant={bonLivraisonColis[0]?.prix || '0.00 €'}
+              designation={bonLivraisonColis[0]?.designation || 'Livraison'}
+            />
+          </Modal>
         )}
-      </Modal>
+
+        {/* Modal pour les détails du colis */}
+        {parcelDetailsModal && selectedParcel && (
+          <Modal
+            isOpen={parcelDetailsModal}
+            onClose={() => {
+              setParcelDetailsModal(false);
+              setSelectedParcel(null);
+            }}
+            title={`Détails du colis ${selectedParcel.code}`}
+            size="xl"
+          >
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Client:</label>
+                  <p className="text-sm text-gray-900">{selectedParcel.expediteur}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Montant:</label>
+                  <p className="text-sm text-gray-900">{selectedParcel.prix}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Téléphone:</label>
+                  <p className="text-sm text-gray-900">{selectedParcel.phone}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Adresse:</label>
+                  <p className="text-sm text-gray-900">{selectedParcel.adresse}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Désignation:</label>
+                  <p className="text-sm text-gray-900">{selectedParcel.designation}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Nombre des articles:</label>
+                  <p className="text-sm text-gray-900">{selectedParcel.nombre_articles}</p>
+                </div>
+              </div>
+              
+              <div className="border-t pt-4">
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm text-gray-500">{selectedParcel.date_creation}</span>
+                  <span className="text-2xl">⏳</span>
+                  <span className="text-sm font-medium">{selectedParcel.status}</span>
+                </div>
+                <p className="text-sm text-gray-600 mt-2">
+                  Colis enregistré dans le système.
+                </p>
+                <p className="text-sm text-gray-500 mt-1">
+                  Note: Ce colis est actuellement au statut "{selectedParcel.status}". L'historique détaillé des statuts sera disponible une fois que le système de suivi sera complètement opérationnel.
+                </p>
+              </div>
+            </div>
+          </Modal>
+        )}
     </div>
   );
 };

@@ -1,38 +1,85 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import DataTable from "./common/DataTable";
 import Modal from "./common/Modal";
 import FactureColis from "./FactureColis";
+import { apiService } from "../../services/api";
 
 const PaimentExpediteur = () => {
-  const [payments, setPayments] = useState([
-    {
-      id: "PAY001",
-      shipper: "Ahmed Mohamed",
-      amount: "250,00 €",
-      date: "2024-01-15",
-      method: "Virement bancaire",
-      reference: "REF-001",
-      status: "Payé",
-    },
-    {
-      id: "PAY002",
-      shipper: "Sarah Ahmed",
-      amount: "180,00 €",
-      date: "2024-01-14",
-      method: "Espèces",
-      reference: "REF-002",
-      status: "Payé",
-    },
-    {
-      id: "PAY003",
-      shipper: "Mohamed Ali",
-      amount: "320,00 €",
-      date: "2024-01-13",
-      method: "Chèque",
-      reference: "REF-003",
-      status: "En attente",
-    },
-  ]);
+  // Get current user
+  const [currentUser] = useState(() => {
+    const user = JSON.parse(localStorage.getItem('currentUser') || 'null');
+    console.log('Current user from localStorage:', user);
+    return user;
+  });
+
+  const [payments, setPayments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Fetch real payment data for the logged-in expéditeur
+  useEffect(() => {
+    const fetchPayments = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+                  if (currentUser && currentUser.email) {
+            console.log('Fetching payments for user:', currentUser.email);
+            
+            const userPayments = await apiService.getExpediteurPayments(currentUser.email);
+          console.log('User payments received:', userPayments);
+          console.log('User payments type:', typeof userPayments);
+          console.log('User payments length:', userPayments ? userPayments.length : 'null/undefined');
+          
+          // If no payments from API, try to get all payments for admin users or use empty array
+          let paymentsToUse = userPayments;
+          if (!userPayments || userPayments.length === 0) {
+            if (currentUser.role === 'Administration' || currentUser.role === 'Finance' || currentUser.role === 'Commercial') {
+              // For admin users, try to get all payments
+              try {
+                console.log('Admin user - fetching all payments');
+                const allPaymentsResponse = await apiService.getAllPayments();
+                paymentsToUse = allPaymentsResponse || [];
+              } catch (error) {
+                console.log('Could not fetch all payments, using empty array');
+                paymentsToUse = [];
+              }
+            } else {
+              console.log('No payments found for this expéditeur');
+              paymentsToUse = [];
+            }
+          }
+          
+          // Transform the data to match the expected format
+          const transformedPayments = paymentsToUse.map(payment => ({
+            id: payment.id || `PAY${payment.id}`,
+            shipper: payment.shipper_name || currentUser.name || "Expéditeur",
+            amount: `${parseFloat(payment.amount || 0).toFixed(2)} €`,
+            date: payment.created_at ? new Date(payment.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+            method: payment.payment_method || "Non spécifié",
+            reference: payment.reference || payment.id || "N/A",
+            status: payment.status === "paid" ? "Payé" : "En attente",
+            // Keep original payment data for invoice
+            originalPayment: payment
+          }));
+          
+          console.log('Transformed payments:', transformedPayments);
+          setPayments(transformedPayments);
+        } else {
+          console.log('No current user found');
+          setPayments([]);
+        }
+      } catch (error) {
+        console.error('Error fetching payments:', error);
+        setError('Erreur lors du chargement des paiements');
+        setPayments([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPayments();
+  }, [currentUser]);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -135,58 +182,102 @@ const PaimentExpediteur = () => {
     }));
   };
 
-  // Données mock pour la facture (à remplacer par les vraies données si dispo)
-  const getFactureData = (payment) => ({
+  // Generate facture data from real payment data
+  const getFactureData = (payment) => {
+    const originalPayment = payment.originalPayment;
+    const amount = parseFloat(payment.amount.replace(' €', ''));
+    
+    return {
     colis: {
       code: payment.reference,
-      nom: "Colis démo",
-      adresse: "Béja centre, Béja",
-      poids: "1.00",
+        nom: "Colis QuickZone",
+        adresse: originalPayment?.destination || "Adresse non spécifiée",
+        poids: originalPayment?.weight || "1.00",
     },
     client: {
       nom: payment.shipper,
-      tel: "29596971",
+        tel: originalPayment?.shipper_phone || currentUser?.phone || "N/A",
     },
     expediteur: {
-      nif: "1904056B/NM/000",
-      tel: "23613518",
-      societe: "Roura ever shop",
-      nom: "Sarah Mathlouthi",
-      adresse: "33 rue Rabta beb jdidi Tunis",
+        nif: originalPayment?.shipper_company || "N/A",
+        tel: originalPayment?.shipper_phone || currentUser?.phone || "N/A",
+        societe: originalPayment?.shipper_company || currentUser?.company || "QuickZone",
+        nom: payment.shipper,
+        adresse: currentUser?.address || "Adresse non spécifiée",
     },
     prix: {
       livraisonBase: "8.00 DT",
       suppPoids: "0.00 DT",
-      suppRapide: "8.00 DT",
+        suppRapide: "0.00 DT",
       totalLivraison: "8.00 DT",
-      ht: "29.17 DT",
-      tva: "5.83 DT",
+        ht: (amount * 0.8).toFixed(2) + " DT",
+        tva: (amount * 0.2).toFixed(2) + " DT",
       prixColis: payment.amount,
-      ttc: "43.00 DT",
-    },
-    note: "Le jeudi svp"
-  });
+        ttc: payment.amount,
+      },
+      note: "Paiement QuickZone"
+    };
+  };
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <p className="ml-4 text-gray-600">Chargement des paiements...</p>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64">
+        <div className="text-red-600 mb-4">
+          <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+          </svg>
+        </div>
+        <p className="text-gray-600 mb-4">{error}</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+        >
+          Réessayer
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Gestion des paiements des expéditeurs</h1>
-          <p className="text-gray-600 mt-1">Gérez les paiements et les transactions des expéditeurs</p>
+          <h1 className="text-2xl font-bold text-gray-900">
+            {currentUser?.role === 'Expéditeur' ? 'Mes Paiements' : 'Gestion des Paiements'}
+          </h1>
+          <p className="text-gray-600 mt-1">
+            {currentUser?.role === 'Expéditeur' 
+              ? 'Historique de vos paiements et transactions' 
+              : 'Gérez les paiements et les transactions des expéditeurs'
+            }
+          </p>
         </div>
+        {(currentUser?.role === 'Administration' || currentUser?.role === 'Finance' || currentUser?.role === 'Commercial') && (
         <button
           onClick={handleAdd}
           className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
         >
           Ajouter un paiement
         </button>
+        )}
       </div>
 
       <DataTable
         data={payments}
         columns={columns}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
+        onEdit={(currentUser?.role === 'Administration' || currentUser?.role === 'Finance' || currentUser?.role === 'Commercial') ? handleEdit : undefined}
+        onDelete={(currentUser?.role === 'Administration' || currentUser?.role === 'Finance' || currentUser?.role === 'Commercial') ? handleDelete : undefined}
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
       />

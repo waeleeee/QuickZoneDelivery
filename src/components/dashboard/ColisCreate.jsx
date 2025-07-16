@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Barcode from "react-barcode";
+import { apiService } from "../../services/api";
 
 const GOUVERNORATS = [
   "Tunis", "Ariana", "Ben Arous", "Manouba", "Nabeul", "Zaghouan", "Bizerte", "Béja", "Jendouba", "Kef", "Siliana", "Sousse", "Monastir", "Mahdia", "Sfax", "Kairouan", "Kasserine", "Sidi Bouzid", "Gabès", "Medenine", "Tataouine", "Gafsa", "Tozeur", "Kebili"
@@ -15,41 +16,33 @@ const generateCode = () => {
   return 'C-' + Math.floor(100000 + Math.random() * 900000);
 };
 
-// Mock current expéditeur (user) info
-const MOCK_EXPEDITEUR = {
-  societe: "EXPEDITEUR SARL",
-  matriculeFiscal: "123456789",
-  expediteurNom: "Ahmed Ben Salah",
-  expediteurTel: "+216 20 123 456",
-  expediteurGouv: "Tunis",
-  expediteurAdresse: "12 Rue de la Liberté, Tunis",
-  baseFraisLivraison: 8 // Base delivery fee in DT
-};
-
-const initialColis = {
-  // Expéditeur
-  dateCollecte: "",
-  societe: MOCK_EXPEDITEUR.societe,
-  matriculeFiscal: MOCK_EXPEDITEUR.matriculeFiscal,
-  expediteurNom: MOCK_EXPEDITEUR.expediteurNom,
-  expediteurTel: MOCK_EXPEDITEUR.expediteurTel,
-  expediteurGouv: MOCK_EXPEDITEUR.expediteurGouv,
-  expediteurAdresse: MOCK_EXPEDITEUR.expediteurAdresse,
-  // Client
-  clientNom: "",
-  clientTel: "",
-  clientTel2: "",
-  clientGouv: "",
-  clientAdresse: "",
-  // Colis
-  articleNom: "",
-  articlePrix: "",
-  fraisLivraison: MOCK_EXPEDITEUR.baseFraisLivraison.toFixed(2),
-  service: "Livraison",
-  poids: "",
-  nbPiece: "",
-  remarque: "",
-  code: generateCode(),
+// Get real user data from localStorage
+const getCurrentUserData = () => {
+  const currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
+  
+  if (currentUser) {
+    // Use current user data directly
+    return {
+      societe: currentUser.company || "EXPEDITEUR SARL",
+      matriculeFiscal: currentUser.fiscalNumber || "123456789",
+      expediteurNom: `${currentUser.firstName || currentUser.name || 'User'} ${currentUser.lastName || 'Name'}`,
+      expediteurTel: currentUser.phone || "+216 20 123 456",
+      expediteurGouv: currentUser.governorate || "Tunis",
+      expediteurAdresse: currentUser.address || "12 Rue de la Liberté, Tunis",
+      baseFraisLivraison: currentUser.baseDeliveryFee || 8
+    };
+  }
+  
+  // Fallback to mock data if no user found
+  return {
+    societe: "EXPEDITEUR SARL",
+    matriculeFiscal: "123456789",
+    expediteurNom: "Ahmed Ben Salah",
+    expediteurTel: "+216 20 123 456",
+    expediteurGouv: "Tunis",
+    expediteurAdresse: "12 Rue de la Liberté, Tunis",
+    baseFraisLivraison: 8
+  };
 };
 
 function calcFraisLivraison(baseFrais, poids) {
@@ -63,27 +56,162 @@ function calcFraisLivraison(baseFrais, poids) {
 }
 
 const ColisCreate = () => {
-  const [colis, setColis] = useState(initialColis);
+  const [userData, setUserData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [colis, setColis] = useState({
+    // Expéditeur
+    dateCollecte: "",
+    societe: "",
+    matriculeFiscal: "",
+    expediteurNom: "",
+    expediteurTel: "",
+    expediteurGouv: "",
+    expediteurAdresse: "",
+    // Client
+    clientNom: "",
+    clientTel: "",
+    clientTel2: "",
+    clientGouv: "",
+    clientAdresse: "",
+    // Colis
+    articleNom: "",
+    articlePrix: "",
+    fraisLivraison: "8.00",
+    service: "Livraison",
+    poids: "",
+    nbPiece: "",
+    remarque: "",
+    code: generateCode(),
+  });
+
+  // Load user data when component mounts
+  useEffect(() => {
+    try {
+      setLoading(true);
+      const currentUserData = getCurrentUserData();
+      setUserData(currentUserData);
+      setColis(prev => ({
+        ...prev,
+        societe: currentUserData.societe,
+        matriculeFiscal: currentUserData.matriculeFiscal,
+        expediteurNom: currentUserData.expediteurNom,
+        expediteurTel: currentUserData.expediteurTel,
+        expediteurGouv: currentUserData.expediteurGouv,
+        expediteurAdresse: currentUserData.expediteurAdresse,
+        fraisLivraison: currentUserData.baseFraisLivraison.toFixed(2),
+      }));
+    } catch (error) {
+      console.error('Error loading user data:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setColis((prev) => {
       let next = { ...prev, [name]: value };
       // Auto-calc frais de livraison
-      if (name === "poids") {
-        next.fraisLivraison = calcFraisLivraison(MOCK_EXPEDITEUR.baseFraisLivraison, next.poids);
+      if (name === "poids" && userData) {
+        next.fraisLivraison = calcFraisLivraison(userData.baseFraisLivraison, next.poids);
       }
       return next;
     });
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
-    // Mock save
-    console.log("Colis sauvegardé :", colis);
-    alert("Colis créé avec succès !");
-    setColis({ ...initialColis, code: generateCode() });
+    
+    try {
+      // Get current user data
+      const currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
+      if (!currentUser) {
+        alert("Erreur: Utilisateur non connecté");
+        return;
+      }
+
+      // First, get the shipper_id based on the user's email
+      let shipperId = 1; // default fallback
+      try {
+        const shippersResponse = await apiService.getShippers();
+        const shipper = shippersResponse.find(s => s.email === currentUser.email);
+        if (shipper) {
+          shipperId = shipper.id;
+        } else {
+          console.warn('No shipper found for email:', currentUser.email);
+        }
+      } catch (error) {
+        console.error('Error fetching shippers:', error);
+      }
+
+      // Prepare parcel data for API
+      const parcelData = {
+        tracking_number: colis.code,
+        shipper_id: shipperId,
+        destination: `${colis.clientNom} - ${colis.clientAdresse}, ${colis.clientGouv}`,
+        status: 'En attente',
+        weight: parseFloat(colis.poids) || 0,
+        price: parseFloat(colis.articlePrix) || 0,
+        delivery_fees: parseFloat(colis.fraisLivraison) || 0,
+        type: colis.service,
+        estimated_delivery_date: colis.dateCollecte ? new Date(colis.dateCollecte).toISOString().split('T')[0] : null
+      };
+
+      console.log('Creating parcel with data:', parcelData);
+
+      // Send to backend API using apiService
+      const result = await apiService.createParcel(parcelData);
+      
+      if (result.success) {
+        alert("Colis créé avec succès !");
+        
+        // Reset form with user data
+        if (userData) {
+          setColis({
+            // Expéditeur
+            dateCollecte: "",
+            societe: userData.societe,
+            matriculeFiscal: userData.matriculeFiscal,
+            expediteurNom: userData.expediteurNom,
+            expediteurTel: userData.expediteurTel,
+            expediteurGouv: userData.expediteurGouv,
+            expediteurAdresse: userData.expediteurAdresse,
+            // Client
+            clientNom: "",
+            clientTel: "",
+            clientTel2: "",
+            clientGouv: "",
+            clientAdresse: "",
+            // Colis
+            articleNom: "",
+            articlePrix: "",
+            fraisLivraison: userData.baseFraisLivraison.toFixed(2),
+            service: "Livraison",
+            poids: "",
+            nbPiece: "",
+            remarque: "",
+            code: generateCode(),
+          });
+        }
+      } else {
+        alert(`Erreur: ${result.message || 'Échec de la création du colis'}`);
+      }
+    } catch (error) {
+      console.error('Error creating parcel:', error);
+      alert(`Erreur lors de la création du colis: ${error.message}`);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="max-w-7xl mx-auto bg-gradient-to-br from-blue-50 via-white to-blue-100 p-12 rounded-3xl shadow-2xl border border-blue-100">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <p className="ml-4 text-gray-600">Chargement des données expéditeur...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto bg-gradient-to-br from-blue-50 via-white to-blue-100 p-12 rounded-3xl shadow-2xl border border-blue-100 space-y-10">
