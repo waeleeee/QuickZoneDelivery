@@ -45,7 +45,8 @@ const MembreAgenceManagement = () => {
     governorate: "Tunis",
     agency: "Tunis",
     role: "Agent d'accueil",
-    status: "Actif"
+    status: "Actif",
+    password: ""
   });
 
   const columns = [
@@ -73,6 +74,17 @@ const MembreAgenceManagement = () => {
         </span>
       )
     },
+    {
+      key: "has_password",
+      header: "MOT DE PASSE",
+      render: (value) => (
+        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+          value ? "bg-green-100 text-green-800" : "bg-orange-100 text-orange-800"
+        }`}>
+          {value ? "✅ Configuré" : "⚠️ Non configuré"}
+        </span>
+      )
+    },
     { 
       key: "created_at", 
       header: "Date de création",
@@ -89,14 +101,18 @@ const MembreAgenceManagement = () => {
       governorate: "Tunis",
       agency: "Tunis",
       role: "Agent d'accueil",
-      status: "Actif"
+      status: "Actif",
+      password: ""
     });
     setIsModalOpen(true);
   };
 
   const handleEdit = (member) => {
     setEditingMember(member);
-    setFormData(member);
+    setFormData({
+      ...member,
+      password: '' // Don't populate password field for security
+    });
     setIsModalOpen(true);
   };
 
@@ -125,7 +141,10 @@ const MembreAgenceManagement = () => {
         const result = await apiService.updateAgencyMember(editingMember.id, formData);
         if (result && result.success) {
           setMembers(members.map(m => m.id === editingMember.id ? result.data : m));
-          alert('Membre d\'agence mis à jour avec succès!');
+          const message = formData.password && formData.password.trim() 
+            ? 'Membre d\'agence mis à jour avec succès! Le mot de passe a été modifié.'
+            : 'Membre d\'agence mis à jour avec succès!';
+          alert(message);
         } else {
           throw new Error(result?.message || 'Failed to update member');
         }
@@ -134,7 +153,7 @@ const MembreAgenceManagement = () => {
         const result = await apiService.createAgencyMember(formData);
         if (result && result.success) {
           setMembers([...members, result.data]);
-          alert('Membre d\'agence créé avec succès!');
+          alert(`Membre d'agence créé avec succès!\n\nInformations de connexion:\nEmail: ${formData.email}\nMot de passe: ${formData.password}\n\nLe membre d'agence peut maintenant se connecter avec ces identifiants.`);
         } else {
           throw new Error(result?.message || 'Failed to create member');
         }
@@ -358,6 +377,25 @@ const MembreAgenceManagement = () => {
                 <option value="En congé">En congé</option>
                 <option value="Suspendu">Suspendu</option>
               </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-left">
+                Mot de passe {!editingMember && <span className="text-red-500">*</span>}
+              </label>
+              <input 
+                type="password" 
+                name="password" 
+                value={formData.password} 
+                onChange={handleInputChange} 
+                required={!editingMember}
+                placeholder={editingMember ? "Laisser vide pour ne pas modifier" : "Mot de passe requis"}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500" 
+              />
+              {editingMember && (
+                <p className="text-xs text-gray-500 mt-1">
+                  Laisser vide pour conserver le mot de passe actuel
+                </p>
+              )}
             </div>
           </div>
           <div className="flex justify-end space-x-3 space-x-reverse pt-4">

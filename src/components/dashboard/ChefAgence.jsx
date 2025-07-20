@@ -99,8 +99,10 @@ const ChefAgence = () => {
 
   const handleAddChef = () => {
     setEditChef({
+      id: '',
       name: '',
       email: '',
+      password: '',
       phone: '',
       address: '',
       agency: 'Siège',
@@ -110,29 +112,66 @@ const ChefAgence = () => {
   };
 
   const handleEditChef = (chef) => {
-    setEditChef({ ...chef });
+    setEditChef({ 
+      ...chef,
+      password: '' // Don't populate password field for security
+    });
     setShowEditModal(true);
   };
 
   const handleSaveChef = async (e) => {
     e.preventDefault();
     try {
-      if (editChef.id) {
+      // Validate required fields
+      if (!editChef.name.trim()) {
+        alert('Le nom est requis');
+        return;
+      }
+      if (!editChef.email.trim()) {
+        alert('L\'email est requis');
+        return;
+      }
+      if (!editChef.id && !editChef.password.trim()) {
+        alert('Le mot de passe est requis pour créer un nouveau chef d\'agence');
+        return;
+      }
+      
+      if (editChef.id && chefs.some(c => c.id === editChef.id)) {
         // Update existing agency manager
-        const updatedChef = await apiService.updateAgencyManager(editChef.id, editChef);
-        setChefs(chefs.map(c => c.id === editChef.id ? updatedChef : c));
-        alert('Chef d\'agence mis à jour avec succès!');
+        console.log('🔧 Updating agency manager with data:', {
+          id: editChef.id,
+          formData: editChef,
+          hasPassword: !!editChef.password,
+          passwordLength: editChef.password?.length
+        });
+        
+        const result = await apiService.updateAgencyManager(editChef.id, editChef);
+        console.log('📊 Update result:', result);
+        
+        if (result && result.success) {
+          setChefs(chefs.map(c => c.id === editChef.id ? result.data : c));
+          const message = editChef.password && editChef.password.trim() 
+            ? 'Chef d\'agence mis à jour avec succès! Le mot de passe a été modifié.'
+            : 'Chef d\'agence mis à jour avec succès!';
+          alert(message);
+        }
       } else {
         // Create new agency manager
-        const newChef = await apiService.createAgencyManager(editChef);
-        setChefs([...chefs, newChef]);
-        alert('Chef d\'agence créé avec succès!');
+        const result = await apiService.createAgencyManager(editChef);
+        console.log('📊 Create result:', result);
+        
+        if (result && result.success) {
+          setChefs([...chefs, result.data]);
+          alert(`Chef d'agence créé avec succès!\n\nInformations de connexion:\nEmail: ${editChef.email}\nMot de passe: ${editChef.password}\n\nLe chef d'agence peut maintenant se connecter avec ces identifiants.`);
+        } else {
+          throw new Error(result?.message || 'Failed to create agency manager');
+        }
       }
       setShowEditModal(false);
       setEditChef(null);
     } catch (error) {
       console.error('Error saving agency manager:', error);
-      const errorMessage = error.response?.data?.message || error.message || 'Erreur lors de la sauvegarde du chef d\'agence';
+      const errorMessage = error.message || 'Error saving agency manager. Please try again.';
       alert(errorMessage);
     }
   };
@@ -246,6 +285,17 @@ const ChefAgence = () => {
       render: (value) => value || "N/A"
     },
     {
+      key: "has_password",
+      header: "MOT DE PASSE",
+      render: (value) => (
+        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+          value ? "bg-green-100 text-green-800" : "bg-orange-100 text-orange-800"
+        }`}>
+          {value ? "✅ Configuré" : "⚠️ Non configuré"}
+        </span>
+      )
+    },
+    {
       key: "actions",
       header: "Actions",
       render: (_, row) => (
@@ -337,6 +387,32 @@ const ChefAgence = () => {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Email</label>
                 <input type="email" className="border border-gray-300 rounded-md px-3 py-2 w-full focus:outline-none focus:ring-1 focus:ring-blue-500" value={editChef.email || ''} onChange={e => setEditChef({ ...editChef, email: e.target.value })} required />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1 text-left">
+                  Mot de passe {!editChef.id && <span className="text-red-500">*</span>}
+                </label>
+                <input
+                  type="password"
+                  className="border border-gray-300 rounded-md px-3 py-2 w-full focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  value={editChef.password || ''}
+                  onChange={e => setEditChef({ ...editChef, password: e.target.value })}
+                  required={!editChef.id}
+                  placeholder={editChef.id ? "Laisser vide pour ne pas changer" : "Entrez le mot de passe"}
+                />
+                {editChef.id && (
+                  <div className="mt-1">
+                    <p className="text-xs text-gray-500">Laisser vide pour conserver le mot de passe actuel</p>
+                    {editChef.has_password ? (
+                      <p className="text-xs text-green-600">✅ Mot de passe configuré (peut se connecter)</p>
+                    ) : (
+                      <p className="text-xs text-orange-600">⚠️ Aucun mot de passe configuré (ne peut pas se connecter)</p>
+                    )}
+                    <p className="text-xs text-blue-600 mt-1">
+                      💡 Le nouveau mot de passe sera immédiatement actif pour la connexion
+                    </p>
+                  </div>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Téléphone</label>

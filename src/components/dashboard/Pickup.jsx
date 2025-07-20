@@ -7,7 +7,8 @@ import { missionsPickupService } from '../../services/api';
 import { apiService } from '../../services/api';
 
 const statusList = [
-  "En attente", "Au dépôt", "En cours", "RTN dépot", "Livés", "Livrés payés", "Retour définitif", "RTN client agence", "Retour Expéditeur", "Retour En Cours d’expédition", "Retour reçu"
+  "En attente", "Au dépôt", "En cours", "RTN dépot", "Livés", "Livrés payés", "Retour définitif", "RTN client agence", "Retour Expéditeur", "Retour En Cours d'expédition", "Retour reçu",
+  "Accepté par livreur", "Refusé par livreur", "En cours de ramassage", "Ramassage terminé", "Mission terminée"
 ];
 
 const currentUser = {
@@ -27,8 +28,13 @@ const statusBadge = (status) => {
     "Retour définitif": "bg-red-100 text-red-800 border-red-300",
     "RTN client agence": "bg-pink-100 text-pink-800 border-pink-300",
     "Retour Expéditeur": "bg-gray-100 text-gray-800 border-gray-300",
-    "Retour En Cours d’expédition": "bg-indigo-100 text-indigo-800 border-indigo-300",
+    "Retour En Cours d'expédition": "bg-indigo-100 text-indigo-800 border-indigo-300",
     "Retour reçu": "bg-cyan-100 text-cyan-800 border-cyan-300",
+    "Accepté par livreur": "bg-green-50 text-green-700 border-green-300",
+    "Refusé par livreur": "bg-red-50 text-red-700 border-red-300",
+    "En cours de ramassage": "bg-orange-100 text-orange-800 border-orange-300",
+    "Ramassage terminé": "bg-blue-100 text-blue-800 border-blue-300",
+    "Mission terminée": "bg-green-100 text-green-800 border-green-300",
   };
   return <span className={`inline-block px-3 py-1 rounded-full border text-xs font-semibold ${colorMap[status] || "bg-gray-100 text-gray-800 border-gray-300"}`}>{status}</span>;
 };
@@ -56,6 +62,7 @@ const Pickup = () => {
   const detailRef = useRef();
   const [isScanModalOpen, setIsScanModalOpen] = useState(false);
   const [scannedColis, setScannedColis] = useState([]);
+  const [securityCodes, setSecurityCodes] = useState({});
 
   // Load data from API
   useEffect(() => {
@@ -66,7 +73,7 @@ const Pickup = () => {
         console.log('🔍 Fetching missions pickup data...');
         const [missionsData, driversData, shippersData, colisData] = await Promise.all([
           missionsPickupService.getMissionsPickup(),
-          apiService.getDrivers(),
+          apiService.getDrivers(), // This gets drivers from the drivers table
           apiService.getShippers(),
           apiService.getParcels(),
         ]);
@@ -75,10 +82,46 @@ const Pickup = () => {
         console.log('📡 Shippers data:', shippersData);
         console.log('📡 Colis data:', colisData);
         
-        setMissions(missionsData);
+        // Handle missions data properly - it should be in missionsData.data
+        const missions = missionsData?.data || missionsData || [];
+        console.log('📦 Processed missions:', missions);
+        
+        setMissions(missions);
         setDrivers(driversData);
         setShippers(shippersData);
         setColis(colisData);
+        
+        // Fetch security codes for all missions
+        console.log('🔐 Fetching security codes for all missions...');
+        const codes = {};
+        for (const mission of missions) {
+          try {
+            console.log(`🔐 Fetching security code for mission ${mission.id}...`);
+            const codeResponse = await missionsPickupService.getMissionSecurityCode(mission.id);
+            console.log(`🔐 Response for mission ${mission.id}:`, codeResponse);
+            
+            // Check different response formats
+            if (codeResponse.success && codeResponse.data && codeResponse.data.securityCode) {
+              codes[mission.id] = codeResponse.data.securityCode;
+              console.log(`✅ Security code for mission ${mission.id}: ${codeResponse.data.securityCode}`);
+            } else if (codeResponse.securityCode) {
+              // Direct response format
+              codes[mission.id] = codeResponse.securityCode;
+              console.log(`✅ Security code for mission ${mission.id}: ${codeResponse.securityCode}`);
+            } else {
+              console.log(`❌ No security code data for mission ${mission.id}:`, codeResponse);
+            }
+          } catch (error) {
+            console.error(`❌ Error fetching security code for mission ${mission.id}:`, error);
+            console.error(`❌ Error details:`, {
+              message: error.message,
+              response: error.response?.data,
+              status: error.response?.status
+            });
+          }
+        }
+        setSecurityCodes(codes);
+        console.log('🔐 Final security codes loaded:', codes);
       } catch (err) {
         console.error('❌ Error fetching data:', err);
         setError("Erreur lors du chargement des données.");
@@ -238,6 +281,7 @@ const Pickup = () => {
         onDelete={handleDelete}
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
+        securityCodes={securityCodes}
       />
 
       {/* Modal création/édition mission */}
@@ -358,6 +402,40 @@ const Pickup = () => {
                 )}
               </div>
             </div>
+            {/* Security Code Section */}
+            <div className="border-t border-gray-200 pt-4 mb-4">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="font-semibold text-gray-700 mb-1 flex items-center gap-2">
+                      <span className="inline-block bg-yellow-100 text-yellow-700 rounded-full px-2 py-1 text-xs font-bold">🔐</span>
+                      Code de Sécurité
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      Ce code est requis pour que le livreur puisse terminer la mission
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <code className="bg-white px-3 py-2 rounded border text-lg font-mono text-gray-800">
+                      {securityCodes[viewMission.id] || 'Non généré'}
+                    </code>
+                    {securityCodes[viewMission.id] && (
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(securityCodes[viewMission.id]);
+                          alert('Code copié dans le presse-papiers!');
+                        }}
+                        className="ml-2 text-blue-600 hover:text-blue-800 text-sm"
+                        title="Copier le code"
+                      >
+                        📋 Copier
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+            
             <div className="border-t border-gray-200 pt-4">
               <div className="font-semibold text-gray-700 mb-2 text-lg flex items-center gap-2">
                 <span className="inline-block bg-purple-100 text-purple-700 rounded-full px-3 py-1 text-xs font-bold">Colis associés</span>

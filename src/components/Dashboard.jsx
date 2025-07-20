@@ -4,6 +4,7 @@ import { hasAccess } from "../config/permissions.jsx";
 import DashboardHome from "./dashboard/DashboardHome";
 import Administration from "./dashboard/Administration";
 import Commercial from "./dashboard/Commercial";
+import CommercialProfile from "./dashboard/CommercialProfile";
 import Finance from "./dashboard/Finance";
 import ChefAgence from "./dashboard/ChefAgence";
 import MembreAgence from "./dashboard/MembreAgence";
@@ -14,6 +15,7 @@ import Expediteur from "./dashboard/Expediteur";
 import Colis from "./dashboard/Colis";
 import ColisClient from "./dashboard/ColisClient";
 import Pickup from "./dashboard/Pickup";
+import PickupDepot from "./dashboard/PickupDepot";
 import Secteurs from "./dashboard/Secteurs";
 import Entrepots from "./dashboard/Entrepots";
 import PaimentExpediteur from "./dashboard/PaimentExpediteur";
@@ -54,7 +56,12 @@ const Dashboard = ({ selectedKey = "dashboard" }) => {
       return <Administration />;
     }
     if (selectedKey === "commercial" && checkAccess("personnel", "commercial")) {
-      return <Commercial />;
+      // Show CommercialProfile for Commercial users, Commercial management for admins
+      if (currentUser?.role === "Commercial") {
+        return <CommercialProfile />;
+      } else {
+        return <Commercial />;
+      }
     }
     if (selectedKey === "finance" && checkAccess("personnel", "finance")) {
       return <Finance />;
@@ -86,7 +93,14 @@ const Dashboard = ({ selectedKey = "dashboard" }) => {
       return <Colis />;
     }
     if (selectedKey === "pickup" && checkAccess("pickup")) {
+      // For Livreurs, show their own dashboard instead of admin pickup
+      if (currentUser?.role === "Livreurs") {
+        return <LivreurDashboard />;
+      }
       return <Pickup />;
+    }
+    if (selectedKey === "pickup_depot" && checkAccess("pickup")) {
+      return <PickupDepot />;
     }
     if (selectedKey === "secteurs" && checkAccess("secteurs")) {
       return <Secteurs />;
@@ -95,39 +109,24 @@ const Dashboard = ({ selectedKey = "dashboard" }) => {
       return <Entrepots />;
     }
     if (selectedKey === "paiment_expediteur" && checkAccess("paiment_expediteur")) {
-      if (currentUser?.role === "Commercial") {
-        return <CommercialPayments />;
-      }
-      if (currentUser?.role === "Expéditeur") {
-        return <PaimentExpediteur />;
-      }
       return <PaimentExpediteur />;
+    }
+    if (selectedKey === "commercial_payments" && checkAccess("commercial_payments")) {
+      return <CommercialPayments />;
     }
     if (selectedKey === "reclamation" && checkAccess("reclamation")) {
       return <Reclamation />;
     }
 
-    // If no access or invalid selection, show access denied or redirect
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <div className="text-6xl mb-4">🚫</div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">Accès Refusé</h2>
-          <p className="text-gray-600 mb-4">
-            Vous n'avez pas les permissions nécessaires pour accéder à cette section.
-          </p>
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors"
-          >
-            Retour au Tableau de Bord
-          </button>
-        </div>
-      </div>
-    );
+    // Default fallback - show dashboard home
+    return <DashboardHome />;
   };
 
-  return renderContent();
+  return (
+    <div className="dashboard-content">
+      {renderContent()}
+    </div>
+  );
 };
 
 export default Dashboard; 

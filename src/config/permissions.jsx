@@ -19,31 +19,53 @@ export const ROLE_PERMISSIONS = {
     secteurs: true,
     entrepots: true,
     paiment_expediteur: true,
-    reclamation: true
+    reclamation: true,
+    commercial_payments: true // Add access to commercial payments management
   },
 
-  // COMMERCIAL - Access to client management and related operations
+  // COMMERCIAL - Access to their own data and related modules
   'Commercial': {
     dashboard: true,
     personnel: {
       administration: false,
-      commercial: false, // Remove personnel management
+      commercial: false,
       finance: false,
       chef_agence: false,
       membre_agence: false,
       livreurs: false
     },
-    expediteur: true, // Full access to manage clients
-    colis: false, // Remove parcel management
-    pickup: false, // Remove pickup missions
-    secteurs: false, // Remove sectors access
-    entrepots: false, // Limited access
-    paiment_expediteur: true, // Add payment access for Commercial
-    reclamation: true // Can manage client complaints
+    expediteur: true,
+    colis: false,
+    pickup: false,
+    secteurs: false,
+    entrepots: false,
+    paiment_expediteur: true,
+    reclamation: true,
+    commercial_payments: true
   },
 
   // FINANCE - Access to financial operations
   'Finance': {
+    dashboard: true,
+    personnel: {
+      administration: false,
+      commercial: false,
+      finance: false, // Can manage finance team
+      chef_agence: false,
+      membre_agence: false,
+      livreurs: false
+    },
+    expediteur: false, // Limited access to client financial data
+    colis: false, // Limited access to billing info
+    pickup: false, // Limited access to costs
+    secteurs: false, // Limited access to financial data
+    entrepots: false, // Limited access to costs
+    paiment_expediteur: true, // Full access to payments
+    reclamation: false // Limited access to financial complaints
+  },
+
+  // COMPTABLE - Access to financial operations (same as Finance)
+  'Comptable': {
     dashboard: true,
     personnel: {
       administration: false,
@@ -69,7 +91,7 @@ export const ROLE_PERMISSIONS = {
       administration: false,
       commercial: false,
       finance: false,
-      chef_agence: true, // Can manage their team
+      chef_agence: false, // Can manage their team
       membre_agence: true, // Can manage agency members
       livreurs: true // Can manage drivers
     },
@@ -78,7 +100,7 @@ export const ROLE_PERMISSIONS = {
     pickup: true, // Full access to pickup missions
     secteurs: true, // Can manage sectors in their agency
     entrepots: true, // Can manage local warehouses
-    paiment_expediteur: false, // Limited access
+    paiment_expediteur: true, // Limited access
     reclamation: true // Can manage complaints in their agency
   },
 
@@ -115,7 +137,7 @@ export const ROLE_PERMISSIONS = {
     },
     expediteur: false, // Limited access
     colis: false, // Limited access to view parcels for delivery
-    pickup: true, // Can view their pickup missions
+    pickup: false, // No pickup menu - they see missions in their dashboard
     secteurs: false, // Limited access
     entrepots: false, // Limited access
     paiment_expediteur: false, // No access
@@ -229,7 +251,7 @@ export const getFilteredMenu = (userRole) => {
         key: "chef_agence",
         icon: (
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
           </svg>
         )
       });
@@ -241,7 +263,7 @@ export const getFilteredMenu = (userRole) => {
         key: "membre_agence",
         icon: (
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
           </svg>
         )
       });
@@ -253,34 +275,32 @@ export const getFilteredMenu = (userRole) => {
         key: "livreurs",
         icon: (
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
           </svg>
         )
       });
     }
 
-    if (personnelChildren.length > 0) {
-      baseMenu.push({
-        label: "Personnel",
-        key: "personnel",
-        icon: (
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
-          </svg>
-        ),
-        children: personnelChildren
-      });
-    }
+    baseMenu.push({
+      label: "Personnel",
+      key: "personnel",
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+        </svg>
+      ),
+      children: personnelChildren
+    });
   }
 
-  // Add other modules based on permissions
+  // Add main modules
   if (permissions.expediteur) {
     baseMenu.push({
       label: "Expéditeur",
       key: "expediteur",
       icon: (
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
         </svg>
       )
     });
@@ -300,11 +320,11 @@ export const getFilteredMenu = (userRole) => {
 
   if (permissions.pickup) {
     baseMenu.push({
-      label: "Pick up",
+      label: "Pickup",
       key: "pickup",
       icon: (
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
         </svg>
       )
     });
@@ -316,7 +336,7 @@ export const getFilteredMenu = (userRole) => {
       key: "secteurs",
       icon: (
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-1.447-.894L15 4m0 13V4m-6 3l6-3" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-1.447-.894L15 4m0 13V4m0 0L9 7" />
         </svg>
       )
     });
@@ -335,15 +355,24 @@ export const getFilteredMenu = (userRole) => {
   }
 
   if (permissions.paiment_expediteur) {
-    // For Commercial users, show "Mes Paiements" instead of "Paiement Expéditeur"
-    // For Expéditeur users, also show "Mes Paiements"
-    const paymentLabel = userRole === 'Commercial' || userRole === 'Expéditeur' ? 'Mes Paiements' : 'Paiement Expéditeur';
     baseMenu.push({
-      label: paymentLabel,
+      label: "Paiements Expéditeurs",
       key: "paiment_expediteur",
       icon: (
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+        </svg>
+      )
+    });
+  }
+
+  if (permissions.commercial_payments) {
+    baseMenu.push({
+      label: "Paiements Commerciaux",
+      key: "commercial_payments",
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
         </svg>
       )
     });
@@ -351,11 +380,11 @@ export const getFilteredMenu = (userRole) => {
 
   if (permissions.reclamation) {
     baseMenu.push({
-      label: "Réclamation",
+      label: "Réclamations",
       key: "reclamation",
       icon: (
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
         </svg>
       )
     });

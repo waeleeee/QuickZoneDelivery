@@ -371,6 +371,37 @@ export const apiService = {
     }
   },
 
+  // Get single parcel by ID
+  getParcel: async (id) => {
+    try {
+      console.log('🔍 Calling getParcel with ID:', id);
+      const response = await api.get(`/parcels/${id}`);
+      console.log('📡 Raw API response:', response);
+      console.log('📡 Response type:', typeof response);
+      console.log('📡 Response keys:', Object.keys(response || {}));
+      
+      // The axios interceptor already extracts response.data, so we get { success: true, data: {...} }
+      if (response && response.success === true && response.data) {
+        console.log('✅ Success format - returning data');
+        return response.data;
+      } else if (response && response.data) {
+        console.log('✅ Data format - returning data');
+        return response.data;
+      } else if (response) {
+        console.log('✅ Direct response format - returning response');
+        return response;
+      } else {
+        console.warn('❌ Unexpected response format:', response);
+        return null;
+      }
+    } catch (error) {
+      console.error('❌ Get parcel error:', error);
+      console.error('❌ Error response:', error.response?.data);
+      console.error('❌ Error status:', error.response?.status);
+      return null;
+    }
+  },
+
   // Get parcels for a specific expéditeur
   getExpediteurParcels: async (email, page = 1, limit = 1000) => {
     try {
@@ -459,7 +490,12 @@ export const apiService = {
       const response = await api.get('/payments');
       console.log('All payments API response:', response);
       
-      if (response.success && response.data) {
+      // Handle different response formats
+      if (response.data && response.data.success && response.data.data) {
+        return response.data.data;
+      } else if (response.data && response.data.data) {
+        return response.data.data;
+      } else if (response.data) {
         return response.data;
       } else {
         console.warn('Unexpected all payments response format:', response);
@@ -483,20 +519,28 @@ export const apiService = {
 
   updateParcel: async (id, updates) => {
     try {
-      const response = await api.put(`/colis/${id}`, updates);
+      console.log('Updating parcel:', { id, updates });
+      const response = await api.put(`/parcels/${id}`, updates);
+      console.log('Update response:', response.data);
       return response.data;
     } catch (error) {
       console.error('Update parcel error:', error);
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
       throw new Error('Failed to update parcel');
     }
   },
 
   deleteParcel: async (id) => {
     try {
-      const response = await api.delete(`/colis/${id}`);
-      return response;
+      console.log('Deleting parcel:', id);
+      const response = await api.delete(`/parcels/${id}`);
+      console.log('Delete response:', response.data);
+      return response.data || response;
     } catch (error) {
       console.error('Delete parcel error:', error);
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
       throw new Error('Failed to delete parcel');
     }
   },
@@ -517,36 +561,53 @@ export const apiService = {
     try {
       console.log('Creating shipper:', shipperData);
       
-      // Create FormData for file upload
-      const formData = new FormData();
-      
-      // Add text fields
-      Object.keys(shipperData).forEach(key => {
-        if (key !== 'id_document' && key !== 'company_documents') {
-          formData.append(key, shipperData[key]);
+      // Check if shipperData is already a FormData object
+      if (shipperData instanceof FormData) {
+        console.log('shipperData is already FormData, using directly');
+        console.log('=== API SERVICE DEBUG ===');
+        console.log('FormData entries:', Array.from(shipperData.entries()));
+        console.log('FormData keys:', Array.from(shipperData.keys()));
+        console.log('FormData values:', Array.from(shipperData.values()));
+        
+        const response = await api.post('/shippers', shipperData, {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        });
+        console.log('Create response:', response.data);
+        return response.data;
+      } else {
+        // Create FormData for file upload (fallback for non-FormData input)
+        const formData = new FormData();
+        
+        // Add text fields
+        Object.keys(shipperData).forEach(key => {
+          if (key !== 'id_document' && key !== 'company_documents') {
+            formData.append(key, shipperData[key]);
+          }
+        });
+        
+        // Add files if they exist
+        if (shipperData.id_document) {
+          formData.append('id_document', shipperData.id_document);
         }
-      });
-      
-      // Add files if they exist
-      if (shipperData.id_document) {
-        formData.append('id_document', shipperData.id_document);
-      }
-      if (shipperData.company_documents) {
-        formData.append('company_documents', shipperData.company_documents);
-      }
-      
-      console.log('=== API SERVICE DEBUG ===');
-      console.log('FormData entries:', Array.from(formData.entries()));
-      console.log('FormData keys:', Array.from(formData.keys()));
-      console.log('FormData values:', Array.from(formData.values()));
-      
-      const response = await api.post('/shippers', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
+        if (shipperData.company_documents) {
+          formData.append('company_documents', shipperData.company_documents);
         }
-      });
-      console.log('Create response:', response.data);
-      return response.data;
+        
+        console.log('=== API SERVICE DEBUG ===');
+        console.log('FormData entries:', Array.from(formData.entries()));
+        console.log('FormData keys:', Array.from(formData.keys()));
+        console.log('FormData values:', Array.from(formData.values()));
+        
+        const response = await api.post('/shippers', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        });
+        console.log('Create response:', response.data);
+        return response.data;
+      }
     } catch (error) {
       console.error('Create shipper error:', error);
       console.error('Error response:', error.response?.data);
@@ -571,35 +632,51 @@ export const apiService = {
     try {
       console.log('Updating shipper:', { id, updates });
       
-      // Create FormData for file upload
-      const formData = new FormData();
-      
-      // Add text fields
-      Object.keys(updates).forEach(key => {
-        if (key !== 'id_document' && key !== 'company_documents') {
-          formData.append(key, updates[key]);
+      // Check if updates is already a FormData object
+      if (updates instanceof FormData) {
+        console.log('updates is already FormData, using directly');
+        console.log('FormData entries:', Array.from(updates.entries()));
+        
+        const response = await api.put(`/shippers/${id}`, updates, {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        });
+        console.log('Update response:', response.data);
+        console.log('Response status:', response.status);
+        console.log('Response headers:', response.headers);
+        return response.data;
+      } else {
+        // Create FormData for file upload (fallback for non-FormData input)
+        const formData = new FormData();
+        
+        // Add text fields
+        Object.keys(updates).forEach(key => {
+          if (key !== 'id_document' && key !== 'company_documents') {
+            formData.append(key, updates[key]);
+          }
+        });
+        
+        // Add files if they exist
+        if (updates.id_document) {
+          formData.append('id_document', updates.id_document);
         }
-      });
-      
-      // Add files if they exist
-      if (updates.id_document) {
-        formData.append('id_document', updates.id_document);
-      }
-      if (updates.company_documents) {
-        formData.append('company_documents', updates.company_documents);
-      }
-      
-      console.log('FormData entries:', Array.from(formData.entries()));
-      
-      const response = await api.put(`/shippers/${id}`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
+        if (updates.company_documents) {
+          formData.append('company_documents', updates.company_documents);
         }
-      });
-      console.log('Update response:', response.data);
-      console.log('Response status:', response.status);
-      console.log('Response headers:', response.headers);
-      return response.data;
+        
+        console.log('FormData entries:', Array.from(formData.entries()));
+        
+        const response = await api.put(`/shippers/${id}`, formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        });
+        console.log('Update response:', response.data);
+        console.log('Response status:', response.status);
+        console.log('Response headers:', response.headers);
+        return response.data;
+      }
     } catch (error) {
       console.error('Update shipper error:', error);
       console.error('Error response:', error.response?.data);
@@ -630,6 +707,16 @@ export const apiService = {
     }
   },
 
+  deleteShipperWithDependencies: async (id) => {
+    try {
+      const response = await api.delete(`/shippers/${id}/with-dependencies`);
+      return response.data || response;
+    } catch (error) {
+      console.error('Delete shipper with dependencies error:', error);
+      throw new Error('Failed to delete shipper with dependencies');
+    }
+  },
+
   // Payment management functions
   getShipperPayments: async (shipperId) => {
     try {
@@ -648,6 +735,30 @@ export const apiService = {
     } catch (error) {
       console.error('Delete payment error:', error);
       throw new Error('Failed to delete payment');
+    }
+  },
+
+  createPayment: async (paymentData) => {
+    try {
+      console.log('Creating payment with data:', paymentData);
+      const response = await api.post('/payments', paymentData);
+      console.log('Create payment response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Create payment error:', error);
+      console.error('Error response:', error.response?.data);
+      
+      if (error.response?.data?.message) {
+        throw new Error(error.response.data.message);
+      } else if (error.response?.status === 400) {
+        throw new Error('Invalid payment data provided');
+      } else if (error.response?.status === 404) {
+        throw new Error('Shipper not found');
+      } else if (error.response?.status === 500) {
+        throw new Error('Server error occurred. Please try again.');
+      } else {
+        throw new Error('Failed to create payment');
+      }
     }
   },
 
@@ -918,6 +1029,123 @@ export const apiService = {
     }
   },
 
+  // Get payments for shippers of a specific commercial
+  getCommercialPayments: async (commercialId, params = {}) => {
+    try {
+      const response = await api.get(`/personnel/commercials/${commercialId}/payments`, { params });
+      return response.data || { payments: [], pagination: {} };
+    } catch (error) {
+      console.error('Get commercial payments error:', error);
+      return { payments: [], pagination: {} };
+    }
+  },
+
+  // Get parcels for shippers of a specific commercial
+  getCommercialParcels: async (commercialId, params = {}) => {
+    try {
+      const response = await api.get(`/personnel/commercials/${commercialId}/parcels`, { params });
+      return response.data || { parcels: [], pagination: {} };
+    } catch (error) {
+      console.error('Get commercial parcels error:', error);
+      return { parcels: [], pagination: {} };
+    }
+  },
+
+  // Get complaints for shippers of a specific commercial
+  getCommercialComplaints: async (commercialId, page = 1, limit = 10, filters = {}) => {
+    try {
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: limit.toString(),
+        ...(filters.status && { status: filters.status }),
+        ...(filters.search && { search: filters.search })
+      });
+      
+      const response = await api.get(`/complaints/commercial/${commercialId}?${params}`);
+      return response.data || { complaints: [], pagination: {} };
+    } catch (error) {
+      console.error('Get commercial complaints error:', error);
+      return { complaints: [], pagination: {} };
+    }
+  },
+
+  // Get commercial statistics
+  getCommercialStats: async (commercialId) => {
+    try {
+      const response = await api.get(`/personnel/commercials/${commercialId}/stats`);
+      return response.data || {};
+    } catch (error) {
+      console.error('Get commercial stats error:', error);
+      return {};
+    }
+  },
+
+  // Get commercial's own payments (commissions, salaries, bonuses)
+  getCommercialOwnPayments: async (commercialId) => {
+    try {
+      const response = await api.get(`/personnel/commercials/${commercialId}/own-payments`);
+      return response.data || { payments: [], pagination: {} };
+    } catch (error) {
+      console.error('Get commercial own payments error:', error);
+      return { payments: [], pagination: {} };
+    }
+  },
+
+  // Create commercial payment
+  createCommercialPayment: async (commercialId, paymentData) => {
+    try {
+      const response = await api.post(`/personnel/commercials/${commercialId}/payments`, paymentData);
+      return response.data;
+    } catch (error) {
+      console.error('Create commercial payment error:', error);
+      throw error;
+    }
+  },
+
+  // Update commercial payment
+  updateCommercialPayment: async (commercialId, paymentId, paymentData) => {
+    try {
+      const response = await api.put(`/personnel/commercials/${commercialId}/payments/${paymentId}`, paymentData);
+      return response.data;
+    } catch (error) {
+      console.error('Update commercial payment error:', error);
+      throw error;
+    }
+  },
+
+  // Delete commercial payment
+  deleteCommercialPayment: async (commercialId, paymentId) => {
+    try {
+      const response = await api.delete(`/personnel/commercials/${commercialId}/payments/${paymentId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Delete commercial payment error:', error);
+      throw error;
+    }
+  },
+
+  // Get commercial payment statistics
+  getCommercialPaymentStats: async (commercialId) => {
+    try {
+      const response = await api.get(`/personnel/commercials/${commercialId}/payment-stats`);
+      return response.data || {};
+    } catch (error) {
+      console.error('Get commercial payment stats error:', error);
+      return {};
+    }
+  },
+
+  // Get all commercials for admin dropdown
+  getCommercials: async () => {
+    try {
+      const response = await api.get('/personnel/commercials');
+      return response.data || [];
+    } catch (error) {
+      console.error('Get commercials error:', error);
+      return [];
+    }
+  },
+
   // Get shipper details with payments and parcels
   getShipperDetails: async (shipperId) => {
     try {
@@ -932,10 +1160,17 @@ export const apiService = {
   // Finance Management
   getComptables: async () => {
     try {
+      console.log('🔍 Making API call to /personnel/accountants...');
       const response = await api.get('/personnel/accountants');
-      return response.data || [];
+      console.log('🔍 Raw response from accountants API:', response);
+      console.log('📊 Response data:', response.data);
+      console.log('📋 Data array:', response.data);
+      const result = response.data || [];
+      console.log('📋 Final result:', result);
+      return result;
     } catch (error) {
-      console.error('Get comptables error:', error);
+      console.error('❌ Get comptables error:', error);
+      console.error('❌ Error details:', error.response?.data);
       return [];
     }
   },
@@ -1064,7 +1299,9 @@ export const apiService = {
     try {
       const response = await api.get('/personnel/agency-managers');
       console.log('Agency managers response:', response);
-      return response.data;
+      // The backend returns { success: true, data: [...], pagination: {...} }
+      // We need to return just the data array
+      return response.data?.data || response.data || [];
     } catch (error) {
       console.error('Get agency managers error:', error);
       return [];
@@ -1074,10 +1311,14 @@ export const apiService = {
   // Create agency manager
   createAgencyManager: async (managerData) => {
     try {
+      console.log('🔧 Frontend: Creating agency manager with data:', managerData);
       const response = await api.post('/personnel/agency-managers', managerData);
+      console.log('🔧 Frontend: Raw response:', response);
+      console.log('🔧 Frontend: Response data:', response.data);
       return response.data;
     } catch (error) {
       console.error('Create agency manager error:', error);
+      console.error('Error response:', error.response?.data);
       throw error;
     }
   },
@@ -1085,10 +1326,13 @@ export const apiService = {
   // Update agency manager
   updateAgencyManager: async (id, managerData) => {
     try {
+      console.log('🔧 Frontend: Updating agency manager with data:', { id, managerData });
       const response = await api.put(`/personnel/agency-managers/${id}`, managerData);
+      console.log('🔧 Frontend: Update response:', response);
       return response.data;
     } catch (error) {
       console.error('Update agency manager error:', error);
+      console.error('Error response:', error.response?.data);
       throw error;
     }
   },
@@ -1386,16 +1630,18 @@ export const warehousesService = {
 
 // Missions de collecte (missions_pickup)
 export const missionsPickupService = {
-  getMissionsPickup: async () => {
+  getMissionsPickup: async (params = {}) => {
     try {
-      console.log('🔍 Calling missions-pickup API...');
-      const response = await api.get('/missions-pickup');
+      console.log('🔍 Calling missions-pickup API with params:', params);
+      const response = await api.get('/missions-pickup', { params });
       console.log('📡 Missions API response:', response);
       console.log('📡 Missions data:', response.data);
-      return response.data || [];
+      
+      // Return the full response data structure
+      return response.data;
     } catch (error) {
       console.error('❌ Missions API error:', error);
-      return [];
+      return { success: false, data: [] };
     }
   },
   createMissionPickup: async (data) => {
@@ -1403,7 +1649,7 @@ export const missionsPickupService = {
       console.log('🚀 createMissionPickup called with data:', data);
       const response = await api.post('/missions-pickup', data);
       console.log('📡 createMissionPickup response:', response);
-      return response.data?.data;
+      return response.data;
     } catch (error) {
       console.error('❌ createMissionPickup error:', error);
       throw error;
@@ -1423,5 +1669,21 @@ export const missionsPickupService = {
   deleteMissionPickup: async (id) => {
     const response = await api.delete(`/missions-pickup/${id}`);
     return response.data;
+  },
+  
+  getMissionSecurityCode: async (id) => {
+    try {
+      console.log('🔐 getMissionSecurityCode called with id:', id);
+      const response = await api.get(`/missions-pickup/${id}/security-code`);
+      console.log('📡 Security code response:', response);
+      console.log('📡 Response data:', response.data);
+      console.log('📡 Response status:', response.status);
+      return response.data;
+    } catch (error) {
+      console.error('❌ getMissionSecurityCode error:', error);
+      console.error('❌ Error response:', error.response?.data);
+      console.error('❌ Error status:', error.response?.status);
+      throw error;
+    }
   },
 }; 

@@ -31,7 +31,7 @@ const addSamplePersonnel = async () => {
       {
         username: 'commercial1',
         email: 'commercial1@quickzone.com',
-        password: 'commercial123',
+        password: 'wael123',
         first_name: 'Commercial',
         last_name: 'Tunis',
         role: 'Commercial'
@@ -39,7 +39,7 @@ const addSamplePersonnel = async () => {
       {
         username: 'commercial2',
         email: 'commercial2@quickzone.com',
-        password: 'commercial123',
+        password: 'wael123',
         first_name: 'Commercial',
         last_name: 'Sousse',
         role: 'Commercial'
@@ -47,7 +47,7 @@ const addSamplePersonnel = async () => {
       {
         username: 'commercial3',
         email: 'commercial3@quickzone.com',
-        password: 'commercial123',
+        password: 'wael123',
         first_name: 'Commercial',
         last_name: 'Sfax',
         role: 'Commercial'

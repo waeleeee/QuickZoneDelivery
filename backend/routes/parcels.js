@@ -20,7 +20,13 @@ router.get('/', async (req, res) => {
         s.email as shipper_email,
         s.phone as shipper_phone,
         s.company as shipper_company,
-        s.code as shipper_code
+        s.company_name as shipper_company_name,
+        s.code as shipper_code,
+        s.fiscal_number as shipper_fiscal_number,
+        s.tax_number as shipper_tax_number,
+        s.company_governorate as shipper_company_governorate,
+        s.company_address as shipper_company_address,
+        s.city as shipper_city
       FROM parcels p
       LEFT JOIN shippers s ON p.shipper_id = s.id
       WHERE 1=1
@@ -99,7 +105,13 @@ router.get('/:id', async (req, res) => {
         s.email as shipper_email,
         s.phone as shipper_phone,
         s.company as shipper_company,
-        s.code as shipper_code
+        s.company_name as shipper_company_name,
+        s.code as shipper_code,
+        s.fiscal_number as shipper_fiscal_number,
+        s.tax_number as shipper_tax_number,
+        s.company_governorate as shipper_company_governorate,
+        s.company_address as shipper_company_address,
+        s.city as shipper_city
       FROM parcels p
       LEFT JOIN shippers s ON p.shipper_id = s.id
       WHERE p.id = $1
@@ -128,20 +140,37 @@ router.get('/:id', async (req, res) => {
 // Create new parcel
 router.post('/', async (req, res) => {
   try {
+    console.log('📦 Creating parcel with data:', req.body);
+    console.log('📦 Article name from request:', req.body.article_name);
+    console.log('📝 Remark from request:', req.body.remark);
+    
     const {
       tracking_number, shipper_id, destination, status, weight, price, type,
-      estimated_delivery_date, delivery_fees, return_fees
+      estimated_delivery_date, delivery_fees, return_fees,
+      recipient_name, recipient_phone, recipient_phone2, recipient_address, recipient_governorate,
+      article_name, remark, nb_pieces
     } = req.body;
+    
+    console.log('📦 Article name after destructuring:', article_name);
+    console.log('📝 Remark after destructuring:', remark);
+    console.log('📦 nb_pieces after destructuring:', nb_pieces);
+    console.log('📦 nb_pieces type:', typeof nb_pieces);
     
     const result = await db.query(`
       INSERT INTO parcels (
         tracking_number, shipper_id, destination, status, weight, price, type,
-        estimated_delivery_date, delivery_fees, return_fees
+        estimated_delivery_date, delivery_fees, return_fees,
+        recipient_name, recipient_phone, recipient_phone2, recipient_address, recipient_governorate,
+        article_name, remark, nb_pieces
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
       RETURNING *
     `, [tracking_number, shipper_id, destination, status, weight, price, type, 
-        estimated_delivery_date, delivery_fees, return_fees]);
+        estimated_delivery_date, delivery_fees, return_fees,
+        recipient_name, recipient_phone, recipient_phone2, recipient_address, recipient_governorate,
+        article_name, remark, nb_pieces]);
+    
+    console.log('✅ Parcel created:', result.rows[0]);
     
     res.status(201).json({
       success: true,
@@ -161,20 +190,33 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    console.log('📦 Updating parcel with ID:', id);
+    console.log('📦 Update data:', req.body);
+    
     const {
       tracking_number, shipper_id, destination, status, weight, price, type,
-      estimated_delivery_date, delivery_fees, return_fees
+      estimated_delivery_date, delivery_fees, return_fees,
+      recipient_name, recipient_phone, recipient_phone2, recipient_address, recipient_governorate,
+      article_name, remark, nb_pieces,
+      shipper_name, shipper_phone, shipper_email, shipper_company
     } = req.body;
     
+    // First, update the parcel
     const result = await db.query(`
       UPDATE parcels 
       SET tracking_number = $1, shipper_id = $2, destination = $3, status = $4,
           weight = $5, price = $6, type = $7, estimated_delivery_date = $8,
-          delivery_fees = $9, return_fees = $10, updated_at = CURRENT_TIMESTAMP
-      WHERE id = $11
+          delivery_fees = $9, return_fees = $10, 
+          recipient_name = $11, recipient_phone = $12, recipient_phone2 = $13, 
+          recipient_address = $14, recipient_governorate = $15,
+          article_name = $16, remark = $17, nb_pieces = $18,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = $19
       RETURNING *
     `, [tracking_number, shipper_id, destination, status, weight, price, type, 
-        estimated_delivery_date, delivery_fees, return_fees, id]);
+        estimated_delivery_date, delivery_fees, return_fees,
+        recipient_name, recipient_phone, recipient_phone2, recipient_address, recipient_governorate,
+        article_name, remark, nb_pieces, id]);
     
     if (result.rows.length === 0) {
       return res.status(404).json({
@@ -183,9 +225,77 @@ router.put('/:id', async (req, res) => {
       });
     }
     
+    // If shipper information is provided, update the shipper as well
+    if (shipper_name || shipper_phone || shipper_email || shipper_company) {
+      try {
+        console.log('📦 Updating shipper information for parcel:', id);
+        
+        // Get the shipper_id from the updated parcel
+        const shipperId = result.rows[0].shipper_id;
+        
+        if (shipperId) {
+          let shipperUpdateQuery = 'UPDATE shippers SET ';
+          const shipperUpdateParams = [];
+          let paramIndex = 1;
+          
+          if (shipper_name) {
+            shipperUpdateQuery += `name = $${paramIndex}, `;
+            shipperUpdateParams.push(shipper_name);
+            paramIndex++;
+          }
+          if (shipper_phone) {
+            shipperUpdateQuery += `phone = $${paramIndex}, `;
+            shipperUpdateParams.push(shipper_phone);
+            paramIndex++;
+          }
+          if (shipper_email) {
+            shipperUpdateQuery += `email = $${paramIndex}, `;
+            shipperUpdateParams.push(shipper_email);
+            paramIndex++;
+          }
+          if (shipper_company) {
+            shipperUpdateQuery += `company = $${paramIndex}, `;
+            shipperUpdateParams.push(shipper_company);
+            paramIndex++;
+          }
+          
+          // Remove trailing comma and space
+          shipperUpdateQuery = shipperUpdateQuery.slice(0, -2);
+          shipperUpdateQuery += ` WHERE id = $${paramIndex}`;
+          shipperUpdateParams.push(shipperId);
+          
+          await db.query(shipperUpdateQuery, shipperUpdateParams);
+          console.log('✅ Shipper information updated successfully');
+        }
+      } catch (shipperError) {
+        console.error('⚠️ Error updating shipper information:', shipperError);
+        // Don't fail the entire update if shipper update fails
+      }
+    }
+    
+    // Get the updated parcel with shipper information
+    const updatedParcelResult = await db.query(`
+      SELECT 
+        p.*,
+        s.name as shipper_name, 
+        s.email as shipper_email,
+        s.phone as shipper_phone,
+        s.company as shipper_company,
+        s.company_name as shipper_company_name,
+        s.code as shipper_code,
+        s.fiscal_number as shipper_fiscal_number,
+        s.tax_number as shipper_tax_number,
+        s.company_governorate as shipper_company_governorate,
+        s.company_address as shipper_company_address,
+        s.city as shipper_city
+      FROM parcels p
+      LEFT JOIN shippers s ON p.shipper_id = s.id
+      WHERE p.id = $1
+    `, [id]);
+    
     res.json({
       success: true,
-      data: result.rows[0],
+      data: updatedParcelResult.rows[0],
       message: 'Parcel updated successfully'
     });
   } catch (error) {
@@ -369,7 +479,12 @@ router.get('/expediteur/:email', async (req, res) => {
         s.email as shipper_email,
         s.phone as shipper_phone,
         s.company as shipper_company,
+        s.company_name as shipper_company_name,
         s.code as shipper_code,
+        s.fiscal_number as shipper_fiscal_number,
+        s.tax_number as shipper_tax_number,
+        s.company_governorate as shipper_company_governorate,
+        s.company_address as shipper_company_address,
         s.city as shipper_city
       FROM parcels p
       LEFT JOIN shippers s ON p.shipper_id = s.id
@@ -431,6 +546,89 @@ router.get('/expediteur/:email', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch expediteur parcels'
+    });
+  }
+});
+
+// Delete parcel
+router.delete('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // First check if the parcel exists
+    const checkResult = await db.query('SELECT id, tracking_number FROM parcels WHERE id = $1', [id]);
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Parcel not found'
+      });
+    }
+    
+    const parcel = checkResult.rows[0];
+    
+    // Start transaction for deletion
+    const client = await db.pool.connect();
+    try {
+      await client.query('BEGIN');
+      
+      // Delete related records first (in order of dependencies)
+      
+      // 1. Delete mission_parcels (referenced by parcel_id)
+      const missionParcelsResult = await client.query('DELETE FROM mission_parcels WHERE parcel_id = $1 RETURNING id', [id]);
+      const deletedMissionParcels = missionParcelsResult.rows.length;
+      
+      // 2. Delete parcel_timeline (referenced by parcel_id)
+      const parcelTimelineResult = await client.query('DELETE FROM parcel_timeline WHERE parcel_id = $1 RETURNING id', [id]);
+      const deletedParcelTimeline = parcelTimelineResult.rows.length;
+      
+      // 3. Delete the parcel
+      const deleteResult = await client.query('DELETE FROM parcels WHERE id = $1 RETURNING id', [id]);
+      
+      if (deleteResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({
+          success: false,
+          message: 'Parcel not found'
+        });
+      }
+      
+      await client.query('COMMIT');
+      
+      console.log(`✅ Parcel deleted successfully: ${parcel.tracking_number}`);
+      
+      res.json({
+        success: true,
+        message: 'Parcel deleted successfully',
+        deletedMissionParcels,
+        deletedParcelTimeline
+      });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Delete parcel error:', error);
+    console.error('Error details:', {
+      message: error.message,
+      code: error.code,
+      detail: error.detail,
+      hint: error.hint
+    });
+    
+    // Send more specific error messages
+    let errorMessage = 'Failed to delete parcel';
+    if (error.code === '23503') { // Foreign key violation
+      errorMessage = 'Cannot delete parcel because there are related records that could not be removed.';
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+
+    res.status(500).json({ 
+      success: false, 
+      message: errorMessage,
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });

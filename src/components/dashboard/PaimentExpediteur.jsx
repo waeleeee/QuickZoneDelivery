@@ -13,8 +13,56 @@ const PaimentExpediteur = () => {
   });
 
   const [payments, setPayments] = useState([]);
+  const [shippers, setShippers] = useState([]); // Add shippers state
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Fetch shippers based on user role
+  useEffect(() => {
+    const fetchShippers = async () => {
+      try {
+        console.log('Fetching shippers based on user role...');
+        let shippersData;
+        
+        if (currentUser?.role === 'Commercial') {
+          // For commercial users, get only their assigned shippers
+          console.log('Commercial user - fetching assigned shippers...');
+          const commercials = await apiService.getCommercials();
+          const commercial = commercials.find(c => c.email === currentUser.email);
+          
+          if (commercial) {
+            console.log('Found commercial:', commercial);
+            shippersData = await apiService.getShippersByCommercial(commercial.id);
+            console.log('Commercial shippers:', shippersData);
+          } else {
+            console.error('Commercial not found for user:', currentUser.email);
+            shippersData = [];
+          }
+        } else if (currentUser?.role === 'Administration' || currentUser?.role === 'Finance') {
+          // For admin/finance users, get all shippers
+          console.log('Admin/Finance user - fetching all shippers...');
+          shippersData = await apiService.getShippers();
+        } else {
+          shippersData = [];
+        }
+        
+        console.log('Fetched shippers:', shippersData);
+        console.log('Shippers count:', shippersData ? shippersData.length : 0);
+        if (shippersData && shippersData.length > 0) {
+          console.log('First shipper sample:', shippersData[0]);
+        }
+        setShippers(shippersData || []);
+      } catch (error) {
+        console.error('Error fetching shippers:', error);
+        setShippers([]);
+      }
+    };
+
+    // Only fetch shippers if user is admin/finance/commercial
+    if (currentUser?.role === 'Administration' || currentUser?.role === 'Finance' || currentUser?.role === 'Commercial') {
+      fetchShippers();
+    }
+  }, [currentUser]);
 
   // Fetch real payment data for the logged-in expéditeur
   useEffect(() => {
@@ -23,21 +71,53 @@ const PaimentExpediteur = () => {
         setLoading(true);
         setError(null);
         
-                  if (currentUser && currentUser.email) {
-            console.log('Fetching payments for user:', currentUser.email);
-            
-            const userPayments = await apiService.getExpediteurPayments(currentUser.email);
+        if (currentUser && currentUser.email) {
+          console.log('Fetching payments for user:', currentUser.email);
+          
+          const userPayments = await apiService.getExpediteurPayments(currentUser.email);
           console.log('User payments received:', userPayments);
           console.log('User payments type:', typeof userPayments);
           console.log('User payments length:', userPayments ? userPayments.length : 'null/undefined');
           
-          // If no payments from API, try to get all payments for admin users or use empty array
+          // If no payments from API, try to get payments based on user role
           let paymentsToUse = userPayments;
           if (!userPayments || userPayments.length === 0) {
-            if (currentUser.role === 'Administration' || currentUser.role === 'Finance' || currentUser.role === 'Commercial') {
-              // For admin users, try to get all payments
+            if (currentUser.role === 'Commercial') {
+              // For commercial users, get payments from their assigned shippers
               try {
-                console.log('Admin user - fetching all payments');
+                console.log('Commercial user - fetching payments from assigned shippers...');
+                const commercials = await apiService.getCommercials();
+                const commercial = commercials.find(c => c.email === currentUser.email);
+                
+                if (commercial) {
+                  console.log('Found commercial:', commercial);
+                  const commercialShippers = await apiService.getShippersByCommercial(commercial.id);
+                  console.log('Commercial shippers:', commercialShippers);
+                  
+                  if (commercialShippers && commercialShippers.length > 0) {
+                    // Get all payments and filter by commercial's shippers
+                    const allPaymentsResponse = await apiService.getAllPayments();
+                    const shipperIds = commercialShippers.map(s => s.id);
+                    paymentsToUse = allPaymentsResponse.filter(payment => 
+                      payment.shipper_id && shipperIds.includes(payment.shipper_id)
+                    );
+                    console.log('Filtered payments for commercial:', paymentsToUse);
+                  } else {
+                    console.log('No shippers assigned to this commercial');
+                    paymentsToUse = [];
+                  }
+                } else {
+                  console.log('Commercial not found');
+                  paymentsToUse = [];
+                }
+              } catch (error) {
+                console.log('Could not fetch commercial payments, using empty array:', error);
+                paymentsToUse = [];
+              }
+            } else if (currentUser.role === 'Administration' || currentUser.role === 'Finance') {
+              // For admin/finance users, try to get all payments
+              try {
+                console.log('Admin/Finance user - fetching all payments');
                 const allPaymentsResponse = await apiService.getAllPayments();
                 paymentsToUse = allPaymentsResponse || [];
               } catch (error) {
@@ -51,17 +131,23 @@ const PaimentExpediteur = () => {
           }
           
           // Transform the data to match the expected format
-          const transformedPayments = paymentsToUse.map(payment => ({
-            id: payment.id || `PAY${payment.id}`,
-            shipper: payment.shipper_name || currentUser.name || "Expéditeur",
-            amount: `${parseFloat(payment.amount || 0).toFixed(2)} €`,
-            date: payment.created_at ? new Date(payment.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-            method: payment.payment_method || "Non spécifié",
-            reference: payment.reference || payment.id || "N/A",
-            status: payment.status === "paid" ? "Payé" : "En attente",
-            // Keep original payment data for invoice
-            originalPayment: payment
-          }));
+          const transformedPayments = paymentsToUse.map(payment => {
+            // Find the shipper name from the shippers list
+            const shipper = shippers.find(s => s.id === payment.shipper_id);
+            const shipperName = shipper ? shipper.name : (payment.shipper_name || "Expéditeur inconnu");
+            
+            return {
+              id: payment.id || `PAY${payment.id}`,
+              shipper: shipperName,
+              amount: `${parseFloat(payment.amount || 0).toFixed(2)} €`,
+              date: payment.created_at ? new Date(payment.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+              method: payment.payment_method || "Non spécifié",
+              reference: payment.reference || payment.id || "N/A",
+              status: payment.status === "paid" ? "Payé" : "En attente",
+              // Keep original payment data for invoice
+              originalPayment: payment
+            };
+          });
           
           console.log('Transformed payments:', transformedPayments);
           setPayments(transformedPayments);
@@ -85,7 +171,7 @@ const PaimentExpediteur = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPayment, setEditingPayment] = useState(null);
   const [formData, setFormData] = useState({
-    shipper: "",
+    shipper_id: "", // Change from shipper to shipper_id
     amount: "",
     date: "",
     method: "",
@@ -119,15 +205,21 @@ const PaimentExpediteur = () => {
       ),
     },
     {
-      key: "facture",
-      header: "Facture",
+      key: "actions",
+      header: "Actions",
       render: (_, row) => (
-        <button
-          onClick={() => { setFacturePayment(row); setIsFactureOpen(true); }}
-          className="bg-blue-500 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs font-semibold"
-        >
-          Facture
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => { setFacturePayment(row); setIsFactureOpen(true); }}
+            className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-50 transition-colors"
+            title="Voir la facture"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+            </svg>
+          </button>
+        </div>
       ),
     },
   ];
@@ -135,9 +227,9 @@ const PaimentExpediteur = () => {
   const handleAdd = () => {
     setEditingPayment(null);
     setFormData({
-      shipper: "",
+      shipper_id: "", // Change from shipper to shipper_id
       amount: "",
-      date: "",
+      date: new Date().toISOString().split('T')[0], // Set today's date as default
       method: "",
       reference: "",
       status: "En attente",
@@ -147,31 +239,111 @@ const PaimentExpediteur = () => {
 
   const handleEdit = (payment) => {
     setEditingPayment(payment);
-    setFormData(payment);
+    // Find the shipper ID from the shippers list based on the shipper name
+    const selectedShipper = shippers.find(s => s.name === payment.shipper);
+    setFormData({
+      shipper_id: selectedShipper?.id || "",
+      amount: payment.amount.replace(' €', ''),
+      date: payment.date,
+      method: payment.method,
+      reference: payment.reference,
+      status: payment.status,
+    });
     setIsModalOpen(true);
   };
 
-  const handleDelete = (payment) => {
+  const handleDelete = async (payment) => {
     if (window.confirm("Êtes-vous sûr de vouloir supprimer ce paiement ?")) {
-      setPayments(payments.filter((p) => p.id !== payment.id));
+      try {
+        // Get the original payment ID from the transformed payment
+        const originalPaymentId = payment.originalPayment?.id || payment.id;
+        
+        console.log('Deleting payment with ID:', originalPaymentId);
+        
+        // Call the API to delete the payment
+        await apiService.deletePayment(originalPaymentId);
+        
+        // Update local state after successful deletion
+        setPayments(payments.filter((p) => p.id !== payment.id));
+        
+        alert('Paiement supprimé avec succès!');
+      } catch (error) {
+        console.error('Error deleting payment:', error);
+        alert('Erreur lors de la suppression du paiement: ' + error.message);
+      }
     }
   };
 
-  const handleSubmit = () => {
-    if (editingPayment) {
-      setPayments(
-        payments.map((payment) =>
-          payment.id === editingPayment.id ? { ...formData, id: payment.id } : payment
-        )
-      );
-    } else {
-      const newPayment = {
-        ...formData,
-        id: `PAY${String(payments.length + 1).padStart(3, '0')}`,
+  const handleSubmit = async () => {
+    try {
+      // Validate form data
+      if (!formData.shipper_id) {
+        alert('Veuillez sélectionner un expéditeur');
+        return;
+      }
+      if (!formData.amount || parseFloat(formData.amount) <= 0) {
+        alert('Veuillez saisir un montant valide');
+        return;
+      }
+      if (!formData.date) {
+        alert('Veuillez saisir une date');
+        return;
+      }
+      if (!formData.method) {
+        alert('Veuillez sélectionner une méthode de paiement');
+        return;
+      }
+
+      // Find the selected shipper
+      console.log('Available shippers:', shippers);
+      console.log('Selected shipper_id:', formData.shipper_id, 'Type:', typeof formData.shipper_id);
+      const selectedShipper = shippers.find(s => s.id == formData.shipper_id);
+      console.log('Found shipper:', selectedShipper);
+      if (!selectedShipper) {
+        alert('Expéditeur non trouvé');
+        return;
+      }
+
+      // Create payment data
+      const paymentData = {
+        shipper_id: parseInt(formData.shipper_id), // Convert to integer
+        amount: parseFloat(formData.amount),
+        payment_method: formData.method,
+        reference: formData.reference || `REF-${Date.now()}`,
+        status: formData.status === "Payé" ? "paid" : "pending",
+        payment_date: formData.date
       };
-      setPayments([...payments, newPayment]);
+
+      console.log('Creating payment with data:', paymentData);
+
+      // Call API to create payment
+      const result = await apiService.createPayment(paymentData);
+      
+      console.log('Payment creation result:', result);
+      
+      if (result && result.id) {
+        // Add the new payment to the list
+        const newPayment = {
+          id: result.id,
+          shipper: selectedShipper.name,
+          amount: `${parseFloat(formData.amount).toFixed(2)} €`,
+          date: formData.date,
+          method: formData.method,
+          reference: formData.reference || `REF-${Date.now()}`,
+          status: formData.status === 'pending' ? 'En attente' : 'Payé',
+          originalPayment: result
+        };
+        
+        setPayments([newPayment, ...payments]);
+        alert('Paiement créé avec succès!');
+        setIsModalOpen(false);
+      } else {
+        alert('Erreur lors de la création du paiement');
+      }
+    } catch (error) {
+      console.error('Error creating payment:', error);
+      alert('Erreur lors de la création du paiement: ' + error.message);
     }
-    setIsModalOpen(false);
   };
 
   const handleInputChange = (e) => {
@@ -254,32 +426,49 @@ const PaimentExpediteur = () => {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
-            {currentUser?.role === 'Expéditeur' ? 'Mes Paiements' : 'Gestion des Paiements'}
+            {currentUser?.role === 'Expéditeur' ? 'Mes Paiements' : 
+             currentUser?.role === 'Commercial' ? 'Paiements de mes Expéditeurs' : 'Gestion des Paiements'}
           </h1>
           <p className="text-gray-600 mt-1">
             {currentUser?.role === 'Expéditeur' 
               ? 'Historique de vos paiements et transactions' 
+              : currentUser?.role === 'Commercial'
+              ? 'Paiements des expéditeurs assignés à votre compte'
               : 'Gérez les paiements et les transactions des expéditeurs'
             }
           </p>
         </div>
-        {(currentUser?.role === 'Administration' || currentUser?.role === 'Finance' || currentUser?.role === 'Commercial') && (
-        <button
-          onClick={handleAdd}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
-        >
-          Ajouter un paiement
-        </button>
+        {(currentUser?.role === 'Administration' || currentUser?.role === 'Finance') && (
+          <div className="flex gap-2">
+            <button
+              onClick={handleAdd}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+            >
+              Ajouter un paiement
+            </button>
+            <button
+              onClick={() => {
+                console.log('Debug: Current shippers:', shippers);
+                console.log('Debug: Shippers count:', shippers.length);
+                if (shippers.length > 0) {
+                  console.log('Debug: First shipper:', shippers[0]);
+                }
+                alert(`Shippers loaded: ${shippers.length}\nFirst shipper: ${shippers.length > 0 ? JSON.stringify(shippers[0], null, 2) : 'None'}`);
+              }}
+              className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+            >
+              Debug Shippers
+            </button>
+          </div>
         )}
       </div>
 
       <DataTable
         data={payments}
         columns={columns}
-        onEdit={(currentUser?.role === 'Administration' || currentUser?.role === 'Finance' || currentUser?.role === 'Commercial') ? handleEdit : undefined}
-        onDelete={(currentUser?.role === 'Administration' || currentUser?.role === 'Finance' || currentUser?.role === 'Commercial') ? handleDelete : undefined}
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
+        showActions={false}
       />
 
       <Modal
@@ -291,20 +480,56 @@ const PaimentExpediteur = () => {
         <form onSubmit={e => { e.preventDefault(); handleSubmit(); }}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-left">Expéditeur</label>
-              <input type="text" name="shipper" value={formData.shipper} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500" />
+              <label className="block text-sm font-medium text-left">Expéditeur *</label>
+              <select 
+                name="shipper_id" 
+                value={formData.shipper_id} 
+                onChange={handleInputChange} 
+                required
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">Sélectionner un expéditeur</option>
+                {shippers.map(shipper => (
+                  <option key={shipper.id} value={shipper.id}>
+                    {shipper.name} - {shipper.email}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-left">Montant (€)</label>
-              <input type="text" name="amount" value={formData.amount} onChange={handleInputChange} placeholder="Ex : 250,00 €" className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500" />
+              <label className="block text-sm font-medium text-left">Montant (€) *</label>
+              <input 
+                type="number" 
+                name="amount" 
+                value={formData.amount} 
+                onChange={handleInputChange} 
+                step="0.01"
+                min="0"
+                required
+                placeholder="Ex : 250.00" 
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500" 
+              />
             </div>
             <div>
-              <label className="block text-sm font-medium text-left">Date</label>
-              <input type="date" name="date" value={formData.date} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500" />
+              <label className="block text-sm font-medium text-left">Date *</label>
+              <input 
+                type="date" 
+                name="date" 
+                value={formData.date} 
+                onChange={handleInputChange} 
+                required
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500" 
+              />
             </div>
             <div>
-              <label className="block text-sm font-medium text-left">Méthode de paiement</label>
-              <select name="method" value={formData.method} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+              <label className="block text-sm font-medium text-left">Méthode de paiement *</label>
+              <select 
+                name="method" 
+                value={formData.method} 
+                onChange={handleInputChange} 
+                required
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+              >
                 <option value="">Sélectionner une méthode</option>
                 <option value="Espèces">Espèces</option>
                 <option value="Virement bancaire">Virement bancaire</option>
@@ -313,11 +538,23 @@ const PaimentExpediteur = () => {
             </div>
             <div>
               <label className="block text-sm font-medium text-left">Référence</label>
-              <input type="text" name="reference" value={formData.reference} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500" />
+              <input 
+                type="text" 
+                name="reference" 
+                value={formData.reference} 
+                onChange={handleInputChange} 
+                placeholder="Ex : REF-001-2024"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500" 
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-left">Statut</label>
-              <select name="status" value={formData.status} onChange={handleInputChange} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+              <select 
+                name="status" 
+                value={formData.status} 
+                onChange={handleInputChange} 
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+              >
                 <option value="En attente">En attente</option>
                 <option value="Payé">Payé</option>
               </select>

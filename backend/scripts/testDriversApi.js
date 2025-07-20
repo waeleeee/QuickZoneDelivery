@@ -1,48 +1,48 @@
-const db = require('../config/database');
+const axios = require('axios');
 
-const testDriversApi = async () => {
+const testDriversAPI = async () => {
   try {
-    console.log('🧪 Testing drivers API...\n');
-
-    // Test the exact query that the API uses
-    const query = `
-      SELECT id, name, email, phone, governorate, address, vehicle, status, 
-             cin_number, driving_license, car_number, car_type, insurance_number, agency,
-             photo_url, personal_documents_url, car_documents_url, created_at
-      FROM drivers
-      ORDER BY created_at DESC
-    `;
-
-    const result = await db.query(query);
+    console.log('🧪 Testing drivers API...');
     
-    console.log(`📊 Found ${result.rows.length} drivers in database`);
+    const response = await axios.get('http://localhost:5000/api/personnel/livreurs');
     
-    if (result.rows.length > 0) {
-      console.log('\n📋 Sample driver data:');
-      console.log(JSON.stringify(result.rows[0], null, 2));
-      
-      console.log('\n📋 All drivers:');
-      result.rows.forEach((driver, index) => {
-        console.log(`${index + 1}. ${driver.name} (${driver.email}) - ${driver.car_number}`);
-      });
-    } else {
-      console.log('❌ No drivers found in database');
-    }
-
-    // Test the API response format
-    const apiResponse = {
-      success: true,
-      data: result.rows
-    };
+    console.log('📊 API Response:');
+    console.log('Status:', response.status);
+    console.log('Success:', response.data.success);
+    console.log('Number of drivers:', response.data.data.length);
     
-    console.log('\n📋 API Response format:');
-    console.log(JSON.stringify(apiResponse, null, 2));
-
+    console.log('\n📋 Drivers data:');
+    response.data.data.forEach((driver, index) => {
+      console.log(`${index + 1}. ${driver.name} (${driver.email})`);
+      console.log(`   - Has password: ${driver.has_password}`);
+      console.log(`   - Agency: ${driver.agency}`);
+      console.log('');
+    });
+    
+    // Check specific drivers that should have passwords
+    const driversWithPasswords = response.data.data.filter(d => d.has_password);
+    console.log(`✅ Drivers with passwords: ${driversWithPasswords.length}/${response.data.data.length}`);
+    
+    driversWithPasswords.forEach(driver => {
+      console.log(`   - ${driver.name} (${driver.email}): ${driver.has_password ? '✅' : '❌'}`);
+    });
+    
   } catch (error) {
-    console.error('❌ Error testing drivers API:', error);
-  } finally {
-    process.exit(0);
+    console.error('❌ API test failed:', error.message);
+    if (error.response) {
+      console.error('Response status:', error.response.status);
+      console.error('Response data:', error.response.data);
+    }
   }
 };
 
-testDriversApi(); 
+// Run the test
+testDriversAPI()
+  .then(() => {
+    console.log('✅ API test completed');
+    process.exit(0);
+  })
+  .catch((error) => {
+    console.error('❌ API test failed:', error);
+    process.exit(1);
+  }); 

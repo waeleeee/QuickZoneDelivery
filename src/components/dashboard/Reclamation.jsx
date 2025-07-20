@@ -3,9 +3,12 @@ import DataTable from "./common/DataTable";
 import Modal from "./common/Modal";
 import { createComplaint, getComplaints, updateComplaint, deleteComplaint } from "../../services/api";
 import { useAppStore } from "../../stores/useAppStore";
+import { apiService } from "../../services/api";
 
 const Reclamation = () => {
   const { user } = useAppStore();
+  const [currentUser, setCurrentUser] = useState(null);
+  const [commercialData, setCommercialData] = useState(null);
   const [reclamations, setReclamations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -39,7 +42,49 @@ const Reclamation = () => {
     "Autre",
   ];
 
-  // Fetch complaints data
+  useEffect(() => {
+    const userFromStorage = JSON.parse(localStorage.getItem('currentUser') || 'null');
+    setCurrentUser(userFromStorage);
+    
+    if (userFromStorage && (userFromStorage.role === 'Commercial' || userFromStorage.role === 'commercial')) {
+      fetchCommercialComplaints(userFromStorage);
+    } else {
+      fetchComplaints();
+    }
+  }, [user]);
+
+  // Fetch complaints for commercial's shippers
+  const fetchCommercialComplaints = async (user) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Get commercial data by email
+      const commercials = await apiService.getCommercials();
+      const commercial = commercials.find(c => c.email === user.email);
+      
+      if (!commercial) {
+        console.error('Commercial not found for user:', user.email);
+        setError('Commercial non trouvé');
+        setLoading(false);
+        return;
+      }
+      
+      setCommercialData(commercial);
+      
+      // Fetch complaints for this commercial's shippers
+      const complaintsData = await apiService.getCommercialComplaints(commercial.id, 1, 10, {});
+      setReclamations(complaintsData.complaints || []);
+      
+    } catch (err) {
+      console.error('❌ Error fetching commercial complaints:', err);
+      setError('Erreur lors du chargement des réclamations');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch complaints data (original function for non-commercial users)
   const fetchComplaints = async () => {
     try {
       setLoading(true);
@@ -67,10 +112,6 @@ const Reclamation = () => {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    fetchComplaints();
-  }, [user]);
 
   const columns = [
     { key: "id", header: "ID" },
@@ -237,16 +278,20 @@ const Reclamation = () => {
           <p className="text-gray-600 mt-1">
             {user?.role === 'expediteur' 
               ? 'Vos réclamations et leur suivi' 
+              : (user?.role === 'Commercial' || user?.role === 'commercial')
+              ? 'Réclamations des expéditeurs assignés à votre commercial'
               : 'Liste des réclamations clients et leur suivi'
             }
           </p>
         </div>
-        <button
-          onClick={handleAdd}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
-        >
-          Ajouter une réclamation
-        </button>
+        {(user?.role === 'admin' || user?.role === 'expediteur') && (
+          <button
+            onClick={handleAdd}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+          >
+            Ajouter une réclamation
+          </button>
+        )}
       </div>
 
       {/* Stats */}
@@ -309,10 +354,11 @@ const Reclamation = () => {
       <DataTable
         data={reclamations}
         columns={columns}
-        onEdit={user?.role === 'admin' ? handleEdit : undefined}
+        onEdit={(user?.role === 'admin' || user?.role === 'expediteur') ? handleEdit : undefined}
         onDelete={user?.role === 'admin' ? handleDelete : undefined}
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
+        showActions={user?.role !== 'Commercial'}
       />
 
       {/* Modal d'ajout/édition */}
@@ -360,7 +406,7 @@ const Reclamation = () => {
                 placeholder="votre.email@exemple.com"
               />
             </div>
-            {user?.role === 'admin' && (
+            {(user?.role === 'admin' || user?.role === 'Commercial') && (
               <div>
                 <label className="block text-sm font-medium text-left mb-1">Statut</label>
                 <select 

@@ -163,6 +163,106 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Get complaints for a commercial's assigned shippers
+router.get('/commercial/:commercialId', async (req, res) => {
+  try {
+    const { commercialId } = req.params;
+    const { page = 1, limit = 10, status = '', search = '' } = req.query;
+    const offset = (page - 1) * limit;
+    
+    console.log('🔍 Fetching complaints for commercial ID:', commercialId);
+    
+    // Get complaints for all shippers assigned to this commercial
+    let query = `
+      SELECT 
+        c.*,
+        s.name as client_name,
+        s.email as client_email,
+        s.phone as client_phone,
+        u.first_name as assigned_to_name,
+        u.last_name as assigned_to_last_name
+      FROM complaints c
+      LEFT JOIN shippers s ON c.client_id = s.id
+      LEFT JOIN users u ON c.assigned_to = u.id
+      WHERE s.commercial_id = $1
+    `;
+    
+    const queryParams = [commercialId];
+    const conditions = [];
+    
+    if (status) {
+      conditions.push(`c.status = $${queryParams.length + 1}`);
+      queryParams.push(status);
+    }
+    
+    if (search) {
+      conditions.push(`(c.subject ILIKE $${queryParams.length + 1} OR c.description ILIKE $${queryParams.length + 1} OR s.name ILIKE $${queryParams.length + 1})`);
+      queryParams.push(`%${search}%`);
+    }
+    
+    if (conditions.length > 0) {
+      query += ` AND ${conditions.join(' AND ')}`;
+    }
+    
+    query += ` ORDER BY c.created_at DESC LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
+    queryParams.push(limit, offset);
+    
+    console.log('🔍 Commercial complaints query:', query);
+    console.log('🔍 Query params:', queryParams);
+    
+    const result = await db.query(query, queryParams);
+    
+    // Get total count for pagination
+    let countQuery = `
+      SELECT COUNT(*) 
+      FROM complaints c
+      LEFT JOIN shippers s ON c.client_id = s.id
+      WHERE s.commercial_id = $1
+    `;
+    const countParams = [commercialId];
+    const countConditions = [];
+    
+    if (status) {
+      countConditions.push(`c.status = $${countParams.length + 1}`);
+      countParams.push(status);
+    }
+    
+    if (search) {
+      countConditions.push(`(c.subject ILIKE $${countParams.length + 1} OR c.description ILIKE $${countParams.length + 1} OR s.name ILIKE $${countParams.length + 1})`);
+      countParams.push(`%${search}%`);
+    }
+    
+    if (countConditions.length > 0) {
+      countQuery += ` AND ${countConditions.join(' AND ')}`;
+    }
+    
+    const countResult = await db.query(countQuery, countParams);
+    const total = parseInt(countResult.rows[0].count);
+    
+    console.log('📊 Total commercial complaints found:', total);
+    console.log('📊 Commercial complaints returned:', result.rows.length);
+    
+    res.json({
+      success: true,
+      data: {
+        complaints: result.rows,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total,
+          pages: Math.ceil(total / limit)
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Get commercial complaints error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch commercial complaints'
+    });
+  }
+});
+
 // Get complaints for a specific expéditeur
 router.get('/expediteur/:email', async (req, res) => {
   try {

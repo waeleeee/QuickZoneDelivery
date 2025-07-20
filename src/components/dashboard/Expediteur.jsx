@@ -68,11 +68,6 @@ const Expediteur = () => {
       try {
         setLoading(true);
         
-        // Fetch shippers
-        const shippersData = await apiService.getShippers();
-        console.log('Shippers data:', shippersData);
-        setShippers(shippersData || []);
-        
         // Fetch commercials for dropdown
         const commercialsData = await apiService.getCommercials();
         console.log('Commercials data:', commercialsData);
@@ -83,6 +78,25 @@ const Expediteur = () => {
         console.log('Agencies data:', agenciesData);
         setAgencies(agenciesData || []);
         
+        // Fetch shippers based on user role
+        if (isCommercialUser) {
+          // For commercial users, get only their shippers
+          const commercial = commercialsData.find(c => c.email === currentUser.email);
+          if (commercial) {
+            const shippersData = await apiService.getShippersByCommercial(commercial.id);
+            console.log('Commercial shippers data:', shippersData);
+            setShippers(shippersData || []);
+          } else {
+            console.error('Commercial not found for user:', currentUser.email);
+            setShippers([]);
+          }
+        } else {
+          // For admin users, get all shippers
+          const shippersData = await apiService.getShippers();
+          console.log('All shippers data:', shippersData);
+          setShippers(shippersData || []);
+        }
+        
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -91,7 +105,7 @@ const Expediteur = () => {
     };
 
     fetchData();
-  }, []);
+  }, [currentUser, isCommercialUser]);
   const [editingPayment, setEditingPayment] = useState(null);
   const [colisFormData, setColisFormData] = useState({
     destination: "",
@@ -128,6 +142,7 @@ const Expediteur = () => {
     // Individual fields
     identity_number: "",
     id_document: null,
+    page_name: "",
     
     // Company fields
     company_name: "",
@@ -142,7 +157,48 @@ const Expediteur = () => {
     { key: "name", header: "Nom" },
     { key: "email", header: "Email" },
     { key: "phone", header: "Téléphone" },
-    { key: "company", header: "Entreprise" },
+    { 
+      key: "company", 
+      header: "Entreprise",
+      render: (value, row) => {
+        // For individual expediteurs, show page_name in the Entreprise column
+        if (row.page_name) {
+          return row.page_name;
+        }
+        // For company expediteurs, show company_name or company
+        return row.company_name || row.company || value || "-";
+      }
+    },
+    { 
+      key: "address", 
+      header: "Adresse",
+      render: (value, row) => {
+        // For individual expediteurs, show address
+        if (row.address) {
+          return row.address;
+        }
+        // For company expediteurs, show company_address
+        if (row.company_address) {
+          return row.company_address;
+        }
+        return "-";
+      }
+    },
+    { 
+      key: "governorate", 
+      header: "Gouvernorat",
+      render: (value, row) => {
+        // For individual expediteurs, show governorate
+        if (row.governorate) {
+          return row.governorate;
+        }
+        // For company expediteurs, show company_governorate
+        if (row.company_governorate) {
+          return row.company_governorate;
+        }
+        return "-";
+      }
+    },
     { key: "total_parcels", header: "Total colis" },
     { key: "delivered_parcels", header: "Colis livrés" },
     { key: "returned_parcels", header: "Colis retournés" },
@@ -155,6 +211,17 @@ const Expediteur = () => {
       key: "return_fees", 
       header: "Frais de retour",
       render: (value) => `€${parseFloat(value || 0).toFixed(2)}`
+    },
+    {
+      key: "has_password",
+      header: "MOT DE PASSE",
+      render: (value) => (
+        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+          value ? "bg-green-100 text-green-800" : "bg-orange-100 text-orange-800"
+        }`}>
+          {value ? "✅ Configuré" : "⚠️ Non configuré"}
+        </span>
+      )
     },
     { 
       key: "status", 
@@ -245,8 +312,23 @@ const Expediteur = () => {
     }
   };
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     setEditingShipper(null);
+    
+    // For commercial users, automatically set the commercial_id
+    let commercialId = "";
+    if (isCommercialUser) {
+      try {
+        const commercials = await apiService.getCommercials();
+        const commercial = commercials.find(c => c.email === currentUser.email);
+        if (commercial) {
+          commercialId = commercial.id;
+        }
+      } catch (error) {
+        console.error('Error finding commercial:', error);
+      }
+    }
+    
     setFormData({
       formType: "individual",
       code: "",
@@ -255,7 +337,7 @@ const Expediteur = () => {
       email: "",
       phone: "",
       agency: "",
-      commercial_id: "",
+      commercial_id: commercialId,
       delivery_fees: 0,
       return_fees: 0,
       status: "Actif",
@@ -266,6 +348,7 @@ const Expediteur = () => {
       company_address: "",
       company_governorate: "",
       company_documents: null,
+      page_name: "",
     });
     setIsAddModalOpen(true);
   };
@@ -280,7 +363,7 @@ const Expediteur = () => {
     setFormData({
       formType: formType,
       code: shipper.code || "",
-      password: "", // Password is not editable in this form
+      password: "", // Don't populate password field for security
       name: shipper.name || "",
       email: shipper.email || "",
       phone: shipper.phone || "",
@@ -296,20 +379,30 @@ const Expediteur = () => {
       company_address: shipper.company_address || "",
       company_governorate: shipper.company_governorate || "",
       company_documents: null, // No file upload in this modal
+      address: shipper.address || "",
+      governorate: shipper.governorate || "",
+      page_name: shipper.page_name || "",
     });
     setIsAddModalOpen(true);
   };
 
   const handleDelete = async (shipper) => {
-    if (window.confirm(`Êtes-vous sûr de vouloir supprimer l'expéditeur "${shipper.name}" ?`)) {
+    const confirmMessage = `Êtes-vous sûr de vouloir supprimer l'expéditeur "${shipper.name}" ?\n\nCette action supprimera également :\n• Tous les paiements associés\n• Tous les colis associés\n• Le compte utilisateur\n\nCette action ne peut pas être annulée.`;
+    
+    if (window.confirm(confirmMessage)) {
       try {
-        const result = await apiService.deleteShipper(shipper.id);
+        console.log(`🗑️ Deleting shipper: ${shipper.name} (ID: ${shipper.id})`);
+        
+        // Try to delete with automatic dependency cleanup
+        const result = await apiService.deleteShipperWithDependencies(shipper.id);
+        
         if (result && result.success) {
           setShippers(shippers.filter(s => s.id !== shipper.id));
           if (selectedShipper?.id === shipper.id) {
             setSelectedShipper(null);
           }
-          alert('Expéditeur supprimé avec succès!');
+          alert(`Expéditeur "${shipper.name}" supprimé avec succès!\n\nSupprimé :\n• ${result.deletedPayments || 0} paiements\n• ${result.deletedParcels || 0} colis\n• Compte utilisateur`);
+          
           // Dispatch custom event to notify other components
           window.dispatchEvent(new CustomEvent('shipper-updated', { 
             detail: { shipperId: shipper.id, action: 'deleted' } 
@@ -318,44 +411,45 @@ const Expediteur = () => {
       } catch (error) {
         console.error('Error deleting shipper:', error);
         
-        // Check if it's a payment dependency error
-        if (error.message.includes('payments associated') || error.message.includes('related records')) {
-          const hasPayments = shipper.payments && shipper.payments.length > 0;
-          
-          if (hasPayments) {
-            const deletePayments = window.confirm(
-              `${error.message}\n\nVoulez-vous supprimer tous les paiements de cet expéditeur pour pouvoir le supprimer ?`
-            );
-            
-            if (deletePayments) {
-              await handleDeleteAllPayments(shipper);
-              // Try to delete the shipper again
-              try {
-                const secondResult = await apiService.deleteShipper(shipper.id);
-                if (secondResult && secondResult.success) {
-                  setShippers(shippers.filter(s => s.id !== shipper.id));
-                  if (selectedShipper?.id === shipper.id) {
-                    setSelectedShipper(null);
-                  }
-                  alert('Expéditeur supprimé avec succès après suppression des paiements!');
-                  // Dispatch custom event to notify other components
-                  window.dispatchEvent(new CustomEvent('shipper-updated', { 
-                    detail: { shipperId: shipper.id, action: 'deleted' } 
-                  }));
-                }
-              } catch (secondError) {
-                console.error('Error deleting shipper after payment deletion:', secondError);
-                alert('Erreur lors de la suppression de l\'expéditeur: ' + secondError.message);
-              }
-            }
-          } else {
-            alert('Erreur lors de la suppression: ' + error.message);
-          }
+        // If the new endpoint doesn't exist, fall back to the old method
+        if (error.message.includes('deleteShipperWithDependencies')) {
+          console.log('Falling back to manual dependency deletion...');
+          await handleDeleteWithManualCleanup(shipper);
         } else {
           const errorMessage = error.message || 'Error deleting shipper. Please try again.';
-          alert(errorMessage);
+          alert('Erreur lors de la suppression: ' + errorMessage);
         }
       }
+    }
+  };
+
+  const handleDeleteWithManualCleanup = async (shipper) => {
+    try {
+      // First try to delete all payments
+      try {
+        await handleDeleteAllPayments(shipper);
+        console.log('✅ Payments deleted successfully');
+      } catch (paymentError) {
+        console.log('⚠️ Could not delete payments:', paymentError.message);
+      }
+      
+      // Then try to delete the shipper
+      const result = await apiService.deleteShipper(shipper.id);
+      if (result && result.success) {
+        setShippers(shippers.filter(s => s.id !== shipper.id));
+        if (selectedShipper?.id === shipper.id) {
+          setSelectedShipper(null);
+        }
+        alert(`Expéditeur "${shipper.name}" supprimé avec succès!`);
+        
+        // Dispatch custom event to notify other components
+        window.dispatchEvent(new CustomEvent('shipper-updated', { 
+          detail: { shipperId: shipper.id, action: 'deleted' } 
+        }));
+      }
+    } catch (error) {
+      console.error('Error in manual cleanup:', error);
+      alert('Erreur lors de la suppression: ' + error.message);
     }
   };
 
@@ -387,6 +481,80 @@ const Expediteur = () => {
           alert('Le mot de passe est requis');
           return;
         }
+        
+        // Validate form type specific fields
+        if (formData.formType === 'individual') {
+          if (!formData.identity_number || !formData.identity_number.trim()) {
+            alert('Le numéro d\'identité est requis pour les expéditeurs individuels');
+            return;
+          }
+          if (!formData.address || !formData.address.trim()) {
+            alert('L\'adresse est requise pour les expéditeurs avec carte d\'identité');
+            return;
+          }
+          if (!formData.governorate || !formData.governorate.trim()) {
+            alert('Le gouvernorat est requis pour les expéditeurs avec carte d\'identité');
+            return;
+          }
+          if (!formData.page_name || !formData.page_name.trim()) {
+            alert('Le nom de page est requis pour les expéditeurs avec carte d\'identité');
+            return;
+          }
+        } else if (formData.formType === 'company') {
+          if (!formData.company_name || !formData.company_name.trim()) {
+            alert('Le nom de l\'entreprise est requis pour les expéditeurs entreprises');
+            return;
+          }
+          if (!formData.fiscal_number || !formData.fiscal_number.trim()) {
+            alert('Le matricule fiscal est requis pour les expéditeurs entreprises');
+            return;
+          }
+          if (!formData.company_address || !formData.company_address.trim()) {
+            alert('L\'adresse sociale est requise pour les expéditeurs entreprises');
+            return;
+          }
+          if (!formData.company_governorate || !formData.company_governorate.trim()) {
+            alert('Le gouvernorat de l\'entreprise est requis pour les expéditeurs entreprises');
+            return;
+          }
+        }
+      } else {
+        // For editing, validate only if form type specific fields are being changed
+        if (formData.formType === 'individual') {
+          if (formData.identity_number !== undefined && (!formData.identity_number || !formData.identity_number.trim())) {
+            alert('Le numéro d\'identité est requis pour les expéditeurs individuels');
+            return;
+          }
+          if (formData.address !== undefined && (!formData.address || !formData.address.trim())) {
+            alert('L\'adresse est requise pour les expéditeurs avec carte d\'identité');
+            return;
+          }
+          if (formData.governorate !== undefined && (!formData.governorate || !formData.governorate.trim())) {
+            alert('Le gouvernorat est requis pour les expéditeurs avec carte d\'identité');
+            return;
+          }
+          if (formData.page_name !== undefined && (!formData.page_name || !formData.page_name.trim())) {
+            alert('Le nom de page est requis pour les expéditeurs avec carte d\'identité');
+            return;
+          }
+        } else if (formData.formType === 'company') {
+          if (formData.company_name !== undefined && (!formData.company_name || !formData.company_name.trim())) {
+            alert('Le nom de l\'entreprise est requis pour les expéditeurs entreprises');
+            return;
+          }
+          if (formData.fiscal_number !== undefined && (!formData.fiscal_number || !formData.fiscal_number.trim())) {
+            alert('Le matricule fiscal est requis pour les expéditeurs entreprises');
+            return;
+          }
+          if (formData.company_address !== undefined && (!formData.company_address || !formData.company_address.trim())) {
+            alert('L\'adresse sociale est requise pour les expéditeurs entreprises');
+            return;
+          }
+          if (formData.company_governorate !== undefined && (!formData.company_governorate || !formData.company_governorate.trim())) {
+            alert('Le gouvernorat de l\'entreprise est requis pour les expéditeurs entreprises');
+            return;
+          }
+        }
       }
       
       // Check if we have any actual changes
@@ -401,11 +569,15 @@ const Expediteur = () => {
         return;
       }
       
-      // Add all form fields to FormData
+      // Add all form fields to FormData (only once)
       Object.keys(formData).forEach(key => {
         if (key !== 'id_document' && key !== 'company_documents') {
           // Don't send code field when creating new shipper (it will be auto-generated)
           if (!editingShipper && key === 'code') {
+            return;
+          }
+          // Don't send company_name for individual form type
+          if (formData.formType === 'individual' && key === 'company_name') {
             return;
           }
           // Only add non-empty values
@@ -423,13 +595,14 @@ const Expediteur = () => {
       console.log('password:', formData.password);
       console.log('formType:', formData.formType);
       
-      // Ensure required fields are always sent
-      submitData.append('name', formData.name || '');
-      submitData.append('email', formData.email || '');
+      // Validate required fields for new shipper creation
       if (!editingShipper) {
-        submitData.append('password', formData.password || '');
+        if (!formData.password || !formData.password.trim()) {
+          console.error('Password is required for new shipper creation');
+          alert('Le mot de passe est requis pour créer un nouvel expéditeur');
+          return;
+        }
       }
-      submitData.append('formType', formData.formType || 'individual');
       
       console.log('=== FORMDATA DEBUG ===');
       console.log('FormData entries:');
@@ -437,6 +610,13 @@ const Expediteur = () => {
         console.log(`  ${key}: ${value} (type: ${typeof value})`);
       }
       console.log('FormData size:', submitData.entries().length);
+      
+      // Additional debug: Check if password is in FormData
+      const hasPassword = submitData.has('password');
+      console.log('FormData has password:', hasPassword);
+      if (hasPassword) {
+        console.log('Password value in FormData:', submitData.get('password'));
+      }
       
       // Add files if they exist
       if (formData.id_document) {
@@ -468,7 +648,13 @@ const Expediteur = () => {
         
         if (success && updatedData) {
           setShippers(shippers.map(s => s.id === editingShipper.id ? updatedData : s));
-          alert('Expéditeur mis à jour avec succès!');
+          
+          // Show appropriate success message based on password update
+          const message = formData.password && formData.password.trim() 
+            ? 'Expéditeur mis à jour avec succès! Le mot de passe a été modifié.'
+            : 'Expéditeur mis à jour avec succès!';
+          alert(message);
+          
           // Dispatch custom event to notify other components
           window.dispatchEvent(new CustomEvent('shipper-updated', { 
             detail: { shipperId: editingShipper.id, action: 'updated' } 
@@ -482,7 +668,7 @@ const Expediteur = () => {
         const result = await apiService.createShipper(submitData);
         if (result && result.success) {
           setShippers([...shippers, result.data]);
-          alert('Expéditeur créé avec succès!');
+          alert(`Expéditeur créé avec succès!\n\nInformations de connexion:\nEmail: ${formData.email}\nMot de passe: ${formData.password}\n\nL'expéditeur peut maintenant se connecter avec ces identifiants.`);
           // Dispatch custom event to notify other components
           window.dispatchEvent(new CustomEvent('shipper-updated', { 
             detail: { shipperId: result.data.id, action: 'created' } 
@@ -505,7 +691,9 @@ const Expediteur = () => {
         status: "Actif",
         identity_number: "",
         id_document: null,
-        company_name: "",
+        page_name: "",
+        address: "",
+        governorate: "",
         fiscal_number: "",
         company_address: "",
         company_governorate: "",
@@ -798,25 +986,28 @@ const Expediteur = () => {
   // Filter functions for parcel and payment history
   const getFilteredColis = (colis) => {
     if (!colisSearchTerm) return colis;
+    const searchTerm = colisSearchTerm.toLowerCase();
     return colis.filter(colis => 
-      colis.id.toLowerCase().includes(colisSearchTerm.toLowerCase()) ||
-      (colis.destination && colis.destination.toLowerCase().includes(colisSearchTerm.toLowerCase())) ||
-      (colis.type && colis.type.toLowerCase().includes(colisSearchTerm.toLowerCase())) ||
-      (colis.status && colis.status.toLowerCase().includes(colisSearchTerm.toLowerCase())) ||
-      (colis.date && colis.date.includes(colisSearchTerm)) ||
-      (colis.amount && colis.amount.toString().includes(colisSearchTerm))
+      (colis.id && colis.id.toString().toLowerCase().includes(searchTerm)) ||
+      (colis.tracking_number && colis.tracking_number.toLowerCase().includes(searchTerm)) ||
+      (colis.destination && colis.destination.toLowerCase().includes(searchTerm)) ||
+      (colis.type && colis.type.toLowerCase().includes(searchTerm)) ||
+      (colis.status && colis.status.toLowerCase().includes(searchTerm)) ||
+      (colis.created_date && colis.created_date.toLowerCase().includes(searchTerm)) ||
+      (colis.weight && colis.weight.toString().includes(searchTerm))
     );
   };
 
   const getFilteredPayments = (payments) => {
     if (!paymentSearchTerm) return payments;
+    const searchTerm = paymentSearchTerm.toLowerCase();
     return payments.filter(payment => 
-      payment.id.toLowerCase().includes(paymentSearchTerm.toLowerCase()) ||
-      (payment.reference && payment.reference.toLowerCase().includes(paymentSearchTerm.toLowerCase())) ||
-      (payment.method && payment.method.toLowerCase().includes(paymentSearchTerm.toLowerCase())) ||
-      (payment.status && payment.status.toLowerCase().includes(paymentSearchTerm.toLowerCase())) ||
-      (payment.date && payment.date.includes(paymentSearchTerm)) ||
-      (payment.amount && payment.amount.toString().includes(paymentSearchTerm))
+      (payment.id && payment.id.toString().toLowerCase().includes(searchTerm)) ||
+      (payment.reference && payment.reference.toLowerCase().includes(searchTerm)) ||
+      (payment.payment_method && payment.payment_method.toLowerCase().includes(searchTerm)) ||
+      (payment.status && payment.status.toLowerCase().includes(searchTerm)) ||
+      (payment.date && payment.date.toLowerCase().includes(searchTerm)) ||
+      (payment.amount && payment.amount.toString().includes(searchTerm))
     );
   };
 
@@ -828,14 +1019,12 @@ const Expediteur = () => {
           <h1 className="text-2xl font-bold text-gray-900">Gestion des expéditeurs</h1>
           <p className="text-gray-600 mt-1">Liste des expéditeurs et leurs informations</p>
         </div>
-        {!isCommercialUser && (
-          <button
-            onClick={handleAdd}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
-          >
-            Nouvel expéditeur
-          </button>
-        )}
+        <button
+          onClick={handleAdd}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+        >
+          Nouvel expéditeur
+        </button>
       </div>
 
       {/* Advanced Filters */}
@@ -986,7 +1175,7 @@ const Expediteur = () => {
                 <div className="bg-white p-6 rounded-xl border mb-6">
                   <div className="flex justify-between items-center mb-4">
                     <h3 className="text-lg font-semibold">Paiements à cet expéditeur</h3>
-                    {shipperDetails?.payments?.length > 0 && (
+                    {shipperDetails?.payments?.length > 0 && !isCommercialUser && (
                       <button
                         onClick={() => handleDeleteAllPayments(shipperDetails.shipper)}
                         className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-md text-sm font-medium transition-colors"
@@ -995,6 +1184,24 @@ const Expediteur = () => {
                         🗑️ Supprimer tous les paiements
                       </button>
                     )}
+                  </div>
+                  
+                  {/* Advanced Search for Payments */}
+                  <div className="mb-4">
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Rechercher dans les paiements..."
+                        value={paymentSearchTerm}
+                        onChange={(e) => setPaymentSearchTerm(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                      </div>
+                    </div>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
@@ -1008,10 +1215,12 @@ const Expediteur = () => {
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {shipperDetails?.payments?.length === 0 ? (
-                          <tr><td colSpan={5} className="text-center py-4 text-gray-400">Aucun paiement trouvé pour cet expéditeur.</td></tr>
+                        {getFilteredPayments(shipperDetails?.payments || []).length === 0 ? (
+                          <tr><td colSpan={5} className="text-center py-4 text-gray-400">
+                            {shipperDetails?.payments?.length === 0 ? "Aucun paiement trouvé pour cet expéditeur." : "Aucun paiement ne correspond à votre recherche."}
+                          </td></tr>
                         ) : (
-                          shipperDetails?.payments?.map(payment => (
+                          getFilteredPayments(shipperDetails?.payments || []).map(payment => (
                             <tr key={payment.id}>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                 {payment.date ? new Date(payment.date).toLocaleDateString() : "N/A"}
@@ -1036,7 +1245,27 @@ const Expediteur = () => {
 
                 {/* Recent Parcels */}
                 <div className="bg-white p-6 rounded-xl border">
-                  <h3 className="text-lg font-semibold mb-4">Colis récents</h3>
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-semibold">Colis récents</h3>
+                  </div>
+                  
+                  {/* Advanced Search for Parcels */}
+                  <div className="mb-4">
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Rechercher dans les colis..."
+                        value={colisSearchTerm}
+                        onChange={(e) => setColisSearchTerm(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
                   <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
                       <thead className="bg-gray-50">
@@ -1048,10 +1277,12 @@ const Expediteur = () => {
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {shipperDetails?.parcels?.length === 0 ? (
-                          <tr><td colSpan={4} className="text-center py-4 text-gray-400">Aucun colis trouvé pour cet expéditeur.</td></tr>
+                        {getFilteredColis(shipperDetails?.parcels || []).length === 0 ? (
+                          <tr><td colSpan={4} className="text-center py-4 text-gray-400">
+                            {shipperDetails?.parcels?.length === 0 ? "Aucun colis trouvé pour cet expéditeur." : "Aucun colis ne correspond à votre recherche."}
+                          </td></tr>
                         ) : (
-                          shipperDetails?.parcels?.map((colis) => (
+                          getFilteredColis(shipperDetails?.parcels || []).map((colis) => (
                             <tr key={colis.id}>
                               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{colis.tracking_number || colis.id}</td>
                               <td className="px-6 py-4 whitespace-nowrap">
@@ -1165,19 +1396,31 @@ const Expediteur = () => {
                 )}
               </div>
 
-              {!editingShipper && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Mot de passe *</label>
-                  <input 
-                    type="password" 
-                    name="password" 
-                    value={formData.password || ''} 
-                    onChange={handleInputChange} 
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500" 
-                  />
-                </div>
-              )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1 text-left">
+                  Mot de passe {!editingShipper && <span className="text-red-500">*</span>}
+                </label>
+                <input 
+                  type="password" 
+                  name="password" 
+                  value={formData.password || ''} 
+                  onChange={handleInputChange} 
+                  required={!editingShipper}
+                  placeholder={editingShipper ? "Laisser vide pour ne pas modifier" : "Mot de passe requis"}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500" 
+                />
+                {editingShipper && (
+                  <p className="text-xs text-gray-500 mt-1">Laisser vide pour conserver le mot de passe actuel</p>
+                )}
+                {editingShipper && editingShipper.has_password ? (
+                  <p className="text-xs text-green-600 mt-1">✅ Mot de passe configuré (peut se connecter)</p>
+                ) : editingShipper && !editingShipper.has_password ? (
+                  <p className="text-xs text-orange-600 mt-1">⚠️ Aucun mot de passe configuré (ne peut pas se connecter)</p>
+                ) : null}
+                {formData.password && formData.password.trim() && (
+                  <p className="text-xs text-blue-600 mt-1">💡 Le nouveau mot de passe sera immédiatement actif pour la connexion</p>
+                )}
+              </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Nom et prénom *</label>
@@ -1192,17 +1435,61 @@ const Expediteur = () => {
               </div>
 
               {formData.formType === "individual" && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Numéro d'identité *</label>
-                  <input 
-                    type="text" 
-                    name="identity_number" 
-                    value={formData.identity_number || ''} 
-                    onChange={handleInputChange} 
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500" 
-                  />
-                </div>
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Numéro d'identité *</label>
+                    <input 
+                      type="text" 
+                      name="identity_number" 
+                      value={formData.identity_number || ''} 
+                      onChange={handleInputChange} 
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500" 
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Adresse *</label>
+                    <textarea 
+                      name="address" 
+                      value={formData.address || ''} 
+                      onChange={handleInputChange} 
+                      required
+                      rows={3}
+                      placeholder="Adresse complète"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500" 
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Gouvernorat *</label>
+                    <select 
+                      name="governorate" 
+                      value={formData.governorate || ''} 
+                      onChange={handleInputChange} 
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="">Sélectionner un gouvernorat</option>
+                      {governorates.map(governorate => (
+                        <option key={governorate} value={governorate}>{governorate}</option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Nom de page *</label>
+                    <input 
+                      type="text" 
+                      name="page_name" 
+                      value={formData.page_name || ''} 
+                      onChange={handleInputChange} 
+                      required
+                      placeholder="Nom de page"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500" 
+                    />
+                  </div>
+                </>
               )}
 
               <div>
@@ -1249,19 +1536,28 @@ const Expediteur = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Commercial</label>
-                <select 
-                  name="commercial_id" 
-                  value={formData.commercial_id || ''} 
-                  onChange={handleInputChange} 
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="">Sélectionner un commercial (optionnel)</option>
-                  {commercials.map(commercial => (
-                    <option key={commercial.id} value={commercial.id}>
-                      {commercial.name} - {commercial.email}
-                    </option>
-                  ))}
-                </select>
+                {isCommercialUser ? (
+                  <input
+                    type="text"
+                    value={commercials.find(c => c.id === formData.commercial_id)?.name || 'Commercial actuel'}
+                    readOnly
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-600 cursor-not-allowed"
+                  />
+                ) : (
+                  <select 
+                    name="commercial_id" 
+                    value={formData.commercial_id || ''} 
+                    onChange={handleInputChange} 
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Sélectionner un commercial (optionnel)</option>
+                    {commercials.map(commercial => (
+                      <option key={commercial.id} value={commercial.id}>
+                        {commercial.name} - {commercial.email}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
 
               <div>

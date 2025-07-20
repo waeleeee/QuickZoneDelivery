@@ -1,6 +1,6 @@
 import React from "react";
 
-const ActionButtons = ({ onView, onEdit, onDelete }) => (
+const ActionButtons = ({ onView, onEdit, onDelete, onDeliveryNote }) => (
   <div className="flex gap-2">
     {onView && (
       <button

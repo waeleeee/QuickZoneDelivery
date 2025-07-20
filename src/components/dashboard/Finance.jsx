@@ -39,10 +39,15 @@ const Finance = () => {
       try {
         setLoading(true);
         const data = await apiService.getComptables();
-        console.log('Comptables data:', data);
+        console.log('🔍 Comptables data received:', data);
+        console.log('📊 Number of comptables:', data?.length || 0);
+        if (data && data.length > 0) {
+          console.log('📋 First comptable sample:', data[0]);
+          console.log('🔐 Has password field:', 'has_password' in data[0]);
+        }
         setComptables(data || []);
       } catch (error) {
-        console.error('Error fetching comptables:', error);
+        console.error('❌ Error fetching comptables:', error);
       } finally {
         setLoading(false);
       }
@@ -56,6 +61,7 @@ const Finance = () => {
       id: '',
       name: '',
       email: '',
+      password: '',
       phone: '',
       address: '',
       title: 'comptable',
@@ -66,26 +72,55 @@ const Finance = () => {
   };
 
   const handleEditComptable = (comptable) => {
-    setEditComptable({ ...comptable });
+    setEditComptable({ 
+      ...comptable,
+      password: '' // Don't populate password field for security
+    });
     setShowEditModal(true);
   };
 
   const handleSaveComptable = async (e) => {
     e.preventDefault();
     try {
+      // Validate required fields
+      if (!editComptable.name.trim()) {
+        alert('Le nom est requis');
+        return;
+      }
+      if (!editComptable.email.trim()) {
+        alert('L\'email est requis');
+        return;
+      }
+      if (!editComptable.id && !editComptable.password.trim()) {
+        alert('Le mot de passe est requis pour créer un nouveau comptable');
+        return;
+      }
+      
       if (editComptable.id && comptables.some(c => c.id === editComptable.id)) {
         // Update existing comptable
+        console.log('🔧 Updating comptable with data:', {
+          id: editComptable.id,
+          formData: editComptable,
+          hasPassword: !!editComptable.password,
+          passwordLength: editComptable.password?.length
+        });
+        
         const result = await apiService.updateComptable(editComptable.id, editComptable);
+        console.log('📊 Update result:', result);
+        
         if (result && result.success) {
           setComptables(comptables.map(c => c.id === editComptable.id ? result.data : c));
-          alert('Comptable mis à jour avec succès!');
+          const message = editComptable.password && editComptable.password.trim() 
+            ? 'Comptable mis à jour avec succès! Le mot de passe a été modifié.'
+            : 'Comptable mis à jour avec succès!';
+          alert(message);
         }
       } else {
         // Create new comptable
         const result = await apiService.createComptable(editComptable);
         if (result && result.success) {
           setComptables([...comptables, result.data]);
-          alert('Comptable créé avec succès!');
+          alert(`Comptable créé avec succès!\n\nInformations de connexion:\nEmail: ${editComptable.email}\nMot de passe: ${editComptable.password}\n\nLe comptable peut maintenant se connecter avec ces identifiants.`);
         }
       }
       setShowEditModal(false);
@@ -122,6 +157,17 @@ const Finance = () => {
     { key: "address", header: "Adresse" },
     { key: "title", header: "Titre", render: value => titreOptions.find(o => o.value === value)?.label || value },
     { key: "agency", header: "Agence" },
+    {
+      key: "has_password",
+      header: "MOT DE PASSE",
+      render: (value) => (
+        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+          value ? "bg-green-100 text-green-800" : "bg-orange-100 text-orange-800"
+        }`}>
+          {value ? "✅ Configuré" : "⚠️ Non configuré"}
+        </span>
+      )
+    },
     {
       key: "actions",
       header: "Actions",
@@ -199,6 +245,32 @@ const Finance = () => {
               <div>
                 <label className="block text-sm font-medium text-left">Email</label>
                 <input type="email" className="border rounded px-2 py-1 w-full" value={editComptable.email || ''} onChange={e => setEditComptable({ ...editComptable, email: e.target.value })} required />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-left">
+                  Mot de passe {!editComptable.id && <span className="text-red-500">*</span>}
+                </label>
+                <input
+                  type="password"
+                  className="border rounded px-2 py-1 w-full"
+                  value={editComptable.password || ''}
+                  onChange={e => setEditComptable({ ...editComptable, password: e.target.value })}
+                  required={!editComptable.id}
+                  placeholder={editComptable.id ? "Laisser vide pour ne pas changer" : "Entrez le mot de passe"}
+                />
+                {editComptable.id && (
+                  <div className="mt-1">
+                    <p className="text-xs text-gray-500">Laisser vide pour conserver le mot de passe actuel</p>
+                    {editComptable.has_password ? (
+                      <p className="text-xs text-green-600">✅ Mot de passe configuré (peut se connecter)</p>
+                    ) : (
+                      <p className="text-xs text-orange-600">⚠️ Aucun mot de passe configuré (ne peut pas se connecter)</p>
+                    )}
+                    <p className="text-xs text-blue-600 mt-1">
+                      💡 Le nouveau mot de passe sera immédiatement actif pour la connexion
+                    </p>
+                  </div>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-left">Téléphone</label>

@@ -178,7 +178,7 @@ const Administration = () => {
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={editingAdmin ? "Modifier Admin" : "Ajouter Admin"}
+        title={editingAdmin ? "Modifier employé" : "Ajouter employé"}
         size="md"
       >
         <form onSubmit={e => { e.preventDefault(); handleSubmit(); }}>

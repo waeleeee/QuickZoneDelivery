@@ -11,11 +11,16 @@ const statusColors = {
   "Retour définitif": "bg-red-100 text-red-800",
   "RTN client agence": "bg-pink-100 text-pink-800",
   "Retour Expéditeur": "bg-gray-100 text-gray-800",
-  "Retour En Cours d’expédition": "bg-indigo-100 text-indigo-800",
+  "Retour En Cours d'expédition": "bg-indigo-100 text-indigo-800",
   "Retour reçu": "bg-cyan-100 text-cyan-800",
+  "Accepté par livreur": "bg-green-50 text-green-700 border-green-300",
+  "Refusé par livreur": "bg-red-50 text-red-700 border-red-300",
+  "En cours de ramassage": "bg-orange-100 text-orange-800",
+  "Ramassage terminé": "bg-blue-100 text-blue-800",
+  "Mission terminée": "bg-green-100 text-green-800",
 };
 
-const MissionPickupTable = ({ missions, onView, onEdit, onDelete, searchTerm, onSearchChange }) => {
+const MissionPickupTable = ({ missions, onView, onEdit, onDelete, searchTerm, onSearchChange, securityCodes = {} }) => {
   const columns = [
     { key: "mission_number", header: "N° Mission" },
     { 
@@ -48,6 +53,31 @@ const MissionPickupTable = ({ missions, onView, onEdit, onDelete, searchTerm, on
           {value}
         </span>
       ),
+    },
+    {
+      key: "security_code",
+      header: "Code de Sécurité",
+      render: (_, mission) => {
+        const code = securityCodes[mission.id];
+        if (!code) return <span className="text-gray-400 text-xs">Non généré</span>;
+        return (
+          <div className="flex items-center space-x-2">
+            <code className="bg-gray-100 px-2 py-1 rounded text-xs font-mono text-gray-800">
+              {code}
+            </code>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                navigator.clipboard.writeText(code);
+              }}
+              className="text-blue-600 hover:text-blue-800 text-xs"
+              title="Copier le code"
+            >
+              📋
+            </button>
+          </div>
+        );
+      },
     },
   ];
 

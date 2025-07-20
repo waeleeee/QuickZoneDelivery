@@ -661,6 +661,7 @@ const Commercial = () => {
       id: "",
       name: "",
       email: "",
+      password: "",
       phone: "",
       address: "",
       title: "Commercial",
@@ -674,7 +675,10 @@ const Commercial = () => {
   // Edit Commercial handler
   const handleEditCommercial = (commercial) => {
     setEditCommercial(commercial);
-    setFormData(commercial);
+    setFormData({
+      ...commercial,
+      password: "" // Don't populate password field for security
+    });
     setShowEditModal(true);
   };
 
@@ -698,21 +702,52 @@ const Commercial = () => {
   const handleSaveCommercial = async (e) => {
     e.preventDefault();
     try {
+      // Validate required fields
+      if (!formData.name.trim()) {
+        alert('Le nom est requis');
+        return;
+      }
+      if (!formData.email.trim()) {
+        alert('L\'email est requis');
+        return;
+      }
+      if (!editCommercial && !formData.password.trim()) {
+        alert('Le mot de passe est requis pour créer un nouveau commercial');
+        return;
+      }
+      
       if (editCommercial) {
         // Update existing commercial
+        console.log('🔧 Updating commercial with data:', {
+          id: editCommercial.id,
+          formData: formData,
+          hasPassword: !!formData.password,
+          passwordLength: formData.password?.length
+        });
+        
         const result = await apiService.updateCommercial(editCommercial.id, formData);
+        console.log('📊 Update result:', result);
+        
         if (result && result.success) {
           setCommercials(
             commercials.map((commercial) =>
               commercial.id === editCommercial.id ? result.data : commercial
             )
           );
+          const message = formData.password && formData.password.trim() 
+            ? 'Commercial mis à jour avec succès! Le mot de passe a été modifié.'
+            : 'Commercial mis à jour avec succès!';
+          alert(message);
         }
       } else {
         // Create new commercial
         const result = await apiService.createCommercial(formData);
         if (result && result.success) {
           setCommercials([...commercials, result.data]);
+          const password = formData.password && formData.password.trim() 
+            ? formData.password 
+            : 'wael123';
+          alert(`Commercial créé avec succès!\n\nInformations de connexion:\nEmail: ${formData.email}\nMot de passe: ${password}\n\nLe commercial peut maintenant se connecter avec ces identifiants.`);
         }
       }
       setShowEditModal(false);
@@ -748,6 +783,17 @@ const Commercial = () => {
     { key: "title", header: "TITRE" },
     { key: "clients_count", header: "CLIENTS" },
     { key: "shipments_received", header: "EXPÉDITIONS REÇUES" },
+    {
+      key: "has_password",
+      header: "MOT DE PASSE",
+      render: (value) => (
+        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+          value ? "bg-green-100 text-green-800" : "bg-orange-100 text-orange-800"
+        }`}>
+          {value ? "✅ Configuré" : "⚠️ Non configuré"}
+        </span>
+      )
+    },
     {
       key: "actions",
       header: "ACTIONS",
@@ -864,6 +910,33 @@ const Commercial = () => {
                 onChange={handleInputChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
               />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1 text-left">
+                Mot de passe {!editCommercial && <span className="text-red-500">*</span>}
+              </label>
+              <input
+                type="password"
+                name="password"
+                value={formData.password}
+                onChange={handleInputChange}
+                required={!editCommercial}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                placeholder={editCommercial ? "Laisser vide pour ne pas changer" : "Entrez le mot de passe"}
+              />
+              {editCommercial && (
+                <div className="mt-1">
+                  <p className="text-xs text-gray-500">Laisser vide pour conserver le mot de passe actuel</p>
+                  {editCommercial.has_password ? (
+                    <p className="text-xs text-green-600">✅ Mot de passe configuré (peut se connecter)</p>
+                  ) : (
+                    <p className="text-xs text-orange-600">⚠️ Aucun mot de passe configuré (ne peut pas se connecter)</p>
+                  )}
+                  <p className="text-xs text-blue-600 mt-1">
+                    💡 Le nouveau mot de passe sera immédiatement actif pour la connexion
+                  </p>
+                </div>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1 text-left">

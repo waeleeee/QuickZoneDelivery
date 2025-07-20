@@ -23,7 +23,8 @@ const Colis = () => {
   // Check if user can edit/delete (Admin, Administration, Chef d'agence)
   const canEdit = currentUser?.role === 'Administration' || 
                   currentUser?.role === 'Admin' || 
-                  currentUser?.role === 'Chef d\'agence';
+                  currentUser?.role === 'Chef d\'agence' ||
+                  currentUser?.role === 'Administrateur';
 
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -344,9 +345,14 @@ const Colis = () => {
   };
 
   const onSubmit = (formData) => {
+    console.log('📦 Form submission:', { editingParcel, formData });
+    
     if (editingParcel) {
+      console.log('📦 Updating parcel:', editingParcel.id);
+      console.log('📦 Update data:', formData);
       updateParcelMutation.mutate({ id: editingParcel.id, updates: formData });
     } else {
+      console.log('📦 Creating new parcel');
       createParcelMutation.mutate(formData);
     }
     setIsModalOpen(false);
@@ -562,6 +568,13 @@ const Colis = () => {
         )}
       </div>
 
+      {/* Debug Info */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="bg-yellow-100 p-2 rounded mb-4 text-xs">
+          Debug: User Role: {currentUser?.role}, Can Edit: {canEdit ? 'Yes' : 'No'}
+        </div>
+      )}
+
       {/* Data Table */}
       <DataTable
         data={filteredParcels}
@@ -648,18 +661,24 @@ const Colis = () => {
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Expéditeur
+                  ID Expéditeur
                 </label>
-                <select
-                  {...register("shipper_id", { required: "L'expéditeur est requis" })}
+                <input
+                  {...register("shipper_id")}
                   className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                >
-                  <option value="">Sélectionner un expéditeur</option>
-                  {/* Add shipper options here */}
-                </select>
-                {errors.shipper_id && (
-                  <p className="text-red-500 text-sm mt-1">{errors.shipper_id.message}</p>
-                )}
+                  placeholder="ex: 1"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nom de l'expéditeur
+                </label>
+                <input
+                  {...register("shipper_name")}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  placeholder="Nom de l'expéditeur"
+                />
               </div>
               
               <div>
@@ -674,6 +693,39 @@ const Colis = () => {
                 {errors.destination && (
                   <p className="text-red-500 text-sm mt-1">{errors.destination.message}</p>
                 )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Téléphone expéditeur
+                </label>
+                <input
+                  {...register("shipper_phone")}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  placeholder="ex: +216 20 123 456"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Email expéditeur
+                </label>
+                <input
+                  {...register("shipper_email")}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  placeholder="ex: contact@example.com"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Société expéditeur
+                </label>
+                <input
+                  {...register("shipper_company")}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  placeholder="ex: Ma Société SARL"
+                />
               </div>
               
               <div>
@@ -759,6 +811,73 @@ const Colis = () => {
                   type="date"
                   {...register("estimated_delivery_date")}
                   className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nom de l'article
+                </label>
+                <input
+                  {...register("article_name")}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  placeholder="ex: Livraison"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Note/Remarque
+                </label>
+                <input
+                  {...register("remark")}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  placeholder="ex: Livraison"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nombre de pièces
+                </label>
+                <input
+                  type="number"
+                  {...register("nb_pieces")}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  placeholder="ex: 1"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nom du destinataire
+                </label>
+                <input
+                  {...register("recipient_name")}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  placeholder="ex: Client Name"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Téléphone destinataire
+                </label>
+                <input
+                  {...register("recipient_phone")}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  placeholder="ex: +216 20 123 456"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Adresse destinataire
+                </label>
+                <input
+                  {...register("recipient_address")}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  placeholder="ex: 123 Rue Example, Ville"
                 />
               </div>
               

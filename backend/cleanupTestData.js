@@ -1,49 +1,31 @@
-const db = require('./config/database');
+const { Pool } = require('pg');
+require('dotenv').config({ path: './config.env' });
 
-const cleanupTestData = async () => {
+const pool = new Pool({
+  user: process.env.DB_USER,
+  host: process.env.DB_HOST,
+  database: process.env.DB_NAME,
+  password: process.env.DB_PASSWORD,
+  port: process.env.DB_PORT,
+});
+
+async function cleanupTestData() {
   try {
-    console.log('🧹 Cleaning up test data...');
-    
-    // Delete test admin from administrators table
-    const adminResult = await db.query(`
-      DELETE FROM administrators 
-      WHERE email = 'testadmin@quickzone.tn'
-      RETURNING id
+    console.log('🧹 Cleaning up test data...\n');
+
+    // Delete test parcels
+    const deleteResult = await pool.query(`
+      DELETE FROM parcels 
+      WHERE tracking_number LIKE 'TEST-%'
     `);
     
-    if (adminResult.rows.length > 0) {
-      console.log('✅ Test admin deleted from administrators table');
-    }
-    
-    // Delete test user from users table
-    const userResult = await db.query(`
-      DELETE FROM users 
-      WHERE email = 'testadmin@quickzone.tn'
-      RETURNING id
-    `);
-    
-    if (userResult.rows.length > 0) {
-      console.log('✅ Test user deleted from users table');
-    }
-    
-    // Delete user roles
-    const roleResult = await db.query(`
-      DELETE FROM user_roles 
-      WHERE user_id IN (SELECT id FROM users WHERE email = 'testadmin@quickzone.tn')
-      RETURNING id
-    `);
-    
-    if (roleResult.rows.length > 0) {
-      console.log('✅ Test user roles deleted');
-    }
-    
-    console.log('✅ Test data cleanup completed');
-    
+    console.log(`✅ Deleted ${deleteResult.rowCount} test parcels`);
+
   } catch (error) {
-    console.error('❌ Cleanup error:', error);
+    console.error('❌ Cleanup failed:', error);
   } finally {
-    process.exit(0);
+    await pool.end();
   }
-};
+}
 
 cleanupTestData(); 

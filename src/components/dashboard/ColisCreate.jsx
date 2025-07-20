@@ -16,12 +16,62 @@ const generateCode = () => {
   return 'C-' + Math.floor(100000 + Math.random() * 900000);
 };
 
-// Get real user data from localStorage
-const getCurrentUserData = () => {
+// Get real user data from localStorage and backend
+const getCurrentUserData = async () => {
   const currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
   
+  console.log('🔍 Current user from localStorage:', currentUser);
+  
+  if (currentUser && currentUser.role === 'Expéditeur') {
+    try {
+      // Fetch real expediteur data from backend
+      const shippersResponse = await apiService.getShippers();
+      console.log('📋 All shippers from API:', shippersResponse);
+      
+      const expediteur = shippersResponse.find(s => s.email === currentUser.email);
+      console.log('🔍 Found expediteur:', expediteur);
+      
+      if (expediteur) {
+        // Determine if this is an individual or company expediteur
+        const isIndividual = expediteur.identity_number && !expediteur.fiscal_number;
+        
+        // Use real expediteur data
+        const userData = {
+          // For individual expediteurs, use page_name; for company, use company_name
+          societe: isIndividual 
+            ? (expediteur.page_name || "EXPEDITEUR SARL")
+            : (expediteur.company_name || expediteur.company || "EXPEDITEUR SARL"),
+          // For individual expediteurs, use identity_number; for company, use fiscal_number
+          matriculeFiscal: isIndividual 
+            ? (expediteur.identity_number || "123456789")
+            : (expediteur.fiscal_number || expediteur.tax_number || "123456789"),
+          expediteurNom: expediteur.name || `${currentUser.firstName || 'User'} ${currentUser.lastName || 'Name'}`,
+          expediteurTel: expediteur.phone || currentUser.phone || "+216 20 123 456",
+          // For individual expediteurs, use governorate; for company, use company_governorate
+          expediteurGouv: isIndividual 
+            ? (expediteur.governorate || "Tunis")
+            : (expediteur.company_governorate || expediteur.city || "Tunis"),
+          // For individual expediteurs, use address; for company, use company_address
+          expediteurAdresse: isIndividual 
+            ? (expediteur.address || "12 Rue de la Liberté, Tunis")
+            : (expediteur.company_address || "12 Rue de la Liberté, Tunis"),
+          baseFraisLivraison: expediteur.delivery_fees || 8
+        };
+        console.log('✅ Using real expediteur data:', userData);
+        console.log('🔍 Expediteur type:', isIndividual ? 'Individual' : 'Company');
+        return userData;
+      } else {
+        console.warn('❌ No expediteur found for email:', currentUser.email);
+        console.log('📋 Available emails:', shippersResponse.map(s => s.email));
+      }
+    } catch (error) {
+      console.error('❌ Error fetching expediteur data:', error);
+    }
+  }
+  
+  // Fallback to current user data if available
   if (currentUser) {
-    // Use current user data directly
+    console.log('🔄 Using fallback data from currentUser');
     return {
       societe: currentUser.company || "EXPEDITEUR SARL",
       matriculeFiscal: currentUser.fiscalNumber || "123456789",
@@ -33,7 +83,8 @@ const getCurrentUserData = () => {
     };
   }
   
-  // Fallback to mock data if no user found
+  // Final fallback to mock data
+  console.log('🔄 Using mock data as final fallback');
   return {
     societe: "EXPEDITEUR SARL",
     matriculeFiscal: "123456789",
@@ -49,9 +100,19 @@ function calcFraisLivraison(baseFrais, poids) {
   const p = parseFloat(poids);
   const base = parseFloat(baseFrais);
   if (!base) return "";
-  if (!p || p <= 10) return base.toFixed(2);
-  if (p > 10 && p <= 15) return (base + (p - 10) * 0.9).toFixed(2);
+  
+  // 0-10.99kg: prix fixe
+  if (!p || p <= 10.99) return base.toFixed(2);
+  
+  // 11-15kg: +0.9DT/kg
+  if (p > 10.99 && p <= 15) {
+    const surcharge = (p - 10.99) * 0.9;
+    return (base + surcharge).toFixed(2);
+  }
+  
+  // 16kg+: prix x2
   if (p >= 16) return (base * 2).toFixed(2);
+  
   return base.toFixed(2);
 }
 
@@ -86,35 +147,41 @@ const ColisCreate = () => {
 
   // Load user data when component mounts
   useEffect(() => {
-    try {
-      setLoading(true);
-      const currentUserData = getCurrentUserData();
-      setUserData(currentUserData);
-      setColis(prev => ({
-        ...prev,
-        societe: currentUserData.societe,
-        matriculeFiscal: currentUserData.matriculeFiscal,
-        expediteurNom: currentUserData.expediteurNom,
-        expediteurTel: currentUserData.expediteurTel,
-        expediteurGouv: currentUserData.expediteurGouv,
-        expediteurAdresse: currentUserData.expediteurAdresse,
-        fraisLivraison: currentUserData.baseFraisLivraison.toFixed(2),
-      }));
-    } catch (error) {
-      console.error('Error loading user data:', error);
-    } finally {
-      setLoading(false);
-    }
+    const loadUserData = async () => {
+      try {
+        setLoading(true);
+        const currentUserData = await getCurrentUserData();
+        setUserData(currentUserData);
+        setColis(prev => ({
+          ...prev,
+          societe: currentUserData.societe,
+          matriculeFiscal: currentUserData.matriculeFiscal,
+          expediteurNom: currentUserData.expediteurNom,
+          expediteurTel: currentUserData.expediteurTel,
+          expediteurGouv: currentUserData.expediteurGouv,
+          expediteurAdresse: currentUserData.expediteurAdresse,
+          fraisLivraison: (parseFloat(currentUserData.baseFraisLivraison) || 8).toFixed(2),
+        }));
+      } catch (error) {
+        console.error('Error loading user data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadUserData();
   }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    console.log('Form field changed:', { name, value });
     setColis((prev) => {
       let next = { ...prev, [name]: value };
       // Auto-calc frais de livraison
       if (name === "poids" && userData) {
-        next.fraisLivraison = calcFraisLivraison(userData.baseFraisLivraison, next.poids);
+        next.fraisLivraison = calcFraisLivraison(parseFloat(userData.baseFraisLivraison) || 8, next.poids);
       }
+      console.log('Updated colis state:', next);
       return next;
     });
   };
@@ -154,10 +221,22 @@ const ColisCreate = () => {
         price: parseFloat(colis.articlePrix) || 0,
         delivery_fees: parseFloat(colis.fraisLivraison) || 0,
         type: colis.service,
-        estimated_delivery_date: colis.dateCollecte ? new Date(colis.dateCollecte).toISOString().split('T')[0] : null
+        estimated_delivery_date: colis.dateCollecte ? new Date(colis.dateCollecte).toISOString().split('T')[0] : null,
+        // Add client information
+        recipient_name: colis.clientNom,
+        recipient_phone: colis.clientTel,
+        recipient_phone2: colis.clientTel2,
+        recipient_address: colis.clientAdresse,
+        recipient_governorate: colis.clientGouv,
+        // Add article and remark information
+        article_name: colis.articleNom,
+        remark: colis.remarque,
+        nb_pieces: parseInt(colis.nbPiece) || 1
       };
 
       console.log('Creating parcel with data:', parcelData);
+      console.log('nb_pieces being sent:', parcelData.nb_pieces);
+      console.log('nbPiece from form:', colis.nbPiece);
 
       // Send to backend API using apiService
       const result = await apiService.createParcel(parcelData);
@@ -185,13 +264,47 @@ const ColisCreate = () => {
             // Colis
             articleNom: "",
             articlePrix: "",
-            fraisLivraison: userData.baseFraisLivraison.toFixed(2),
+            fraisLivraison: (parseFloat(userData.baseFraisLivraison) || 8).toFixed(2),
             service: "Livraison",
             poids: "",
             nbPiece: "",
             remarque: "",
             code: generateCode(),
           });
+        } else {
+          // If userData is not available, reload it
+          const reloadUserData = async () => {
+            try {
+              const currentUserData = await getCurrentUserData();
+              setUserData(currentUserData);
+              setColis(prev => ({
+                ...prev,
+                dateCollecte: "",
+                societe: currentUserData.societe,
+                matriculeFiscal: currentUserData.matriculeFiscal,
+                expediteurNom: currentUserData.expediteurNom,
+                expediteurTel: currentUserData.expediteurTel,
+                expediteurGouv: currentUserData.expediteurGouv,
+                expediteurAdresse: currentUserData.expediteurAdresse,
+                fraisLivraison: (parseFloat(currentUserData.baseFraisLivraison) || 8).toFixed(2),
+                clientNom: "",
+                clientTel: "",
+                clientTel2: "",
+                clientGouv: "",
+                clientAdresse: "",
+                articleNom: "",
+                articlePrix: "",
+                service: "Livraison",
+                poids: "",
+                nbPiece: "",
+                remarque: "",
+                code: generateCode(),
+              }));
+            } catch (error) {
+              console.error('Error reloading user data:', error);
+            }
+          };
+          reloadUserData();
         }
       } else {
         alert(`Erreur: ${result.message || 'Échec de la création du colis'}`);

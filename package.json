@@ -12,6 +12,8 @@
   "dependencies": {
     "@tailwindcss/postcss": "^4.1.11",
     "@tanstack/react-query": "^5.81.5",
+    "@zxing/browser": "^0.1.5",
+    "@zxing/library": "^0.21.3",
     "axios": "^1.10.0",
     "chart.js": "^4.5.0",
     "file-saver": "^2.0.5",
