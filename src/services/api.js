@@ -30,6 +30,33 @@ const mockUsers = [
     }
   },
   {
+    id: 999,
+    username: 'testadmin',
+    email: 'test@quickzone.tn',
+    password: 'test123',
+    firstName: 'Test',
+    lastName: 'Admin',
+    role: 'Administration',
+    permissions: {
+      dashboard: true,
+      personnel: {
+        administration: true,
+        commercial: true,
+        finance: true,
+        chef_agence: true,
+        membre_agence: true,
+        livreurs: true
+      },
+      expediteur: true,
+      colis: true,
+      pickup: true,
+      secteurs: true,
+      entrepots: true,
+      paiment_expediteur: true,
+      reclamation: true
+    }
+  },
+  {
     id: 2,
     username: 'marie',
     email: 'marie@quickzone.tn',
