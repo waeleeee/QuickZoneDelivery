@@ -351,22 +351,30 @@ export const apiService = {
   // Parcels (Colis)
   getParcels: async (page = 1, limit = 100) => {
     try {
+      console.log('🔍 Calling getParcels with page:', page, 'limit:', limit);
       const response = await api.get(`/parcels?page=${page}&limit=${limit}`);
-      console.log('Parcels API response:', response.data);
+      console.log('📦 Parcels API response:', response);
+      console.log('📦 Response data:', response.data);
       
       // Handle different response formats
       if (response.data?.data?.parcels) {
+        console.log('📦 Returning data.data.parcels:', response.data.data.parcels.length);
         return response.data.data.parcels;
       } else if (response.data?.parcels) {
+        console.log('📦 Returning data.parcels:', response.data.parcels.length);
         return response.data.parcels;
       } else if (Array.isArray(response.data)) {
+        console.log('📦 Returning data array:', response.data.length);
         return response.data;
+      } else if (response.data?.data && Array.isArray(response.data.data)) {
+        console.log('📦 Returning data.data array:', response.data.data.length);
+        return response.data.data;
       } else {
-        console.warn('Unexpected parcels response format:', response.data);
+        console.warn('❌ Unexpected parcels response format:', response.data);
         return [];
       }
     } catch (error) {
-      console.error('Get parcels error:', error);
+      console.error('❌ Get parcels error:', error);
       return [];
     }
   },
@@ -405,22 +413,30 @@ export const apiService = {
   // Get parcels for a specific expéditeur
   getExpediteurParcels: async (email, page = 1, limit = 1000) => {
     try {
+      console.log('🔍 Calling getExpediteurParcels with email:', email);
       const response = await api.get(`/parcels/expediteur/${encodeURIComponent(email)}?page=${page}&limit=${limit}`);
-      console.log('Expediteur parcels API response:', response.data);
+      console.log('📦 Expediteur parcels API response:', response);
+      console.log('📦 Response data:', response.data);
       
       // Handle different response formats
       if (response.data?.data?.parcels) {
+        console.log('📦 Returning data.data.parcels:', response.data.data.parcels.length);
         return response.data.data.parcels;
       } else if (response.data?.parcels) {
+        console.log('📦 Returning data.parcels:', response.data.parcels.length);
         return response.data.parcels;
       } else if (Array.isArray(response.data)) {
+        console.log('📦 Returning data array:', response.data.length);
         return response.data;
+      } else if (response.data?.data && Array.isArray(response.data.data)) {
+        console.log('📦 Returning data.data array:', response.data.data.length);
+        return response.data.data;
       } else {
-        console.warn('Unexpected expediteur parcels response format:', response.data);
+        console.warn('❌ Unexpected expediteur parcels response format:', response.data);
         return [];
       }
     } catch (error) {
-      console.error('Get expediteur parcels error:', error);
+      console.error('❌ Get expediteur parcels error:', error);
       return [];
     }
   },
@@ -794,7 +810,8 @@ export const apiService = {
       console.log('📡 API Response:', response);
       console.log('📡 Response.data:', response.data);
       
-      const drivers = response.data || [];
+      // Handle nested data structure
+      const drivers = response.data?.data || response.data || [];
       console.log('🚗 Drivers array:', drivers);
       console.log('🚗 Drivers count:', drivers.length);
       
@@ -1687,3 +1704,93 @@ export const missionsPickupService = {
     }
   },
 }; 
+
+// Delivery missions service
+export const deliveryMissionsService = {
+  getDeliveryMissions: async (params = {}) => {
+    try {
+      console.log('🔍 Calling delivery-missions API with params:', params);
+      const response = await api.get('/delivery-missions', { params });
+      console.log('📡 Delivery missions API response:', response);
+      console.log('📡 Delivery missions data:', response.data);
+      
+      return response.data;
+    } catch (error) {
+      console.error('❌ Delivery missions API error:', error);
+      return { success: false, data: [] };
+    }
+  },
+
+  getDeliveryMission: async (id) => {
+    try {
+      console.log('🔍 getDeliveryMission called with id:', id);
+      const response = await api.get(`/delivery-missions/${id}`);
+      console.log('📡 getDeliveryMission response:', response);
+      return response.data;
+    } catch (error) {
+      console.error('❌ getDeliveryMission error:', error);
+      throw error;
+    }
+  },
+
+  createDeliveryMission: async (data) => {
+    try {
+      console.log('🚀 createDeliveryMission called with data:', data);
+      const response = await api.post('/delivery-missions', data);
+      console.log('📡 createDeliveryMission response:', response);
+      return response.data;
+    } catch (error) {
+      console.error('❌ createDeliveryMission error:', error);
+      throw error;
+    }
+  },
+
+  updateDeliveryMission: async (id, data) => {
+    try {
+      console.log('🔄 updateDeliveryMission called with id:', id, 'data:', data);
+      const response = await api.put(`/delivery-missions/${id}`, data);
+      console.log('📡 updateDeliveryMission response:', response);
+      return response.data;
+    } catch (error) {
+      console.error('❌ updateDeliveryMission error:', error);
+      throw error;
+    }
+  },
+
+  deleteDeliveryMission: async (id) => {
+    try {
+      console.log('🗑️ deleteDeliveryMission called with id:', id);
+      const response = await api.delete(`/delivery-missions/${id}`);
+      console.log('📡 deleteDeliveryMission response:', response);
+      return response.data;
+    } catch (error) {
+      console.error('❌ deleteDeliveryMission error:', error);
+      throw error;
+    }
+  },
+
+  processDelivery: async (missionId, data) => {
+    try {
+      console.log('📦 processDelivery called with missionId:', missionId, 'data:', data);
+      const response = await api.post(`/delivery-missions/${missionId}/deliver`, data);
+      console.log('📡 processDelivery response:', response);
+      return response.data;
+    } catch (error) {
+      console.error('❌ processDelivery error:', error);
+      throw error;
+    }
+  },
+
+  getAvailableParcels: async () => {
+    try {
+      console.log('🔍 getAvailableParcels called');
+      const response = await api.get('/delivery-missions/available-parcels');
+      console.log('📡 getAvailableParcels response:', response);
+      console.log('📡 getAvailableParcels data:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ getAvailableParcels error:', error);
+      return { success: false, data: [] };
+    }
+  },
+};

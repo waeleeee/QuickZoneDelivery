@@ -1,27 +1,47 @@
 const axios = require('axios');
 
-async function testSecurityCodeAPI() {
+async function testApiEndpoint() {
   try {
-    console.log('🧪 Testing security code API endpoint...');
+    console.log('🔍 TESTING TRACKING HISTORY API ENDPOINT\n');
     
-    // Test the security code endpoint for mission ID 16 (from the previous test)
-    const response = await axios.get('http://localhost:5000/api/missions-pickup/16/security-code');
+    // First, get the parcel ID for C-219017
+    const parcelsResponse = await axios.get('http://localhost:5000/api/parcels?search=C-219017');
+    const parcelsData = parcelsResponse.data;
     
-    console.log('📡 API Response:', response.data);
+    if (!parcelsData.success || parcelsData.data.length === 0) {
+      console.log('❌ Parcel C-219017 not found');
+      return;
+    }
     
-    if (response.data.success) {
-      console.log('✅ Security code generated successfully:', response.data.data.securityCode);
+    const parcel = parcelsData.data[0];
+    console.log(`📦 Found parcel: ID ${parcel.id}, Status: ${parcel.status}`);
+    
+    // Now get the tracking history
+    const historyResponse = await axios.get(`http://localhost:5000/api/parcels/${parcel.id}/tracking-history`);
+    const historyData = historyResponse.data;
+    
+    console.log('\n📊 API Response:');
+    console.log('=====================================');
+    console.log('Success:', historyData.success);
+    
+    if (historyData.success && historyData.data.tracking_history) {
+      console.log('\n📅 Tracking History:');
+      historyData.data.tracking_history.forEach((record, index) => {
+        console.log(`\nRecord ${index + 1}:`);
+        console.log(`  Status: ${record.status}`);
+        console.log(`  Timestamp: ${record.timestamp}`);
+        console.log(`  Notes: ${record.notes}`);
+        console.log(`  Updated by: ${record.updated_by}`);
+        console.log(`  Mission number: ${record.mission_number}`);
+      });
     } else {
-      console.log('❌ API returned error:', response.data.message);
+      console.log('❌ No tracking history data in response');
+      console.log('Response:', historyData);
     }
     
   } catch (error) {
-    console.error('❌ API call failed:', error.message);
-    if (error.response) {
-      console.error('❌ Response data:', error.response.data);
-      console.error('❌ Response status:', error.response.status);
-    }
+    console.error('❌ Error testing API endpoint:', error.message);
   }
 }
 
-testSecurityCodeAPI(); 
+testApiEndpoint(); 

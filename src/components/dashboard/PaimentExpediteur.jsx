@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import DataTable from "./common/DataTable";
 import Modal from "./common/Modal";
 import FactureColis from "./FactureColis";
+import ColisSelectionModal from "./ColisSelectionModal";
 import { apiService } from "../../services/api";
 
 const PaimentExpediteur = () => {
@@ -16,6 +17,11 @@ const PaimentExpediteur = () => {
   const [shippers, setShippers] = useState([]); // Add shippers state
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  
+  // New facture system states
+  const [isColisSelectionOpen, setIsColisSelectionOpen] = useState(false);
+  const [selectedShipperForFacture, setSelectedShipperForFacture] = useState(null);
+  const [factureData, setFactureData] = useState(null);
 
   // Fetch shippers based on user role
   useEffect(() => {
@@ -354,6 +360,55 @@ const PaimentExpediteur = () => {
     }));
   };
 
+  // New facture system handlers
+  const handleColisSelectionConfirm = (selectedParcels) => {
+    // Generate invoice number
+    const invoiceNumber = `REF-${Date.now().toString().slice(-3)}-${new Date().getFullYear().toString().slice(-2)}`;
+    const invoiceDate = new Date().toISOString().split('T')[0];
+    
+    // Transform parcels data for facture
+    const factureParcels = selectedParcels.map(parcel => ({
+      id: parcel.id,
+      code: parcel.tracking_number,
+      date: parcel.created_at ? new Date(parcel.created_at).toISOString().split('T')[0] : invoiceDate,
+      status: parcel.status === 'delivered' ? 'Livré' : 
+             parcel.status === 'returned' ? 'Retour' : 
+             parcel.status === 'Livrés' ? 'Livré' :
+             parcel.status === 'Livrés payés' ? 'Livré' : parcel.status,
+      client_name: parcel.recipient_name,
+      client_phone: parcel.recipient_phone,
+      designation: parcel.package_type || 'Colis',
+      governorate: parcel.recipient_city || parcel.destination,
+      prix: parcel.price || 0
+    }));
+
+    // Calculate financial data
+    const totalAmount = factureParcels.reduce((sum, p) => sum + (parseFloat(p.prix) || 0), 0);
+    const totalLivres = factureParcels.filter(p => p.status === 'Livré' || p.status === 'Livrés' || p.status === 'Livrés payés').length;
+    const totalRetour = factureParcels.filter(p => p.status === 'Retour').length;
+    
+    // Get shipper info for tax calculation
+    const shipper = shippers.find(s => s.id == selectedParcels[0]?.shipper_id);
+    
+    const factureData = {
+      colis: factureParcels,
+      expediteur: shipper || {},
+      prix: {
+        delivery_fees: totalLivres * 8000, // 8 TND per delivered parcel
+        return_fees: totalRetour * 4000,   // 4 TND per returned parcel
+        package_amount_ht: totalAmount * 0.69, // 69% of total (HT)
+        vat_amount: totalAmount * 0.69 * 0.07, // 7% VAT on HT amount
+        withholding_tax: totalAmount * 0.69 * (shipper?.id_type === 'patente' ? 0.01 : 0.03),
+        stamp_amount: 1000
+      },
+      invoiceNumber,
+      invoiceDate
+    };
+
+    setFactureData(factureData);
+    setIsFactureOpen(true);
+  };
+
   // Generate facture data from real payment data
   const getFactureData = (payment) => {
     const originalPayment = payment.originalPayment;
@@ -445,6 +500,12 @@ const PaimentExpediteur = () => {
               className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
             >
               Ajouter un paiement
+            </button>
+            <button
+              onClick={() => setIsColisSelectionOpen(true)}
+              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+            >
+              Créer Facture avec Colis
             </button>
             <button
               onClick={() => {
@@ -574,6 +635,31 @@ const PaimentExpediteur = () => {
       >
         {facturePayment && (
           <FactureColis {...getFactureData(facturePayment)} />
+        )}
+      </Modal>
+
+      {/* New Colis Selection Modal */}
+      <ColisSelectionModal
+        isOpen={isColisSelectionOpen}
+        onClose={() => setIsColisSelectionOpen(false)}
+        onConfirm={handleColisSelectionConfirm}
+        expediteurId={null}
+        expediteurEmail={null}
+        shippers={shippers}
+      />
+
+      {/* New Enhanced Facture Modal */}
+      <Modal
+        isOpen={isFactureOpen && factureData}
+        onClose={() => {
+          setIsFactureOpen(false);
+          setFactureData(null);
+        }}
+        title={`Facture ${factureData?.invoiceNumber || ''}`}
+        size="xl"
+      >
+        {factureData && (
+          <FactureColis {...factureData} />
         )}
       </Modal>
     </div>

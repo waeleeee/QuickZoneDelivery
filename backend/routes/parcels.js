@@ -93,6 +93,251 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Get parcels for a specific expediteur by email
+router.get('/expediteur/:email', async (req, res) => {
+  try {
+    const { email } = req.params;
+    const { page = 1, limit = 1000 } = req.query;
+    const offset = (page - 1) * limit;
+    
+    console.log('🔍 Fetching parcels for expediteur:', email);
+    
+    // First, find the expediteur by email
+    const expediteurResult = await db.query(`
+      SELECT id, name, email, phone, company_name, company, code
+      FROM shippers 
+      WHERE email = $1
+    `, [email]);
+    
+    if (expediteurResult.rows.length === 0) {
+      console.log('❌ No expediteur found for email:', email);
+      return res.json({
+        success: true,
+        data: {
+          expediteur: null,
+          parcels: []
+        }
+      });
+    }
+    
+    const expediteur = expediteurResult.rows[0];
+    console.log('✅ Found expediteur:', expediteur);
+    
+    // Get parcels for this expediteur
+    const parcelsQuery = `
+      SELECT 
+        p.*,
+        s.name as shipper_name, 
+        s.email as shipper_email,
+        s.phone as shipper_phone,
+        s.company as shipper_company,
+        s.company_name as shipper_company_name,
+        s.code as shipper_code,
+        s.fiscal_number as shipper_fiscal_number,
+        s.tax_number as shipper_tax_number,
+        s.company_governorate as shipper_company_governorate,
+        s.company_address as shipper_company_address,
+        s.city as shipper_city
+      FROM parcels p
+      LEFT JOIN shippers s ON p.shipper_id = s.id
+      WHERE p.shipper_id = $1
+      ORDER BY p.created_at DESC
+      LIMIT $2 OFFSET $3
+    `;
+    
+    const parcelsResult = await db.query(parcelsQuery, [expediteur.id, limit, offset]);
+    
+    console.log(`📦 Found ${parcelsResult.rows.length} parcels for expediteur ${email}`);
+    
+    res.json({
+      success: true,
+      data: {
+        expediteur: expediteur,
+        parcels: parcelsResult.rows
+      }
+    });
+  } catch (error) {
+    console.error('Get expediteur parcels error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch expediteur parcels'
+    });
+  }
+});
+
+// Get parcels for a specific expediteur by email
+router.get('/expediteur/:email', async (req, res) => {
+  try {
+    const { email } = req.params;
+    const { page = 1, limit = 1000 } = req.query;
+    const offset = (page - 1) * limit;
+    
+    console.log('🔍 Fetching parcels for expediteur:', email);
+    
+    // First, find the expediteur by email
+    const expediteurResult = await db.query(`
+      SELECT id, name, email, phone, company_name, company, code
+      FROM shippers 
+      WHERE email = $1
+    `, [email]);
+    
+    if (expediteurResult.rows.length === 0) {
+      console.log('❌ No expediteur found for email:', email);
+      return res.json({
+        success: true,
+        data: {
+          expediteur: null,
+          parcels: []
+        }
+      });
+    }
+    
+    const expediteur = expediteurResult.rows[0];
+    console.log('✅ Found expediteur:', expediteur);
+    
+    // Get parcels for this expediteur
+    const parcelsQuery = `
+      SELECT 
+        p.*,
+        s.name as shipper_name, 
+        s.email as shipper_email,
+        s.phone as shipper_phone,
+        s.company as shipper_company,
+        s.company_name as shipper_company_name,
+        s.code as shipper_code,
+        s.fiscal_number as shipper_fiscal_number,
+        s.tax_number as shipper_tax_number,
+        s.company_governorate as shipper_company_governorate,
+        s.company_address as shipper_company_address,
+        s.city as shipper_city
+      FROM parcels p
+      LEFT JOIN shippers s ON p.shipper_id = s.id
+      WHERE p.shipper_id = $1
+      ORDER BY p.created_at DESC
+      LIMIT $2 OFFSET $3
+    `;
+    
+    const parcelsResult = await db.query(parcelsQuery, [expediteur.id, limit, offset]);
+    
+    console.log(`📦 Found ${parcelsResult.rows.length} parcels for expediteur ${email}`);
+    
+    res.json({
+      success: true,
+      data: {
+        expediteur: expediteur,
+        parcels: parcelsResult.rows
+      }
+    });
+  } catch (error) {
+    console.error('Get expediteur parcels error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch expediteur parcels'
+    });
+  }
+});
+
+// Get expediteur statistics
+router.get('/expediteur/:email/stats', async (req, res) => {
+  try {
+    const { email } = req.params;
+    
+    console.log('📊 Fetching stats for expediteur:', email);
+    
+    // First, find the expediteur by email
+    const expediteurResult = await db.query(`
+      SELECT id, name, email
+      FROM shippers 
+      WHERE email = $1
+    `, [email]);
+    
+    if (expediteurResult.rows.length === 0) {
+      console.log('❌ No expediteur found for email:', email);
+      return res.json({
+        success: true,
+        data: {
+          totalParcels: 0,
+          totalRevenue: 0,
+          currentMonth: 0,
+          deliveredThisMonth: 0,
+          complaintsCount: 0,
+          monthlyChanges: { parcels: 0, delivered: 0 },
+          statusStats: {}
+        }
+      });
+    }
+    
+    const expediteur = expediteurResult.rows[0];
+    
+    // Get total parcels
+    const totalParcelsResult = await db.query(`
+      SELECT COUNT(*) as total
+      FROM parcels 
+      WHERE shipper_id = $1
+    `, [expediteur.id]);
+    
+    // Get total revenue
+    const totalRevenueResult = await db.query(`
+      SELECT COALESCE(SUM(price), 0) as total
+      FROM parcels 
+      WHERE shipper_id = $1
+    `, [expediteur.id]);
+    
+    // Get current month parcels
+    const currentMonthResult = await db.query(`
+      SELECT COUNT(*) as total
+      FROM parcels 
+      WHERE shipper_id = $1 
+      AND created_at >= DATE_TRUNC('month', CURRENT_DATE)
+    `, [expediteur.id]);
+    
+    // Get delivered this month
+    const deliveredThisMonthResult = await db.query(`
+      SELECT COUNT(*) as total
+      FROM parcels 
+      WHERE shipper_id = $1 
+      AND status IN ('lives', 'lives_payes')
+      AND updated_at >= DATE_TRUNC('month', CURRENT_DATE)
+    `, [expediteur.id]);
+    
+    // Get status statistics
+    const statusStatsResult = await db.query(`
+      SELECT status, COUNT(*) as count
+      FROM parcels 
+      WHERE shipper_id = $1
+      GROUP BY status
+    `, [expediteur.id]);
+    
+    const statusStats = {};
+    statusStatsResult.rows.forEach(row => {
+      statusStats[row.status] = parseInt(row.count);
+    });
+    
+    const stats = {
+      totalParcels: parseInt(totalParcelsResult.rows[0].total),
+      totalRevenue: parseFloat(totalRevenueResult.rows[0].total),
+      currentMonth: parseInt(currentMonthResult.rows[0].total),
+      deliveredThisMonth: parseInt(deliveredThisMonthResult.rows[0].total),
+      complaintsCount: 0, // TODO: Implement complaints
+      monthlyChanges: { parcels: 0, delivered: 0 }, // TODO: Calculate changes
+      statusStats: statusStats
+    };
+    
+    console.log('📊 Stats for expediteur:', stats);
+    
+    res.json({
+      success: true,
+      data: stats
+    });
+  } catch (error) {
+    console.error('Get expediteur stats error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch expediteur stats'
+    });
+  }
+});
+
 // Get parcel by ID
 router.get('/:id', async (req, res) => {
   try {
@@ -151,6 +396,13 @@ router.post('/', async (req, res) => {
       article_name, remark, nb_pieces
     } = req.body;
     
+    // Generate a unique 6-digit client code for delivery verification
+    const generateClientCode = () => {
+      return Math.floor(100000 + Math.random() * 900000).toString();
+    };
+    
+    const client_code = generateClientCode();
+    
     console.log('📦 Article name after destructuring:', article_name);
     console.log('📝 Remark after destructuring:', remark);
     console.log('📦 nb_pieces after destructuring:', nb_pieces);
@@ -161,21 +413,23 @@ router.post('/', async (req, res) => {
         tracking_number, shipper_id, destination, status, weight, price, type,
         estimated_delivery_date, delivery_fees, return_fees,
         recipient_name, recipient_phone, recipient_phone2, recipient_address, recipient_governorate,
-        article_name, remark, nb_pieces
+        article_name, remark, nb_pieces, client_code
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
       RETURNING *
     `, [tracking_number, shipper_id, destination, status, weight, price, type, 
         estimated_delivery_date, delivery_fees, return_fees,
         recipient_name, recipient_phone, recipient_phone2, recipient_address, recipient_governorate,
-        article_name, remark, nb_pieces]);
+        article_name, remark, nb_pieces, client_code]);
     
     console.log('✅ Parcel created:', result.rows[0]);
+    console.log('🔐 Client code generated:', client_code);
     
     res.status(201).json({
       success: true,
       data: result.rows[0],
-      message: 'Parcel created successfully'
+      message: 'Parcel created successfully',
+      client_code: client_code
     });
   } catch (error) {
     console.error('Create parcel error:', error);
@@ -529,10 +783,35 @@ router.get('/expediteur/:email', async (req, res) => {
     const countResult = await db.query(countQuery, countParams);
     const total = parseInt(countResult.rows[0].count);
     
+    // Map parcel statuses to French display names
+    const statusMap = {
+      'pending': 'En attente',
+      'to_pickup': 'À enlever',
+      'picked_up': 'Enlevé',
+      'at_warehouse': 'Au dépôt',
+      'au_depot': 'Au dépôt',
+      'Au dépôt': 'Au dépôt',
+      'in_transit': 'En cours',
+      'return_to_warehouse': 'RTN dépôt',
+      'delivered': 'Livrés',
+      'delivered_paid': 'Livrés payés',
+      'definitive_return': 'Retour définitif',
+      'return_to_client_agency': 'RTN client agence',
+      'return_to_sender': 'Retour Expéditeur',
+      'return_in_transit': 'Retour En Cours',
+      'return_received': 'Retour reçu'
+    };
+    
+    // Apply status mapping to parcels
+    const parcelsWithMappedStatus = result.rows.map(parcel => ({
+      ...parcel,
+      status: statusMap[parcel.status] || parcel.status
+    }));
+    
     res.json({
       success: true,
       data: {
-        parcels: result.rows,
+        parcels: parcelsWithMappedStatus,
         pagination: {
           page: parseInt(page),
           limit: parseInt(limit),
@@ -547,6 +826,97 @@ router.get('/expediteur/:email', async (req, res) => {
       success: false,
       message: 'Failed to fetch expediteur parcels'
     });
+  }
+});
+
+// GET parcel tracking history
+router.get('/:id/tracking-history', async (req, res) => {
+  try {
+    console.log('📊 GET /parcels/:id/tracking-history called');
+    
+    const parcelId = req.params.id;
+    
+    // Get parcel details
+    const parcelQuery = `
+      SELECT 
+        p.id,
+        p.tracking_number,
+        p.status as current_status,
+        p.created_at,
+        p.updated_at,
+        s.name as shipper_name,
+        s.company_address as shipper_address,
+        s.city as shipper_city
+      FROM parcels p
+      LEFT JOIN shippers s ON p.shipper_id = s.id
+      WHERE p.id = $1
+    `;
+    
+    const parcelResult = await db.query(parcelQuery, [parcelId]);
+    
+    if (parcelResult.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Colis non trouvé' });
+    }
+    
+    const parcel = parcelResult.rows[0];
+    
+    // Get tracking history
+    const historyQuery = `
+      SELECT 
+        pth.id,
+        pth.status,
+        pth.previous_status,
+        pth.mission_id,
+        pth.updated_by,
+        pth.location,
+        pth.notes,
+        pth.created_at,
+        pm.mission_number
+      FROM parcel_tracking_history pth
+      LEFT JOIN pickup_missions pm ON pth.mission_id = pm.id
+      WHERE pth.parcel_id = $1
+      ORDER BY pth.created_at ASC
+    `;
+    
+    const historyResult = await db.query(historyQuery, [parcelId]);
+    
+    // Format the response
+    const trackingHistory = historyResult.rows.map(row => ({
+      id: row.id,
+      status: row.status,
+      previous_status: row.previous_status,
+      mission_id: row.mission_id,
+      mission_number: row.mission_number,
+      updated_by: 'Système',
+      location: row.location,
+      notes: row.notes,
+      timestamp: row.created_at
+    }));
+    
+    const response = {
+      success: true,
+      data: {
+        parcel: {
+          id: parcel.id,
+          tracking_number: parcel.tracking_number,
+          current_status: parcel.current_status,
+          created_at: parcel.created_at,
+          updated_at: parcel.updated_at,
+          shipper_name: parcel.shipper_name,
+          shipper_address: parcel.shipper_address,
+          shipper_city: parcel.shipper_city
+        },
+        tracking_history: trackingHistory
+      }
+    };
+    
+    console.log(`✅ Tracking history retrieved for parcel ${parcelId}: ${trackingHistory.length} records`);
+    res.json(response);
+    
+  } catch (error) {
+    console.error('❌ Error getting parcel tracking history:', error);
+    console.error('❌ Error stack:', error.stack);
+    res.status(500).json({ success: false, message: 'Erreur lors de la récupération de l\'historique' });
   }
 });
 

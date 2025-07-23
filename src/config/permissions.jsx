@@ -16,6 +16,7 @@ export const ROLE_PERMISSIONS = {
     expediteur: true,
     colis: true,
     pickup: true,
+    pickup_client: true,
     secteurs: true,
     entrepots: true,
     paiment_expediteur: true,
@@ -98,6 +99,7 @@ export const ROLE_PERMISSIONS = {
     expediteur: true, // Can manage clients in their agency
     colis: true, // Can manage parcels in their agency
     pickup: true, // Full access to pickup missions
+    pickup_client: true, // Full access to delivery missions
     secteurs: true, // Can manage sectors in their agency
     entrepots: true, // Can manage local warehouses
     paiment_expediteur: true, // Limited access
@@ -118,6 +120,7 @@ export const ROLE_PERMISSIONS = {
     expediteur: false, // Limited access to view clients
     colis: true, // Full access to manage parcels
     pickup: true, // Can view and manage pickup missions
+    pickup_client: true, // Can view and manage delivery missions
     secteurs: false, // Limited access
     entrepots: false, // Limited access
     paiment_expediteur: false, // Limited access
@@ -325,6 +328,18 @@ export const getFilteredMenu = (userRole) => {
       icon: (
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+      )
+    });
+  }
+
+  if (permissions.pickup_client) {
+    baseMenu.push({
+      label: "Pick-Up Client",
+      key: "pickup_client",
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
       )
     });

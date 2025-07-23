@@ -7,9 +7,21 @@ const statusConfig = {
     icon: "clock",
     comment: "Colis enregistré dans le système."
   },
+  "À enlever": {
+    emoji: "📋",
+    color: "blue",
+    icon: "box",
+    comment: "Colis prêt à être ramassé."
+  },
+  "Enlevé": {
+    emoji: "🚚",
+    color: "green",
+    icon: "truck",
+    comment: "Colis ramassé par le livreur."
+  },
   "Au dépôt": {
     emoji: "📦",
-    color: "blue",
+    color: "purple",
     icon: "box",
     comment: "Colis reçu au dépôt."
   },
@@ -106,6 +118,9 @@ const handleExport = () => {
 };
 
 const ColisTimeline = ({ parcel, onClose }) => {
+  const [trackingHistory, setTrackingHistory] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  
   // Get current status configuration
   const currentStatus = parcel?.status || "En attente";
   const statusInfo = statusConfig[currentStatus] || statusConfig["En attente"];
@@ -113,19 +128,114 @@ const ColisTimeline = ({ parcel, onClose }) => {
   // Get current user for fallback city
   const currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
   
-  // Create timeline data with only current status
-  const timelineData = [
-    {
-      date: parcel?.created_at ? new Date(parcel.created_at).toLocaleString('fr-FR') : new Date().toLocaleString('fr-FR'),
-      label: currentStatus,
-      city: parcel?.shipper_city || currentUser?.governorate || "Tunis", // Use shipper's city (origin) instead of destination
-      status: currentStatus,
+  // Fetch tracking history when component mounts
+  React.useEffect(() => {
+    const fetchTrackingHistory = async () => {
+      if (!parcel?.id) {
+        setLoading(false);
+        return;
+      }
+      
+      try {
+        setLoading(true);
+        const response = await fetch(`/api/parcels/${parcel.id}/tracking-history`);
+        const data = await response.json();
+        
+        if (data.success) {
+          console.log('✅ Tracking history API response:', data.data.tracking_history);
+          setTrackingHistory(data.data.tracking_history);
+        } else {
+          console.error('Failed to fetch tracking history:', data.message);
+        }
+      } catch (error) {
+        console.error('Error fetching tracking history:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchTrackingHistory();
+  }, [parcel?.id]);
+  
+  // Create timeline data from tracking history
+  const timelineData = trackingHistory.map(record => {
+    console.log('📅 Processing record:', record);
+    const statusInfo = statusConfig[record.status] || statusConfig["En attente"];
+    const timelineItem = {
+      date: new Date(record.timestamp).toLocaleString('fr-FR'),
+      label: record.status,
+      city: parcel?.shipper_city || currentUser?.governorate || "Tunis",
+      status: record.status,
       icon: statusInfo.icon,
       emoji: statusInfo.emoji,
       color: statusInfo.color,
-      comment: statusInfo.comment
+      comment: statusInfo.comment,
+      updated_by: record.updated_by,
+      mission_number: record.mission_number,
+      notes: record.notes
+    };
+    console.log('📅 Created timeline item:', timelineItem);
+    return timelineItem;
+  });
+  
+  // If no tracking history from API, create timeline based on current status
+  if (timelineData.length === 0 && !loading) {
+    console.log('No tracking history found, creating timeline from current status:', currentStatus);
+    
+    // Always start with "En attente" (creation)
+    timelineData.push({
+      date: parcel?.created_at ? new Date(parcel.created_at).toLocaleString('fr-FR') : new Date().toLocaleString('fr-FR'),
+      label: "En attente",
+      city: parcel?.shipper_city || currentUser?.governorate || "Tunis",
+      status: "En attente",
+      icon: statusConfig["En attente"].icon,
+      emoji: statusConfig["En attente"].emoji,
+      color: statusConfig["En attente"].color,
+      comment: statusConfig["En attente"].comment
+    });
+    
+    // Add "À enlever" if status is beyond "En attente"
+    if (["À enlever", "Enlevé", "Au dépôt", "En cours", "RTN dépot", "Livrés", "Livrés payés", "Retour définitif", "RTN client agence", "Retour Expéditeur", "Retour En Cours d'expédition", "Retour reçu"].includes(currentStatus)) {
+      timelineData.push({
+        date: parcel?.updated_at ? new Date(parcel.updated_at).toLocaleString('fr-FR') : new Date().toLocaleString('fr-FR'),
+        label: "À enlever",
+        city: parcel?.shipper_city || currentUser?.governorate || "Tunis",
+        status: "À enlever",
+        icon: statusConfig["À enlever"].icon,
+        emoji: statusConfig["À enlever"].emoji,
+        color: statusConfig["À enlever"].color,
+        comment: statusConfig["À enlever"].comment
+      });
     }
-  ];
+    
+    // Add "Enlevé" if status is beyond "À enlever"
+    if (["Enlevé", "Au dépôt", "En cours", "RTN dépot", "Livrés", "Livrés payés", "Retour définitif", "RTN client agence", "Retour Expéditeur", "Retour En Cours d'expédition", "Retour reçu"].includes(currentStatus)) {
+      timelineData.push({
+        date: parcel?.updated_at ? new Date(parcel.updated_at).toLocaleString('fr-FR') : new Date().toLocaleString('fr-FR'),
+        label: "Enlevé",
+        city: parcel?.shipper_city || currentUser?.governorate || "Tunis",
+        status: "Enlevé",
+        icon: statusConfig["Enlevé"].icon,
+        emoji: statusConfig["Enlevé"].emoji,
+        color: statusConfig["Enlevé"].color,
+        comment: statusConfig["Enlevé"].comment
+      });
+    }
+    
+    // Add current status if it's different from the ones already added
+    if (!["En attente", "À enlever", "Enlevé"].includes(currentStatus)) {
+      timelineData.push({
+        date: parcel?.updated_at ? new Date(parcel.updated_at).toLocaleString('fr-FR') : new Date().toLocaleString('fr-FR'),
+        label: currentStatus,
+        city: parcel?.shipper_city || currentUser?.governorate || "Tunis",
+        status: currentStatus,
+        icon: statusInfo.icon,
+        emoji: statusInfo.emoji,
+        color: statusInfo.color,
+        comment: statusInfo.comment
+      });
+    }
+  }
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -142,6 +252,19 @@ const ColisTimeline = ({ parcel, onClose }) => {
           <button onClick={onClose} className="bg-white hover:bg-red-50 text-gray-400 hover:text-red-500 w-8 h-8 rounded-full flex items-center justify-center text-lg font-bold shadow border border-gray-200 transition">×</button>
         </div>
       </div>
+      
+      {/* Loading state */}
+      {loading && (
+        <div className="text-center py-8">
+          <div className="inline-flex items-center px-4 py-2 font-semibold leading-6 text-sm shadow rounded-md text-white bg-blue-500 transition ease-in-out duration-150 cursor-not-allowed">
+            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            Chargement de l'historique...
+          </div>
+        </div>
+      )}
       {/* Carte infos colis */}
       <div className="bg-white rounded-xl shadow-lg p-6 mb-8 flex flex-wrap justify-between items-center gap-4">
         <div className="text-sm text-gray-700 min-w-[180px]">
@@ -176,6 +299,15 @@ const ColisTimeline = ({ parcel, onClose }) => {
                   <span className="text-xs text-gray-500 font-semibold">{step.city}</span>
                 </div>
                 <div className="text-xs text-gray-600 mb-1">{step.comment}</div>
+                {step.updated_by && (
+                  <div className="text-xs text-gray-500">Par: {step.updated_by}</div>
+                )}
+                {step.mission_number && (
+                  <div className="text-xs text-gray-500">Mission: {step.mission_number}</div>
+                )}
+                {step.notes && (
+                  <div className="text-xs text-gray-500 italic">{step.notes}</div>
+                )}
               </div>
             </div>
           ))}
@@ -184,10 +316,9 @@ const ColisTimeline = ({ parcel, onClose }) => {
       
       {/* Message informatif */}
       <div className="mt-8 text-center">
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <p className="text-sm text-blue-700">
-            <strong>Note:</strong> Ce colis est actuellement au statut "{currentStatus}". 
-            L'historique détaillé des statuts sera disponible une fois que le système de suivi sera complètement opérationnel.
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+          <p className="text-sm text-green-700">
+            <strong>✅ Timeline complète:</strong> Voici l'historique complet des statuts de ce colis depuis sa création.
           </p>
         </div>
       </div>

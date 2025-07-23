@@ -343,4 +343,5 @@ This project is licensed under the MIT License.
 
 ## 🆘 Support
 
-For support and questions, please contact the development team or create an issue in the repository. 
+For support and questions, please contact the development team or create an issue in the repository. #   Q u i c k Z o n e   B a c k e n d   A P I  
+ 

@@ -16,6 +16,7 @@ import Colis from "./dashboard/Colis";
 import ColisClient from "./dashboard/ColisClient";
 import Pickup from "./dashboard/Pickup";
 import PickupDepot from "./dashboard/PickupDepot";
+import PickupClient from "./dashboard/PickupClient";
 import Secteurs from "./dashboard/Secteurs";
 import Entrepots from "./dashboard/Entrepots";
 import PaimentExpediteur from "./dashboard/PaimentExpediteur";
@@ -98,6 +99,9 @@ const Dashboard = ({ selectedKey = "dashboard" }) => {
         return <LivreurDashboard />;
       }
       return <Pickup />;
+    }
+    if (selectedKey === "pickup_client" && checkAccess("pickup_client")) {
+      return <PickupClient />;
     }
     if (selectedKey === "pickup_depot" && checkAccess("pickup")) {
       return <PickupDepot />;

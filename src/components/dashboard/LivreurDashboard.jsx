@@ -2,42 +2,68 @@ import React, { useState, useEffect } from "react";
 import Modal from "./common/Modal";
 import { missionsPickupService, apiService } from '../../services/api';
 
-// Status mapping from French to database English values
+// Pickup mission status flow - maps French display names to database values
 const statusMapping = {
-  "En attente": "scheduled",
-  "À enlever": "scheduled", 
-  "Enlevé": "in_progress",
-  "Au dépôt": "completed",
-  "Mission terminée": "completed",
-  "Refusé par livreur": "cancelled"
+  "En attente": "En attente",           // Initial status when mission is created
+  "À enlever": "À enlever",             // When driver accepts the mission
+  "Enlevé": "Enlevé",                   // When driver scans parcel codes
+  "Au dépôt": "Au dépôt",               // When driver completes with security code
+  "Mission terminée": "Au dépôt",       // Final status shows as "Au dépôt"
+  "Refusé par livreur": "Refusé par livreur"
 };
 
-// Reverse mapping for display
+// Use the exact 13 status names - no mapping needed
+const parcelStatusMapping = {
+  "En attente": "En attente",
+  "À enlever": "À enlever",
+  "Enlevé": "Enlevé",
+  "Au dépôt": "Au dépôt",
+  "En cours": "En cours",
+  "RTN dépot": "RTN dépot",
+  "Livrés": "Livrés",
+  "Livrés payés": "Livrés payés",
+  "Retour définitif": "Retour définitif",
+  "RTN client agence": "RTN client agence",
+  "Retour Expéditeur": "Retour Expéditeur",
+  "Retour En Cours d'expédition": "Retour En Cours d'expédition",
+  "Retour reçu": "Retour reçu"
+};
+
+// No reverse mapping needed since we're using French statuses directly
 const reverseStatusMapping = {
-  "scheduled": "En attente",
-  "in_progress": "Enlevé", 
-  "completed": "Au dépôt",
-  "cancelled": "Refusé par livreur"
+  "En attente": "En attente",
+  "À enlever": "À enlever", 
+  "Enlevé": "Enlevé",
+  "Au dépôt": "Au dépôt",
+  "Mission terminée": "Au dépôt", // Show as "Au dépôt" instead of "Mission terminée"
+  "Refusé par livreur": "Refusé par livreur"
 };
 
 const statusBadge = (status) => {
-  // Convert database status to French for display
+  // Use status directly since we're now using French statuses
   const displayStatus = reverseStatusMapping[status] || status;
   
   const colorMap = {
+    // Pickup flow statuses
     "En attente": "bg-yellow-100 text-yellow-800 border-yellow-300",
     "À enlever": "bg-blue-100 text-blue-800 border-blue-300",
     "Enlevé": "bg-green-100 text-green-800 border-green-300",
     "Au dépôt": "bg-purple-100 text-purple-800 border-purple-300",
+    
+    // Other parcel statuses
     "En cours": "bg-purple-100 text-purple-800 border-purple-300",
+    "RTN dépot": "bg-orange-100 text-orange-800 border-orange-300",
     "Livrés": "bg-green-100 text-green-800 border-green-300",
     "Livrés payés": "bg-emerald-100 text-emerald-800 border-emerald-300",
     "Retour définitif": "bg-red-100 text-red-800 border-red-300",
-    "Accepté par livreur": "bg-green-50 text-green-700 border-green-300",
+    "RTN client agence": "bg-pink-100 text-pink-800 border-pink-300",
+    "Retour Expéditeur": "bg-gray-100 text-gray-800 border-gray-300",
+    "Retour En Cours d'expédition": "bg-indigo-100 text-indigo-800 border-indigo-300",
+    "Retour reçu": "bg-cyan-100 text-cyan-800 border-cyan-300",
+    
+    // Mission statuses
     "Refusé par livreur": "bg-red-50 text-red-700 border-red-300",
-    "En cours de ramassage": "bg-orange-100 text-orange-800 border-orange-300",
-    "Ramassage terminé": "bg-blue-100 text-blue-800 border-blue-300",
-    "Mission terminée": "bg-green-100 text-green-800 border-green-300",
+    "Mission terminée": "bg-purple-100 text-purple-800 border-purple-300",
   };
   return <span className={`inline-block px-2 py-1 rounded-full border text-xs font-semibold ${colorMap[displayStatus] || "bg-gray-100 text-gray-800 border-gray-300"}`}>{displayStatus}</span>;
 };
@@ -60,10 +86,6 @@ const LivreurDashboard = () => {
   const [scannedParcels, setScannedParcels] = useState([]);
   const [scanInput, setScanInput] = useState("");
   const [scanMessage, setScanMessage] = useState("");
-  const [showCamera, setShowCamera] = useState(false);
-  const [cameraError, setCameraError] = useState("");
-  const [codeReader, setCodeReader] = useState(null);
-  const [isScanning, setIsScanning] = useState(false);
 
   // Fetch current user and livreur profile
   useEffect(() => {
@@ -139,19 +161,6 @@ const LivreurDashboard = () => {
 
     fetchUserAndProfile();
   }, []);
-
-  // Cleanup camera on unmount
-  useEffect(() => {
-    return () => {
-      if (codeReader) {
-        try {
-          codeReader.reset();
-        } catch (error) {
-          console.error('❌ Error cleaning up camera:', error);
-        }
-      }
-    };
-  }, [codeReader]);
 
   // Fetch missions assigned to this driver
   useEffect(() => {
@@ -316,26 +325,28 @@ const LivreurDashboard = () => {
       
       console.log('📦 Found mission:', mission);
       
-      // For accept/refuse actions, just update the mission status
-      // The backend will handle this as a simple status update
+      // Update the mission status - backend will handle parcel status updates
       const updateData = { status: dbStatus };
       
       console.log('📤 Sending update data to API:', updateData);
+      console.log('📤 Update data type:', typeof updateData.status);
       const response = await missionsPickupService.updateMissionPickup(missionId, updateData);
       console.log('✅ API response:', response);
       
-      // Update local state with French status for display
-      setMissions((prevMissions) =>
-        prevMissions.map((m) =>
-          m.id === missionId
-            ? { ...m, status: frenchStatus }
-            : m
-        )
-      );
-      
-      // Update selectedMission if open
-      if (selectedMission && selectedMission.id === missionId) {
-        setSelectedMission((prev) => ({ ...prev, status: frenchStatus }));
+      // Update local state with the updated mission data from the response
+      if (response.data) {
+        setMissions((prevMissions) =>
+          prevMissions.map((m) =>
+            m.id === missionId
+              ? response.data
+              : m
+          )
+        );
+        
+        // Update selectedMission if open
+        if (selectedMission && selectedMission.id === missionId) {
+          setSelectedMission(response.data);
+        }
       }
       
       console.log(`✅ Mission ${action === 'accept' ? 'accepted' : 'refused'} successfully`);
@@ -366,7 +377,7 @@ const LivreurDashboard = () => {
       console.log(`🚀 handleMissionStatusUpdate called with missionId: ${missionId}, newStatus: ${newStatus}`);
       
       // If trying to complete mission, require security code
-      if (newStatus === 'Mission terminée') {
+      if (newStatus === 'Au dépôt') {
         console.log('🔐 Mission completion requested, getting security code...');
         setPendingMissionCompletion({ missionId, newStatus });
         setShowSecurityCodeModal(true);
@@ -387,21 +398,24 @@ const LivreurDashboard = () => {
       const updateData = { status: dbStatus };
       
       console.log('📤 Sending update data to API:', updateData);
+      console.log('📤 Update data type:', typeof updateData.status);
       const response = await missionsPickupService.updateMissionPickup(missionId, updateData);
       console.log('✅ API response:', response);
       
-      // Update local state with French status for display
-      setMissions((prevMissions) =>
-        prevMissions.map((mission) =>
-          mission.id === missionId
-            ? { ...mission, status: newStatus }
-            : mission
-        )
-      );
-      
-      // Update selectedMission if open
-      if (selectedMission && selectedMission.id === missionId) {
-        setSelectedMission((prev) => ({ ...prev, status: newStatus }));
+      // Update local state with the updated mission data from the response
+      if (response.data) {
+        setMissions((prevMissions) =>
+          prevMissions.map((mission) =>
+            mission.id === missionId
+              ? response.data
+              : mission
+          )
+        );
+        
+        // Update selectedMission if open
+        if (selectedMission && selectedMission.id === missionId) {
+          setSelectedMission(response.data);
+        }
       }
       
       console.log(`✅ Mission status updated to: ${newStatus}`);
@@ -455,18 +469,20 @@ const LivreurDashboard = () => {
       const response = await missionsPickupService.updateMissionPickup(pendingMissionCompletion.missionId, updateData);
       console.log('✅ API response:', response);
       
-      // Update local state with French status for display
-      setMissions((prevMissions) =>
-        prevMissions.map((mission) =>
-          mission.id === pendingMissionCompletion.missionId
-            ? { ...mission, status: pendingMissionCompletion.newStatus }
-            : mission
-        )
-      );
-      
-      // Update selectedMission if open
-      if (selectedMission && selectedMission.id === pendingMissionCompletion.missionId) {
-        setSelectedMission((prev) => ({ ...prev, status: pendingMissionCompletion.newStatus }));
+      // Update local state with the updated mission data from the response
+      if (response.data) {
+        setMissions((prevMissions) =>
+          prevMissions.map((mission) =>
+            mission.id === pendingMissionCompletion.missionId
+              ? response.data
+              : mission
+          )
+        );
+        
+        // Update selectedMission if open
+        if (selectedMission && selectedMission.id === pendingMissionCompletion.missionId) {
+          setSelectedMission(response.data);
+        }
       }
       
       // Close modal and reset state
@@ -506,202 +522,19 @@ const LivreurDashboard = () => {
     setShowScanModal(true);
   };
 
-  // Initialize camera scanner
-  const initializeCamera = async () => {
-    try {
-      console.log('📷 Initializing camera scanner...');
-      
-      // Dynamically import ZXing library
-      let BrowserMultiFormatReader;
-      try {
-        const zxing = await import('@zxing/library');
-        BrowserMultiFormatReader = zxing.BrowserMultiFormatReader;
-        console.log('📷 ZXing library loaded:', zxing);
-      } catch (importError) {
-        console.error('❌ Failed to import ZXing library:', importError);
-        setCameraError("Impossible de charger la bibliothèque de scan");
-        return false;
-      }
-      
-      // Check if BrowserMultiFormatReader is available
-      if (typeof BrowserMultiFormatReader === 'undefined') {
-        console.error('❌ BrowserMultiFormatReader not available');
-        setCameraError("Scanner library non disponible");
-        return false;
-      }
-      
-      const reader = new BrowserMultiFormatReader();
-      console.log('📷 Reader created:', reader);
-      
-      // Test if reader is properly initialized
-      if (!reader || typeof reader.decodeFromVideoDevice !== 'function') {
-        console.error('❌ Reader not properly initialized');
-        setCameraError("Erreur d'initialisation du scanner");
-        return false;
-      }
-      
-      setCodeReader(reader);
-      
-      // Get available video devices
-      const videoInputDevices = await reader.listVideoInputDevices();
-      console.log('📷 Available cameras:', videoInputDevices);
-      
-      if (videoInputDevices.length === 0) {
-        setCameraError("Aucune caméra trouvée");
-        return false;
-      }
-      
-      return true;
-    } catch (error) {
-      console.error('❌ Error initializing camera:', error);
-      setCameraError("Erreur d'initialisation de la caméra: " + error.message);
-      return false;
-    }
-  };
-
-  // Start camera scanning
-  const startCameraScanning = async () => {
-    try {
-      console.log('📷 Starting camera scanning...');
-      console.log('📷 Current codeReader:', codeReader);
-      
-      // Always initialize if codeReader is null
-      if (!codeReader) {
-        console.log('📷 CodeReader is null, initializing...');
-        const initialized = await initializeCamera();
-        if (!initialized) {
-          console.error('❌ Failed to initialize camera');
-          return;
-        }
-      }
-      
-      // Double-check codeReader exists
-      if (!codeReader) {
-        console.error('❌ CodeReader still null after initialization');
-        setCameraError("Impossible d'initialiser le scanner");
-        return;
-      }
-      
-      setShowCamera(true);
-      setCameraError("");
-      setIsScanning(true);
-      
-      console.log('📷 Starting video device decoding...');
-      
-      // Configure scanning options for better performance - simplified approach
-      const hints = new Map();
-      hints.set(2, true); // TRY_HARDER
-      hints.set(3, true); // PURE_BARCODE
-      
-      // Enable specific formats that are most common for parcel tracking
-      const formats = [
-        'CODE_128',
-        'CODE_39', 
-        'EAN_13',
-        'EAN_8',
-        'UPC_A',
-        'UPC_E',
-        'CODABAR',
-        'ITF',
-        'QR_CODE',
-        'DATA_MATRIX'
-      ];
-      
-      console.log('📷 Starting scan with formats:', formats);
-      
-      // Start scanning from camera with simplified configuration
-      await codeReader.decodeFromVideoDevice(
-        undefined, // Use default camera
-        'video-preview',
-        (result, error) => {
-          if (result) {
-            console.log('📷 Barcode detected:', result.text);
-            console.log('📷 Barcode format:', result.format);
-            console.log('📷 Raw result:', result);
-            handleScan(result.text);
-            // Don't stop scanning - continue for multiple scans
-            // stopCameraScanning();
-          }
-          if (error) {
-            console.log('📷 Scanning in progress...', error.name, error.message);
-            // Only show error if it's not a "not found" error (which is normal during scanning)
-            if (error.name !== 'NotFoundException' && error.name !== 'NoMultiFormatReaderException') {
-              console.error('❌ Camera scanning error:', error);
-              setCameraError("Erreur de scan: " + error.message);
-            }
-          }
-        },
-        hints
-      );
-      
-    } catch (error) {
-      console.error('❌ Error starting camera scanning:', error);
-      setCameraError("Erreur de démarrage de la caméra: " + error.message);
-      setIsScanning(false);
-    }
-  };
-
-  // Stop camera scanning
-  const stopCameraScanning = () => {
-    if (codeReader) {
-      try {
-        codeReader.reset();
-        setShowCamera(false);
-        setCameraError("");
-        setIsScanning(false); // Reset scanning status
-      } catch (error) {
-        console.error('❌ Error stopping camera:', error);
-      }
-    }
-  };
-
   // Handler to scan barcode
   const handleScan = async (barcode) => {
     try {
       console.log('📱 Scanning barcode:', barcode);
-      console.log('📱 Available parcels:', scanningMission?.parcels);
       setScanMessage("Scanning...");
       
-      // Clean the barcode (remove spaces, special characters)
-      const cleanBarcode = barcode.trim().replace(/[^a-zA-Z0-9]/g, '');
-      console.log('📱 Cleaned barcode:', cleanBarcode);
-      
-      // Find the parcel with this barcode - try multiple matching strategies
-      let parcel = null;
-      
-      // Strategy 1: Exact match with tracking_number
-      parcel = scanningMission?.parcels?.find(p => 
-        p.tracking_number === barcode || p.tracking_number === cleanBarcode
+      // Find the parcel with this barcode
+      const parcel = scanningMission?.parcels?.find(p => 
+        p.tracking_number === barcode || p.id.toString() === barcode
       );
       
-      // Strategy 2: Exact match with ID
       if (!parcel) {
-        parcel = scanningMission?.parcels?.find(p => 
-          p.id.toString() === barcode || p.id.toString() === cleanBarcode
-        );
-      }
-      
-      // Strategy 3: Partial match with tracking_number
-      if (!parcel) {
-        parcel = scanningMission?.parcels?.find(p => 
-          p.tracking_number && p.tracking_number.includes(cleanBarcode)
-        );
-      }
-      
-      // Strategy 4: Partial match with ID
-      if (!parcel) {
-        parcel = scanningMission?.parcels?.find(p => 
-          p.id.toString().includes(cleanBarcode)
-        );
-      }
-      
-      console.log('📱 Found parcel:', parcel);
-      
-      if (!parcel) {
-        setScanMessage(`❌ Colis non trouvé: ${barcode}`);
-        console.log('❌ No parcel found for barcode:', barcode);
-        console.log('❌ Available tracking numbers:', scanningMission?.parcels?.map(p => p.tracking_number));
-        console.log('❌ Available IDs:', scanningMission?.parcels?.map(p => p.id));
+        setScanMessage("❌ Colis non trouvé dans cette mission");
         return;
       }
       
@@ -714,15 +547,6 @@ const LivreurDashboard = () => {
       setScannedParcels(prev => [...prev, parcel.id]);
       setScanMessage(`✅ ${parcel.recipient_name || parcel.destination || 'Colis'} scanné avec succès`);
       
-      // Visual feedback - flash the scanning frame green
-      const videoElement = document.getElementById('video-preview');
-      if (videoElement) {
-        videoElement.style.border = '4px solid #10B981';
-        setTimeout(() => {
-          videoElement.style.border = '2px solid #3B82F6';
-        }, 500);
-      }
-      
       // Clear input after short delay
       setTimeout(() => {
         setScanInput("");
@@ -732,16 +556,6 @@ const LivreurDashboard = () => {
     } catch (error) {
       console.error('❌ Error scanning parcel:', error);
       setScanMessage("❌ Erreur lors du scan");
-    }
-  };
-
-  // Test scanning function for debugging
-  const testScan = () => {
-    if (scanningMission?.parcels?.length > 0) {
-      const firstParcel = scanningMission.parcels[0];
-      const testBarcode = firstParcel.tracking_number || firstParcel.id.toString();
-      console.log('🧪 Testing scan with barcode:', testBarcode);
-      handleScan(testBarcode);
     }
   };
 
@@ -758,25 +572,27 @@ const LivreurDashboard = () => {
     try {
       console.log('📱 Completing scanning for mission:', scanningMission.id);
       
-      // Update mission status to "Enlevé"
+      // Update mission status to "Enlevé" (En cours de ramassage in database)
       const dbStatus = statusMapping["Enlevé"];
       const updateData = { status: dbStatus };
       
       const response = await missionsPickupService.updateMissionPickup(scanningMission.id, updateData);
       console.log('✅ Mission updated:', response);
       
-      // Update local state with French status for display
-      setMissions((prevMissions) =>
-        prevMissions.map((mission) =>
-          mission.id === scanningMission.id
-            ? { ...mission, status: "Enlevé" }
-            : mission
-        )
-      );
-      
-      // Update selectedMission if open
-      if (selectedMission && selectedMission.id === scanningMission.id) {
-        setSelectedMission((prev) => ({ ...prev, status: "Enlevé" }));
+      // Update local state with the updated mission data from the response
+      if (response.data) {
+        setMissions((prevMissions) =>
+          prevMissions.map((mission) =>
+            mission.id === scanningMission.id
+              ? response.data
+              : mission
+          )
+        );
+        
+        // Update selectedMission if open
+        if (selectedMission && selectedMission.id === scanningMission.id) {
+          setSelectedMission(response.data);
+        }
       }
       
       // Close modal and reset state
@@ -1260,6 +1076,7 @@ const LivreurDashboard = () => {
                 {statusBadge(selectedMission.status)}
               </div>
               <div className="flex space-x-2">
+                {/* Accept/Refuse */}
                 {(selectedMission.status === "En attente" || selectedMission.status === "scheduled") && (
                   <>
                     <button
@@ -1276,7 +1093,8 @@ const LivreurDashboard = () => {
                     </button>
                   </>
                 )}
-                {(selectedMission.status === "À enlever" || selectedMission.status === "scheduled") && (
+                {/* Start Pickup */}
+                {(selectedMission.status === "À enlever" || selectedMission.status === "Accepté par livreur") && (
                   <button
                     onClick={() => handleStartScanning(selectedMission)}
                     className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm font-semibold"
@@ -1284,7 +1102,8 @@ const LivreurDashboard = () => {
                     Démarrer le ramassage
                   </button>
                 )}
-                {(selectedMission.status === "Enlevé" || selectedMission.status === "in_progress") && (
+                {/* End Pickup */}
+                {(selectedMission.status === "Enlevé" || selectedMission.status === "En cours de ramassage") && (
                   <button
                     onClick={() => handleMissionStatusUpdate(selectedMission.id, "Au dépôt")}
                     className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded text-sm font-semibold"
@@ -1292,7 +1111,21 @@ const LivreurDashboard = () => {
                     Terminer le ramassage
                   </button>
                 )}
-                {(selectedMission.status === "Au dépôt" || selectedMission.status === "completed") && (
+                {/* Mission Completed - No actions needed */}
+                {selectedMission.status === "Au dépôt" && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                    <div className="flex items-center">
+                      <svg className="w-5 h-5 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span className="text-green-800 font-semibold">Mission terminée avec succès</span>
+                    </div>
+                    <p className="text-green-700 text-sm mt-1">Tous les colis ont été livrés au dépôt</p>
+                  </div>
+                )}
+                
+                {/* Legacy status support */}
+                {(selectedMission.status === "Ramassage terminé" || selectedMission.status === "Mission terminée") && (
                   <button
                     onClick={() => handleMissionStatusUpdate(selectedMission.id, "Mission terminée")}
                     className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded text-sm font-semibold"
@@ -1319,7 +1152,18 @@ const LivreurDashboard = () => {
               <div className="font-semibold text-gray-700">Expéditeur :</div>
               <div className="text-sm">{selectedMission.shipper?.name || 'N/A'}</div>
               <div className="font-semibold text-gray-700 mt-2">Adresse :</div>
-              <div className="text-sm">{selectedMission.shipper?.address || 'N/A'}</div>
+              <div className="text-sm">
+                {selectedMission.shipper?.address || 
+                 selectedMission.shipper?.company_address || 
+                 selectedMission.shipper?.city || 
+                 'N/A'}
+              </div>
+              {selectedMission.shipper?.email && (
+                <>
+                  <div className="font-semibold text-gray-700 mt-2">Email :</div>
+                  <div className="text-sm">{selectedMission.shipper.email}</div>
+                </>
+              )}
               {selectedMission.notes && (
                 <>
                   <div className="font-semibold text-gray-700 mt-2">Notes :</div>
@@ -1446,7 +1290,6 @@ const LivreurDashboard = () => {
       <Modal
         isOpen={showScanModal}
         onClose={() => {
-          stopCameraScanning();
           setShowScanModal(false);
           setScanningMission(null);
           setScannedParcels([]);
@@ -1482,140 +1325,22 @@ const LivreurDashboard = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Scanner le code-barres du colis
                 </label>
-                
-                {/* Camera Scanner */}
-                <div className="mb-4">
-                  <button
-                    type="button"
-                    onClick={startCameraScanning}
-                    disabled={showCamera}
-                    className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white px-4 py-2 rounded-md font-semibold mr-2"
-                  >
-                    📷 {showCamera ? 'Caméra active...' : 'Ouvrir la caméra'}
-                  </button>
-                  {showCamera && (
-                    <button
-                      type="button"
-                      onClick={stopCameraScanning}
-                      className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md font-semibold mr-2"
-                    >
-                      ❌ Fermer la caméra
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={testScan}
-                    className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-md font-semibold mr-2"
-                  >
-                    🧪 Test Scan
-                  </button>
-                  {showCamera && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        // Force a manual scan attempt
-                        console.log('🔍 Manual scan trigger');
-                        setScanMessage("🔍 Tentative de scan manuel...");
-                      }}
-                      className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-md font-semibold"
-                    >
-                      🔍 Scan Manuel
-                    </button>
-                  )}
-                </div>
-
-                {/* Camera Instructions */}
-                {!showCamera && (
-                  <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                    <div className="text-sm text-blue-800">
-                      <div className="font-semibold mb-1">📱 Instructions de scan:</div>
-                      <ul className="list-disc list-inside space-y-1 text-xs">
-                        <li>Cliquez sur "Ouvrir la caméra" pour scanner avec l'appareil photo</li>
-                        <li>Ou utilisez "Test Scan" pour simuler un scan</li>
-                        <li>Ou entrez manuellement le code-barres ci-dessous</li>
-                        <li>Assurez-vous que la caméra a les permissions nécessaires</li>
-                      </ul>
-                    </div>
-                  </div>
-                )}
-
-                {/* Camera Preview */}
-                {showCamera && (
-                  <div className="mb-4">
-                    <div className="relative">
-                      <video
-                        id="video-preview"
-                        className="w-full h-96 bg-black rounded-lg border-2 border-blue-500"
-                        style={{ objectFit: 'cover' }}
-                      />
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="border-2 border-white rounded-lg p-2">
-                          <div className="w-80 h-60 border-2 border-red-500 rounded relative">
-                            {/* Scanning animation */}
-                            {isScanning && (
-                              <div className="absolute inset-0 bg-gradient-to-b from-transparent via-red-500/20 to-transparent animate-pulse"></div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      {/* Scanning status overlay */}
-                      {isScanning && (
-                        <div className="absolute top-2 left-2 bg-blue-500 text-white px-3 py-1 rounded-full text-sm font-semibold">
-                          🔍 Scanning...
-                        </div>
-                      )}
-                      {/* Progress indicator */}
-                      {isScanning && (
-                        <div className="absolute top-2 right-2 bg-green-500 text-white px-3 py-1 rounded-full text-sm font-semibold">
-                          {scannedParcels.length}/{scanningMission.parcels?.length || 0}
-                        </div>
-                      )}
-                    </div>
-                    {cameraError && (
-                      <div className="mt-2 p-2 bg-red-100 text-red-800 rounded text-sm">
-                        ❌ {cameraError}
-                      </div>
-                    )}
-                    {isScanning && !cameraError && (
-                      <div className="mt-2 p-2 bg-blue-100 text-blue-800 rounded text-sm text-center">
-                        📱 Pointez la caméra vers le code-barres du colis
-                      </div>
-                    )}
-                    
-                    {/* Debug Panel */}
-                    {showCamera && (
-                      <div className="mt-2 p-2 bg-gray-100 border border-gray-300 rounded text-xs">
-                        <div className="font-semibold mb-1">🔧 Debug Info:</div>
-                        <div>Camera: {showCamera ? '✅ Active' : '❌ Inactive'}</div>
-                        <div>Scanning: {isScanning ? '✅ En cours' : '❌ Arrêté'}</div>
-                        <div>Parcels: {scannedParcels.length}/{scanningMission.parcels?.length || 0}</div>
-                        <div>Error: {cameraError || 'Aucune'}</div>
-                        <div className="mt-1 text-gray-600">
-                          💡 Conseil: Assurez-vous que le code-barres est bien éclairé et stable
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Manual Input */}
-                <div className="flex space-x-2">
+                <form onSubmit={handleScanSubmit} className="flex space-x-2">
                   <input
                     type="text"
                     value={scanInput}
                     onChange={(e) => setScanInput(e.target.value)}
-                    placeholder="Ou entrez manuellement le code-barres..."
+                    placeholder="Entrez ou scannez le code-barres..."
                     className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-                    autoFocus={!showCamera}
+                    autoFocus
                   />
                   <button
                     type="submit"
-                    onClick={handleScanSubmit}
                     className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md font-semibold"
                   >
-                    Entrer
+                    Scanner
                   </button>
-                </div>
+                </form>
                 {scanMessage && (
                   <div className={`mt-2 p-2 rounded text-sm ${
                     scanMessage.includes('✅') ? 'bg-green-100 text-green-800' :

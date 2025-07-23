@@ -6,9 +6,19 @@ import MissionColisScan from "./MissionColisScan";
 import { missionsPickupService } from '../../services/api';
 import { apiService } from '../../services/api';
 
-const statusList = [
-  "En attente", "Au dépôt", "En cours", "RTN dépot", "Livés", "Livrés payés", "Retour définitif", "RTN client agence", "Retour Expéditeur", "Retour En Cours d'expédition", "Retour reçu",
-  "Accepté par livreur", "Refusé par livreur", "En cours de ramassage", "Ramassage terminé", "Mission terminée"
+// Pickup mission status flow - only the 4 statuses needed for pickup
+const pickupStatusList = [
+  "En attente",      // Initial status when pickup is created
+  "À enlever",       // When driver accepts the mission  
+  "Enlevé",          // When driver scans parcel codes
+  "Au dépôt"         // When driver completes with security code
+];
+
+// All parcel statuses for reference
+const allParcelStatuses = [
+  "En attente", "À enlever", "Enlevé", "Au dépôt", "En cours", "RTN dépot", 
+  "Livrés", "Livrés payés", "Retour définitif", "RTN client agence", 
+  "Retour Expéditeur", "Retour En Cours d'expédition", "Retour reçu"
 ];
 
 const currentUser = {
@@ -19,22 +29,29 @@ const currentUser = {
 
 const statusBadge = (status) => {
   const colorMap = {
+    // Pickup flow statuses
     "En attente": "bg-yellow-100 text-yellow-800 border-yellow-300",
-    "Au dépôt": "bg-blue-100 text-blue-800 border-blue-300",
+    "À enlever": "bg-blue-100 text-blue-800 border-blue-300", 
+    "Enlevé": "bg-green-100 text-green-800 border-green-300",
+    "Au dépôt": "bg-purple-100 text-purple-800 border-purple-300",
+    
+    // Other parcel statuses
     "En cours": "bg-purple-100 text-purple-800 border-purple-300",
     "RTN dépot": "bg-orange-100 text-orange-800 border-orange-300",
-    "Livés": "bg-green-100 text-green-800 border-green-300",
+    "Livrés": "bg-green-100 text-green-800 border-green-300",
     "Livrés payés": "bg-emerald-100 text-emerald-800 border-emerald-300",
     "Retour définitif": "bg-red-100 text-red-800 border-red-300",
     "RTN client agence": "bg-pink-100 text-pink-800 border-pink-300",
     "Retour Expéditeur": "bg-gray-100 text-gray-800 border-gray-300",
     "Retour En Cours d'expédition": "bg-indigo-100 text-indigo-800 border-indigo-300",
     "Retour reçu": "bg-cyan-100 text-cyan-800 border-cyan-300",
-    "Accepté par livreur": "bg-green-50 text-green-700 border-green-300",
+    
+    // Mission statuses (for backward compatibility)
+    "scheduled": "bg-yellow-100 text-yellow-800 border-yellow-300",
+    "Accepté par livreur": "bg-blue-100 text-blue-800 border-blue-300",
+    "En cours de ramassage": "bg-green-100 text-green-800 border-green-300",
     "Refusé par livreur": "bg-red-50 text-red-700 border-red-300",
-    "En cours de ramassage": "bg-orange-100 text-orange-800 border-orange-300",
-    "Ramassage terminé": "bg-blue-100 text-blue-800 border-blue-300",
-    "Mission terminée": "bg-green-100 text-green-800 border-green-300",
+    "Mission terminée": "bg-purple-100 text-purple-800 border-purple-300",
   };
   return <span className={`inline-block px-3 py-1 rounded-full border text-xs font-semibold ${colorMap[status] || "bg-gray-100 text-gray-800 border-gray-300"}`}>{status}</span>;
 };
@@ -55,7 +72,7 @@ const Pickup = () => {
     driverId: "",
     shipperId: "",
     colisIds: [],
-    status: statusList[0],
+    status: "En attente", // Always start with "En attente"
     scheduledTime: "",
     pdfFile: null,
   });
@@ -182,7 +199,7 @@ const Pickup = () => {
         shipper_id: formData.shipperId,
         colis_ids: availableParcels.map(p => p.id), // Automatically include all available parcels
         scheduled_time: new Date().toISOString().slice(0, 16), // Current date/time
-        status: 'En attente',
+        status: 'En attente', // Use French status for consistency
       };
       
       console.log('📤 Sending data to API:', data);

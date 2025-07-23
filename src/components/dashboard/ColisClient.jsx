@@ -77,6 +77,8 @@ const ColisClient = () => {
             email: parcel.shipper_email || "N/A",
             reference: parcel.tracking_number || parcel.id,
             description: parcel.type || "Colis standard",
+            // Add client code for delivery verification
+            client_code: parcel.client_code || "N/A",
             // Add shipper city information for timeline
             shipper_city: parcel.shipper_city || currentUser.governorate || "Tunis",
             // Keep original parcel data for timeline
@@ -221,6 +223,15 @@ const ColisClient = () => {
     { key: "dateCreated", header: "Date de création" },
     { key: "estimatedDelivery", header: "Date de livraison estimée" },
     { key: "price", header: "Prix" },
+    { 
+      key: "client_code", 
+      header: "Code Client",
+      render: (value) => (
+        <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full font-mono">
+          {value}
+        </span>
+      )
+    },
   ];
 
   // Memoized filtered data for better performance

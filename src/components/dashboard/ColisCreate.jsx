@@ -242,7 +242,8 @@ const ColisCreate = () => {
       const result = await apiService.createParcel(parcelData);
       
       if (result.success) {
-        alert("Colis créé avec succès !");
+        const clientCode = result.client_code || "N/A";
+        alert(`Colis créé avec succès !\n\nCode Client: ${clientCode}\n\nPartagez ce code avec votre client pour la vérification lors de la livraison.`);
         
         // Reset form with user data
         if (userData) {
