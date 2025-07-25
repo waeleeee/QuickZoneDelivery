@@ -16,7 +16,9 @@ const ColisSelectionModal = ({
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [selectedShipper, setSelectedShipper] = useState(null);
-  const [step, setStep] = useState('shipper'); // 'shipper' or 'parcels'
+  const [step, setStep] = useState('shipper'); // 'shipper', 'parcels', or 'payment'
+  const [shipperSearchTerm, setShipperSearchTerm] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("");
 
   // Reset state when modal opens
   useEffect(() => {
@@ -25,6 +27,8 @@ const ColisSelectionModal = ({
       setSelectedShipper(null);
       setSelectedParcels([]);
       setParcels([]);
+      setShipperSearchTerm("");
+      setPaymentMethod("");
     }
   }, [isOpen]);
 
@@ -125,6 +129,29 @@ const ColisSelectionModal = ({
     setParcels([]);
   };
 
+  // Function to get identity type and number
+  const getIdentityInfo = (shipper) => {
+    if (shipper.fiscal_number) {
+      return { type: "Patente", number: shipper.fiscal_number };
+    } else if (shipper.identity_number) {
+      return { type: "Carte d'identité", number: shipper.identity_number };
+    }
+    return null;
+  };
+
+  const identityInfo = selectedShipper ? getIdentityInfo(selectedShipper) : null;
+
+  // Filter shippers based on search
+  const filteredShippers = shippers.filter(shipper => {
+    const matchesSearch = !shipperSearchTerm || 
+      shipper.name?.toLowerCase().includes(shipperSearchTerm.toLowerCase()) ||
+      shipper.email?.toLowerCase().includes(shipperSearchTerm.toLowerCase()) ||
+      shipper.phone?.toLowerCase().includes(shipperSearchTerm.toLowerCase()) ||
+      shipper.agency?.toLowerCase().includes(shipperSearchTerm.toLowerCase());
+    
+    return matchesSearch;
+  });
+
   // Filter parcels based on search and status
   const filteredParcels = parcels.filter(parcel => {
     const matchesSearch = !searchTerm || 
@@ -137,16 +164,42 @@ const ColisSelectionModal = ({
     return matchesSearch && matchesStatus;
   });
 
-  const totalAmount = selectedParcels.reduce((sum, p) => sum + (parseFloat(p.price) || 0), 0);
+  // Calculate total amount with potential deduction
+  const subtotal = selectedParcels.reduce((sum, p) => sum + (parseFloat(p.price) || 0), 0);
+  
+  // Apply 3% deduction only for individuals with carte d'identité
+  const deduction = identityInfo && identityInfo.type === "Carte d'identité" ? subtotal * 0.03 : 0;
+  const totalAmount = subtotal - deduction;
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={step === 'shipper' ? "Sélectionner l'Expéditeur" : `Sélectionner les Colis - ${selectedShipper?.name}`}
+      title={step === 'shipper' ? "Sélectionner l'Expéditeur" : "Sélectionner les Colis - " + selectedShipper?.name}
       size="xl"
     >
       <div className="space-y-4">
+        {/* Identity Information - Right Side of Page */}
+        {step === 'parcels' && identityInfo && (
+          <div className="absolute top-4 right-4 z-10">
+            <div className="bg-white border border-gray-200 rounded-lg px-4 py-2 shadow-lg">
+              <div className="text-sm font-medium text-blue-800">
+                {identityInfo.type}: {identityInfo.number}
+              </div>
+              {identityInfo.type === "Carte d'identité" && (
+                <div className="text-xs text-red-600 font-medium">
+                  ⚠️ Retenu à la source 3% applicable
+                </div>
+              )}
+              {identityInfo.type === "Patente" && (
+                <div className="text-xs text-green-600 font-medium">
+                  ✅ Pas de retenu à la source
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Step indicator */}
         <div className="flex items-center justify-center mb-4">
           <div className="flex items-center">
@@ -171,8 +224,19 @@ const ColisSelectionModal = ({
               <h3 className="text-lg font-medium">Choisissez l'expéditeur pour créer la facture</h3>
             </div>
             
+            {/* Search bar for shippers */}
+            <div className="mb-4">
+              <input
+                type="text"
+                placeholder="Rechercher par nom, email, téléphone ou agence..."
+                value={shipperSearchTerm}
+                onChange={(e) => setShipperSearchTerm(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+            
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-96 overflow-y-auto">
-              {shippers.map((shipper) => (
+              {filteredShippers.map((shipper) => (
                 <div
                   key={shipper.id}
                   onClick={() => handleShipperSelect(shipper)}
@@ -183,13 +247,18 @@ const ColisSelectionModal = ({
                   <div className="text-xs text-gray-500 mt-1">
                     {shipper.phone || 'Téléphone non spécifié'}
                   </div>
+                  {shipper.agency && (
+                    <div className="text-xs text-blue-600 mt-1 font-medium">
+                      🏢 {shipper.agency}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
             
-            {shippers.length === 0 && (
+            {filteredShippers.length === 0 && (
               <div className="text-center py-8 text-gray-500">
-                Aucun expéditeur disponible
+                {shipperSearchTerm ? 'Aucun expéditeur trouvé pour cette recherche' : 'Aucun expéditeur disponible'}
               </div>
             )}
           </div>
@@ -238,13 +307,27 @@ const ColisSelectionModal = ({
             {/* Selection Summary */}
             {selectedParcels.length > 0 && (
               <div className="bg-blue-50 p-3 rounded-md">
-                <div className="flex justify-between items-center">
-                  <span className="font-medium">
-                    {selectedParcels.length} colis sélectionné(s)
-                  </span>
-                  <span className="font-bold text-blue-600">
-                    Total: {totalAmount.toFixed(3)} TND
-                  </span>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium">
+                      {selectedParcels.length} colis sélectionné(s)
+                    </span>
+                    <span className="font-bold text-blue-600">
+                      Total: {totalAmount.toFixed(3)} TND
+                    </span>
+                  </div>
+                  {deduction > 0 && (
+                    <div className="text-sm text-gray-600 border-t pt-2">
+                      <div className="flex justify-between">
+                        <span>Sous-total:</span>
+                        <span>{subtotal.toFixed(3)} TND</span>
+                      </div>
+                      <div className="flex justify-between text-red-600">
+                        <span>Retenu à la source (3%):</span>
+                        <span>-{deduction.toFixed(3)} TND</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

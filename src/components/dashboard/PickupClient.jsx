@@ -400,7 +400,7 @@ const PickupClient = () => {
     const element = detailRef.current;
     const opt = {
       margin: 1,
-      filename: `mission-${viewMission.mission_number}.pdf`,
+      filename: `mission-${viewMission.mission_number || 'unknown'}.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: { scale: 2 },
       jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
@@ -409,11 +409,13 @@ const PickupClient = () => {
   };
 
   // Filter missions based on search term
-  const filteredMissions = (missions || []).filter(mission =>
-    mission.mission_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  const filteredMissions = (missions || []).filter(mission => {
+    if (!mission) return false;
+    
+    return (mission.mission_number || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     getDriverName(mission.driver_id).toLowerCase().includes(searchTerm.toLowerCase()) ||
-    getWarehouseName(mission.warehouse_id).toLowerCase().includes(searchTerm.toLowerCase())
-  );
+           getWarehouseName(mission.warehouse_id).toLowerCase().includes(searchTerm.toLowerCase());
+  });
 
   if (loading) {
     return (
@@ -510,7 +512,7 @@ const PickupClient = () => {
               {filteredMissions.map((mission) => (
                 <tr key={mission.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{mission.mission_number}</div>
+                    <div className="text-sm font-medium text-gray-900">{mission.mission_number || 'N/A'}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900">{getDriverName(mission.driver_id)}</div>
@@ -575,7 +577,7 @@ const PickupClient = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Numéro de Mission</label>
-                  <p className="mt-1 text-sm text-gray-900">{viewMission.mission_number}</p>
+                  <p className="mt-1 text-sm text-gray-900">{viewMission.mission_number || 'N/A'}</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Statut</label>

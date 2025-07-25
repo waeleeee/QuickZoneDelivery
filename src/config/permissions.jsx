@@ -141,6 +141,8 @@ export const ROLE_PERMISSIONS = {
     expediteur: false, // Limited access
     colis: false, // Limited access to view parcels for delivery
     pickup: false, // No pickup menu - they see missions in their dashboard
+    pickup_client: false, // No pickup client menu - they see delivery missions separately
+    delivery_missions: true, // Can access delivery missions page
     secteurs: false, // Limited access
     entrepots: false, // Limited access
     paiment_expediteur: false, // No access
@@ -340,6 +342,19 @@ export const getFilteredMenu = (userRole) => {
       icon: (
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      )
+    });
+  }
+
+  // Add delivery missions for livreurs
+  if (permissions.delivery_missions) {
+    baseMenu.push({
+      label: "Missions de Livraison",
+      key: "delivery_missions",
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
         </svg>
       )
     });

@@ -5,6 +5,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Login from './components/Login';
 import ExpediteurDetail from './components/dashboard/ExpediteurDetail';
 import BonLivraisonColis from './components/dashboard/BonLivraisonColis';
+import LivreurDeliveryMissions from './components/dashboard/LivreurDeliveryMissions';
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -95,6 +96,11 @@ function AppContent() {
       <Route path="/bon-livraison/:id" element={
         <ProtectedRoute>
           <BonLivraisonColis />
+        </ProtectedRoute>
+      } />
+      <Route path="/livreur-delivery-missions" element={
+        <ProtectedRoute>
+          <LivreurDeliveryMissions />
         </ProtectedRoute>
       } />
       <Route path="/login" element={<Login />} />

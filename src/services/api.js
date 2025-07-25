@@ -30,33 +30,6 @@ const mockUsers = [
     }
   },
   {
-    id: 999,
-    username: 'testadmin',
-    email: 'test@quickzone.tn',
-    password: 'test123',
-    firstName: 'Test',
-    lastName: 'Admin',
-    role: 'Administration',
-    permissions: {
-      dashboard: true,
-      personnel: {
-        administration: true,
-        commercial: true,
-        finance: true,
-        chef_agence: true,
-        membre_agence: true,
-        livreurs: true
-      },
-      expediteur: true,
-      colis: true,
-      pickup: true,
-      secteurs: true,
-      entrepots: true,
-      paiment_expediteur: true,
-      reclamation: true
-    }
-  },
-  {
     id: 2,
     username: 'marie',
     email: 'marie@quickzone.tn',
@@ -328,40 +301,41 @@ export const apiService = {
   // Authentication
   login: async (credentials) => {
     try {
-      console.log('🔐 Mock login attempt with:', { email: credentials.email });
+      console.log('Login attempt with:', { email: credentials.email });
+      const response = await api.post('/auth/login', credentials);
       
-      // Find user in mock data
-      const user = mockUsers.find(u => 
-        u.email.toLowerCase() === credentials.email.toLowerCase() && 
-        u.password === credentials.password
-      );
+      console.log('Login response:', response);
       
-      if (user) {
-        console.log('✅ Mock login successful for:', user.email);
+      if (response && response.success) {
+        const { accessToken, user } = response.data;
         
-        // Create mock token
-        const mockToken = `mock_token_${user.id}_${Date.now()}`;
-        
-        // Store authentication data
-        localStorage.setItem('authToken', mockToken);
+        localStorage.setItem('authToken', accessToken);
         localStorage.setItem('currentUser', JSON.stringify(user));
         localStorage.setItem('isLoggedIn', 'true');
         
-        return {
-          success: true,
-          data: {
-            accessToken: mockToken,
-            user: user
-          },
-          message: 'Login successful'
-        };
+        return response;
       } else {
-        console.log('❌ Mock login failed: Invalid credentials');
-        throw new Error('Invalid email or password');
+        throw new Error(response?.message || 'Login failed');
       }
     } catch (error) {
-      console.error('❌ Mock login error:', error);
-      throw error;
+      console.error('Login error:', error);
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      
+      // Provide more specific error messages
+      if (error.response?.data?.error) {
+        throw new Error(error.response.data.error);
+      } else if (error.response?.status === 401) {
+        throw new Error('Invalid email or password');
+      } else if (error.response?.status === 400) {
+        throw new Error('Please provide valid email and password');
+      } else if (error.response?.status === 500) {
+        throw new Error('Server error occurred. Please try again.');
+      } else if (error.code === 'ECONNREFUSED') {
+        throw new Error('Cannot connect to server. Please check if the backend is running.');
+      } else {
+        throw new Error('Login failed. Please try again.');
+      }
     }
   },
 
@@ -372,19 +346,6 @@ export const apiService = {
     // Redirect to login page
     window.location.href = '/';
     return { success: true };
-  },
-
-  // Check if user is authenticated (mock)
-  isAuthenticated: () => {
-    const token = localStorage.getItem('authToken');
-    const user = localStorage.getItem('currentUser');
-    return !!(token && user);
-  },
-
-  // Get current user (mock)
-  getCurrentUser: () => {
-    const userStr = localStorage.getItem('currentUser');
-    return userStr ? JSON.parse(userStr) : null;
   },
 
   // Parcels (Colis)

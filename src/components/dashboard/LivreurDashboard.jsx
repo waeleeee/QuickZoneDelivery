@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Modal from "./common/Modal";
-import { missionsPickupService, apiService } from '../../services/api';
+import LivreurBarcodeScan from "./LivreurBarcodeScan";
+import { missionsPickupService, deliveryMissionsService, apiService } from '../../services/api';
 
 // Pickup mission status flow - maps French display names to database values
 const statusMapping = {
@@ -73,6 +74,7 @@ const LivreurDashboard = () => {
   const [currentUser, setCurrentUser] = useState(null);
   const [livreurProfile, setLivreurProfile] = useState(null);
   const [missions, setMissions] = useState([]);
+  const [deliveryMissions, setDeliveryMissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedMission, setSelectedMission] = useState(null);
   const [filterStatus, setFilterStatus] = useState("all");
@@ -86,6 +88,7 @@ const LivreurDashboard = () => {
   const [scannedParcels, setScannedParcels] = useState([]);
   const [scanInput, setScanInput] = useState("");
   const [scanMessage, setScanMessage] = useState("");
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState(null);
 
   // Fetch current user and livreur profile
   useEffect(() => {
@@ -172,8 +175,75 @@ const LivreurDashboard = () => {
         console.log('👤 Current user:', currentUser);
         console.log('🚗 Livreur profile:', livreurProfile);
         
-        // Try multiple ways to find missions for this driver
+        // Fetch pickup missions
         let driverMissions = [];
+        
+        // Fetch delivery missions
+        let driverDeliveryMissions = [];
+        
+        // Only fetch delivery missions if we have a valid livreur profile
+        if (livreurProfile?.id) {
+          try {
+            console.log('🚚 Fetching delivery missions for driver ID:', livreurProfile.id);
+            console.log('👤 Livreur profile:', livreurProfile);
+            console.log('📧 Current user email:', currentUser.email);
+            
+            const deliveryResponse = await deliveryMissionsService.getDeliveryMissions();
+            console.log('📦 Delivery missions response:', deliveryResponse);
+            
+            if (deliveryResponse.success && deliveryResponse.data) {
+              console.log('📋 All delivery missions:', deliveryResponse.data);
+              console.log('🔍 Starting to filter delivery missions...');
+              
+              // Filter delivery missions for this driver - try multiple matching strategies
+              driverDeliveryMissions = deliveryResponse.data.filter(mission => {
+                console.log(`🔍 Checking mission ${mission.id}: driver_id=${mission.driver_id}, livreurProfile.id=${livreurProfile.id}`);
+                
+                // Method 1: Direct ID match
+                if (mission.driver_id === livreurProfile.id) {
+                  console.log(`✅ Direct ID match for mission ${mission.id}`);
+                  return true;
+                }
+                
+                // Method 2: Try to match by driver name in the mission
+                if (mission.driver_name && livreurProfile.name) {
+                  const missionDriverName = mission.driver_name.toLowerCase();
+                  const livreurName = livreurProfile.name.toLowerCase();
+                  
+                  if (missionDriverName.includes(livreurName) || livreurName.includes(missionDriverName)) {
+                    console.log(`✅ Name match for mission ${mission.id}: "${missionDriverName}" matches "${livreurName}"`);
+                    return true;
+                  }
+                }
+                
+                // Method 3: Try matching by first name
+                if (mission.driver_name && livreurProfile.name) {
+                  const firstName = livreurProfile.name.split(' ')[0]?.toLowerCase();
+                  if (mission.driver_name.toLowerCase().includes(firstName)) {
+                    console.log(`✅ First name match for mission ${mission.id}: "${firstName}" found in "${mission.driver_name}"`);
+                    return true;
+                  }
+                }
+                
+                console.log(`❌ No match for mission ${mission.id}`);
+                return false;
+              });
+              console.log('🚚 Filtered delivery missions for driver:', driverDeliveryMissions);
+              console.log('🚚 Number of filtered delivery missions:', driverDeliveryMissions.length);
+            } else {
+              console.log('❌ Delivery response not successful or no data');
+            }
+          } catch (error) {
+            console.log('❌ Error fetching delivery missions:', error);
+          }
+        } else {
+          console.log('⚠️ No livreur profile available, skipping delivery missions fetch');
+        }
+        
+        console.log('🚚 About to set delivery missions state with:', driverDeliveryMissions);
+        setDeliveryMissions(driverDeliveryMissions);
+        
+        // Try multiple ways to find pickup missions for this driver
         
         // Method 1: Try by email
         try {
@@ -286,25 +356,89 @@ const LivreurDashboard = () => {
   }, [currentUser?.email, livreurProfile?.name]);
 
   // Calculate statistics
-  const totalMissions = missions.length;
-  const pendingMissions = missions.filter(m => m.status === "En attente" || m.status === "scheduled").length;
-  const acceptedMissions = missions.filter(m => m.status === "À enlever" || m.status === "scheduled").length;
-  const inProgressMissions = missions.filter(m => m.status === "Enlevé" || m.status === "in_progress").length;
-  const completedMissions = missions.filter(m => m.status === "Au dépôt" || m.status === "Mission terminée" || m.status === "completed").length;
-  const totalParcels = missions.reduce((sum, mission) => sum + (mission.parcels?.length || 0), 0);
+  const totalPickupMissions = missions.length;
+  const totalDeliveryMissions = deliveryMissions.length;
+  const totalMissions = totalPickupMissions + totalDeliveryMissions;
+  
+  const pendingPickupMissions = missions.filter(m => m.status === "En attente" || m.status === "scheduled").length;
+  const pendingDeliveryMissions = deliveryMissions.filter(m => m.status === "scheduled").length;
+  const pendingMissions = pendingPickupMissions + pendingDeliveryMissions;
+  
+  const acceptedPickupMissions = missions.filter(m => m.status === "À enlever" || m.status === "scheduled").length;
+  const acceptedDeliveryMissions = deliveryMissions.filter(m => m.status === "scheduled").length;
+  const acceptedMissions = acceptedPickupMissions + acceptedDeliveryMissions;
+  
+  const inProgressPickupMissions = missions.filter(m => m.status === "Enlevé" || m.status === "in_progress").length;
+  const inProgressDeliveryMissions = deliveryMissions.filter(m => m.status === "in_progress").length;
+  const inProgressMissions = inProgressPickupMissions + inProgressDeliveryMissions;
+  
+  const completedPickupMissions = missions.filter(m => m.status === "Au dépôt" || m.status === "Mission terminée" || m.status === "completed").length;
+  const completedDeliveryMissions = deliveryMissions.filter(m => m.status === "completed").length;
+  const completedMissions = completedPickupMissions + completedDeliveryMissions;
+  
+  const totalPickupParcels = missions.reduce((sum, mission) => sum + (mission.parcels?.length || 0), 0);
+  const totalDeliveryParcels = deliveryMissions.reduce((sum, mission) => sum + (mission.assigned_parcels || 0), 0);
+  const totalParcels = totalPickupParcels + totalDeliveryParcels;
 
   // Filter missions based on status and search
-  const filteredMissions = missions.filter(mission => {
+  const filteredPickupMissions = missions.filter(mission => {
     // Convert database status to French for filtering
     const displayStatus = reverseStatusMapping[mission.status] || mission.status;
     
-    const statusMatch = filterStatus === "all" || displayStatus === filterStatus;
+    // Use selectedStatusFilter if set, otherwise use filterStatus
+    const effectiveFilter = selectedStatusFilter || filterStatus;
+    const statusMatch = effectiveFilter === "all" || displayStatus === effectiveFilter;
     const searchMatch = !searchTerm || 
       mission.mission_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       mission.shipper?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       mission.shipper?.address?.toLowerCase().includes(searchTerm.toLowerCase());
     return statusMatch && searchMatch;
   });
+
+  const filteredDeliveryMissions = deliveryMissions.filter(mission => {
+    console.log(`🔍 Filtering delivery mission ${mission.id}: status=${mission.status}, filterStatus=${filterStatus}`);
+    // Use selectedStatusFilter if set, otherwise use filterStatus
+    const effectiveFilter = selectedStatusFilter || filterStatus;
+    const statusMatch = effectiveFilter === "all" || mission.status === effectiveFilter;
+    const searchMatch = !searchTerm || 
+      mission.mission_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      mission.warehouse_name?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    console.log(`🔍 Mission ${mission.id}: statusMatch=${statusMatch}, searchMatch=${searchMatch}`);
+    return statusMatch && searchMatch;
+  });
+  
+  // Combine both types of missions for display
+  const allFilteredMissions = [...filteredPickupMissions, ...filteredDeliveryMissions];
+  
+  console.log(`📦 Delivery missions before filtering: ${deliveryMissions.length}`);
+  console.log(`📦 Filtered delivery missions: ${filteredDeliveryMissions.length}`);
+  console.log(`📦 Pickup missions before filtering: ${missions.length}`);
+  console.log(`📦 Filtered pickup missions: ${filteredPickupMissions.length}`);
+  console.log(`📦 All filtered missions: ${allFilteredMissions.length}`);
+
+  // Handler for delivery mission actions
+  const handleDeliveryAction = async (missionId, action) => {
+    try {
+      console.log(`🚚 handleDeliveryAction called with missionId: ${missionId}, action: ${action}`);
+      
+      if (action === "start") {
+        // Start delivery mission
+        const response = await deliveryMissionsService.updateDeliveryMission(missionId, { status: 'in_progress' });
+        console.log('✅ Delivery mission started:', response);
+        
+        // Update local state
+        setDeliveryMissions(prev => 
+          prev.map(m => m.id === missionId ? { ...m, status: 'in_progress' } : m)
+        );
+        
+        alert('Mission de livraison commencée!');
+      }
+    } catch (error) {
+      console.error('❌ Error handling delivery action:', error);
+      alert('Erreur lors de la mise à jour de la mission');
+    }
+  };
 
   // Handler to accept/refuse a pickup mission
   const handlePickupAction = async (missionId, action) => {
@@ -522,55 +656,21 @@ const LivreurDashboard = () => {
     setShowScanModal(true);
   };
 
-  // Handler to scan barcode
-  const handleScan = async (barcode) => {
-    try {
-      console.log('📱 Scanning barcode:', barcode);
-      setScanMessage("Scanning...");
-      
-      // Find the parcel with this barcode
-      const parcel = scanningMission?.parcels?.find(p => 
-        p.tracking_number === barcode || p.id.toString() === barcode
-      );
-      
-      if (!parcel) {
-        setScanMessage("❌ Colis non trouvé dans cette mission");
-        return;
-      }
-      
-      if (scannedParcels.includes(parcel.id)) {
-        setScanMessage("⚠️ Ce colis a déjà été scanné");
-        return;
-      }
-      
-      // Add to scanned parcels
-      setScannedParcels(prev => [...prev, parcel.id]);
-      setScanMessage(`✅ ${parcel.recipient_name || parcel.destination || 'Colis'} scanné avec succès`);
-      
-      // Clear input after short delay
-      setTimeout(() => {
-        setScanInput("");
-        setScanMessage("");
-      }, 2000);
-      
-    } catch (error) {
-      console.error('❌ Error scanning parcel:', error);
-      setScanMessage("❌ Erreur lors du scan");
-    }
+  // Handler to click on statistics cards
+  const handleStatsCardClick = (status) => {
+    console.log('📊 Stats card clicked:', status);
+    setSelectedStatusFilter(status);
+    setActiveTab('missions');
+    setSearchTerm("");
   };
 
-  // Handler to submit scan input
-  const handleScanSubmit = (e) => {
-    e.preventDefault();
-    if (scanInput.trim()) {
-      handleScan(scanInput.trim());
-    }
-  };
+
 
   // Handler to complete scanning and update mission status
-  const handleCompleteScanning = async () => {
+  const handleCompleteScanning = async (finalScannedParcels = []) => {
     try {
       console.log('📱 Completing scanning for mission:', scanningMission.id);
+      console.log('📦 Final scanned parcels:', finalScannedParcels);
       
       // Update mission status to "Enlevé" (En cours de ramassage in database)
       const dbStatus = statusMapping["Enlevé"];
@@ -697,7 +797,10 @@ const LivreurDashboard = () => {
         <div className="border-b border-gray-200">
           <nav className="-mb-px flex space-x-8 px-6">
             <button
-              onClick={() => setActiveTab('dashboard')}
+              onClick={() => {
+                setActiveTab('dashboard');
+                setSelectedStatusFilter(null);
+              }}
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'dashboard'
                   ? 'border-blue-500 text-blue-600'
@@ -717,7 +820,10 @@ const LivreurDashboard = () => {
               Mes Missions ({totalMissions})
             </button>
             <button
-              onClick={() => setActiveTab('profile')}
+              onClick={() => {
+                setActiveTab('profile');
+                setSelectedStatusFilter(null);
+              }}
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'profile'
                   ? 'border-blue-500 text-blue-600'
@@ -733,77 +839,119 @@ const LivreurDashboard = () => {
           {activeTab === 'dashboard' && (
             <div className="space-y-6">
       {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-4 rounded-xl shadow-lg text-white">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        {/* Total Missions */}
+        <div 
+          onClick={() => handleStatsCardClick('all')}
+          className="bg-gradient-to-r from-blue-500 to-blue-600 p-4 rounded-xl shadow-lg text-white cursor-pointer transform transition-all duration-200 hover:scale-105 hover:shadow-xl active:scale-95"
+        >
           <div className="flex items-center justify-between">
             <div>
                       <p className="text-xs font-medium opacity-90">Total Missions</p>
                       <p className="text-2xl font-bold">{totalMissions}</p>
             </div>
-                    <div className="p-2 bg-white bg-opacity-20 rounded-full">
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-              </svg>
+            <div className="p-3 bg-white bg-opacity-25 rounded-full flex items-center justify-center">
+              <span className="text-2xl font-bold text-white">📋</span>
             </div>
+          </div>
+          <div className="mt-2 text-xs opacity-75 flex items-center justify-between">
+            <span>Cliquez pour voir toutes</span>
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
           </div>
         </div>
 
-                <div className="bg-gradient-to-r from-yellow-500 to-yellow-600 p-4 rounded-xl shadow-lg text-white">
+        {/* En Attente */}
+        <div 
+          onClick={() => handleStatsCardClick('En attente')}
+          className="bg-gradient-to-r from-yellow-500 to-yellow-600 p-4 rounded-xl shadow-lg text-white cursor-pointer transform transition-all duration-200 hover:scale-105 hover:shadow-xl active:scale-95"
+        >
           <div className="flex items-center justify-between">
             <div>
                       <p className="text-xs font-medium opacity-90">En Attente</p>
                       <p className="text-2xl font-bold">{pendingMissions}</p>
             </div>
-                    <div className="p-2 bg-white bg-opacity-20 rounded-full">
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
+            <div className="p-3 bg-white bg-opacity-25 rounded-full flex items-center justify-center">
+              <span className="text-2xl font-bold text-white">⏰</span>
             </div>
+          </div>
+          <div className="mt-2 text-xs opacity-75 flex items-center justify-between">
+            <span>Cliquez pour voir</span>
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
           </div>
         </div>
 
-                <div className="bg-gradient-to-r from-green-500 to-green-600 p-4 rounded-xl shadow-lg text-white">
+        {/* À enlever */}
+        <div 
+          onClick={() => handleStatsCardClick('À enlever')}
+          className="bg-gradient-to-r from-green-500 to-green-600 p-4 rounded-xl shadow-lg text-white cursor-pointer transform transition-all duration-200 hover:scale-105 hover:shadow-xl active:scale-95"
+        >
           <div className="flex items-center justify-between">
             <div>
                       <p className="text-xs font-medium opacity-90">À enlever</p>
                       <p className="text-2xl font-bold">{acceptedMissions}</p>
             </div>
-                    <div className="p-2 bg-white bg-opacity-20 rounded-full">
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
+            <div className="p-3 bg-white bg-opacity-25 rounded-full flex items-center justify-center">
+              <span className="text-2xl font-bold text-white">✅</span>
             </div>
+          </div>
+          <div className="mt-2 text-xs opacity-75 flex items-center justify-between">
+            <span>Cliquez pour voir</span>
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
           </div>
         </div>
 
-                <div className="bg-gradient-to-r from-purple-500 to-purple-600 p-4 rounded-xl shadow-lg text-white">
+        {/* Enlevé */}
+        <div 
+          onClick={() => handleStatsCardClick('Enlevé')}
+          className="bg-gradient-to-r from-purple-500 to-purple-600 p-4 rounded-xl shadow-lg text-white cursor-pointer transform transition-all duration-200 hover:scale-105 hover:shadow-xl active:scale-95"
+        >
           <div className="flex items-center justify-between">
             <div>
                       <p className="text-xs font-medium opacity-90">Enlevé</p>
                       <p className="text-2xl font-bold">{inProgressMissions}</p>
             </div>
-                    <div className="p-2 bg-white bg-opacity-20 rounded-full">
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
+            <div className="p-3 bg-white bg-opacity-25 rounded-full flex items-center justify-center">
+              <span className="text-2xl font-bold text-white">⚡</span>
             </div>
+          </div>
+          <div className="mt-2 text-xs opacity-75 flex items-center justify-between">
+            <span>Cliquez pour voir</span>
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
           </div>
         </div>
 
-                <div className="bg-gradient-to-r from-emerald-500 to-emerald-600 p-4 rounded-xl shadow-lg text-white">
+        {/* Terminées */}
+        <div 
+          onClick={() => handleStatsCardClick('Au dépôt')}
+          className="bg-gradient-to-r from-emerald-500 to-emerald-600 p-4 rounded-xl shadow-lg text-white cursor-pointer transform transition-all duration-200 hover:scale-105 hover:shadow-xl active:scale-95"
+        >
           <div className="flex items-center justify-between">
             <div>
                       <p className="text-xs font-medium opacity-90">Terminées</p>
                       <p className="text-2xl font-bold">{completedMissions}</p>
             </div>
-                    <div className="p-2 bg-white bg-opacity-20 rounded-full">
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
+            <div className="p-3 bg-white bg-opacity-25 rounded-full flex items-center justify-center">
+              <span className="text-2xl font-bold text-white">🎯</span>
             </div>
+          </div>
+          <div className="mt-2 text-xs opacity-75 flex items-center justify-between">
+            <span>Cliquez pour voir</span>
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
           </div>
         </div>
       </div>
+
+
 
               {/* Recent Missions */}
               <div className="bg-gray-50 rounded-lg p-4">
@@ -840,6 +988,31 @@ const LivreurDashboard = () => {
 
           {activeTab === 'missions' && (
             <div className="space-y-4">
+              {/* Active Filter Display */}
+              {selectedStatusFilter && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.207A1 1 0 013 6.5V4z" />
+                      </svg>
+                      <span className="text-blue-800 font-medium">
+                        Filtre actif: {selectedStatusFilter === 'all' ? 'Toutes les missions' : selectedStatusFilter}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setSelectedStatusFilter(null);
+                        setFilterStatus('all');
+                      }}
+                      className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                    >
+                      Effacer le filtre
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Search and Filter */}
               <div className="flex items-center space-x-4">
                 <div className="flex-1">
@@ -852,8 +1025,11 @@ const LivreurDashboard = () => {
                   />
                 </div>
             <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
+              value={selectedStatusFilter || filterStatus}
+              onChange={(e) => {
+                setSelectedStatusFilter(null);
+                setFilterStatus(e.target.value);
+              }}
                   className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
             >
               <option value="all">Tous les statuts</option>
@@ -887,27 +1063,51 @@ const LivreurDashboard = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mission</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date prévue</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Expéditeur</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client/Entrepôt</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Adresse</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Colis</th>
                   <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredMissions.map((mission) => (
+                {allFilteredMissions.map((mission) => {
+                  // Determine if this is a pickup or delivery mission
+                  const isPickupMission = missions.some(pm => pm.id === mission.id);
+                  const isDeliveryMission = deliveryMissions.some(dm => dm.id === mission.id);
+                  
+                  return (
                   <tr key={mission.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{mission.mission_number || mission.id}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        <div className="flex items-center space-x-2">
+                          <span>{mission.mission_number || mission.id}</span>
+                          {isPickupMission && (
+                            <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">Pickup</span>
+                          )}
+                          {isDeliveryMission && (
+                            <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">Livraison</span>
+                          )}
+                        </div>
+                      </td>
                     <td className="px-6 py-4 whitespace-nowrap">{statusBadge(mission.status)}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{mission.scheduled_time}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{mission.shipper?.name || 'N/A'}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 max-w-xs truncate">{mission.shipper?.address || 'N/A'}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{mission.parcels?.length || 0} colis</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {isPickupMission ? mission.scheduled_time : mission.delivery_date}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {isPickupMission ? (mission.shipper?.name || 'N/A') : (mission.warehouse_name || 'N/A')}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 max-w-xs truncate">
+                        {isPickupMission ? (mission.shipper?.address || 'N/A') : 'Livraison depuis entrepôt'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {isPickupMission ? (mission.parcels?.length || 0) : (mission.assigned_parcels || 0)} colis
+                      </td>
                     <td className="px-6 py-4 whitespace-nowrap text-center">
                             <div className="flex items-center justify-center space-x-2">
-                              {(mission.status === "En attente" || mission.status === "scheduled") && (
+                          {/* Show pickup actions only for pickup missions */}
+                          {isPickupMission && (mission.status === "En attente" || mission.status === "scheduled") && (
                                 <>
                                   <button
                                     onClick={() => handlePickupAction(mission.id, "accept")}
@@ -925,6 +1125,29 @@ const LivreurDashboard = () => {
                                   </button>
                                 </>
                               )}
+                          
+                          {/* Show scanning action for accepted pickup missions */}
+                          {isPickupMission && (mission.status === "À enlever" || mission.status === "Accepté par livreur") && (
+                            <button
+                              onClick={() => handleStartScanning(mission)}
+                              className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs font-semibold"
+                              title="Scanner les colis"
+                            >
+                              📱
+                            </button>
+                              )}
+                          
+                          {/* Show delivery actions for delivery missions */}
+                          {isDeliveryMission && mission.status === "scheduled" && (
+                            <button
+                              onClick={() => handleDeliveryAction(mission.id, "start")}
+                              className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs font-semibold"
+                              title="Commencer la livraison"
+                            >
+                              🚚
+                            </button>
+                          )}
+                          
                       <button
                         onClick={() => setSelectedMission(mission)}
                         className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-50 transition-colors"
@@ -938,7 +1161,8 @@ const LivreurDashboard = () => {
                             </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -1099,7 +1323,7 @@ const LivreurDashboard = () => {
                     onClick={() => handleStartScanning(selectedMission)}
                     className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm font-semibold"
                   >
-                    Démarrer le ramassage
+                    📱 Scanner les colis
                   </button>
                 )}
                 {/* End Pickup */}
@@ -1296,133 +1520,21 @@ const LivreurDashboard = () => {
           setScanInput("");
           setScanMessage("");
         }}
-        title={scanningMission ? `Scanning Mission #${scanningMission.mission_number || scanningMission.id}` : ""}
-        size="lg"
+        title=""
+        size="xl"
       >
         {scanningMission && (
-          <div className="space-y-6">
-            {/* Mission Info */}
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="font-semibold">Expéditeur:</span> {scanningMission.shipper?.name || 'N/A'}
-                </div>
-                <div>
-                  <span className="font-semibold">Statut:</span> {statusBadge(scanningMission.status)}
-                </div>
-                <div>
-                  <span className="font-semibold">Colis:</span> {scanningMission.parcels?.length || 0}
-                </div>
-                <div>
-                  <span className="font-semibold">Adresse:</span> {scanningMission.shipper?.address || 'N/A'}
-                </div>
-              </div>
-            </div>
-
-            {/* Scanning Interface */}
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Scanner le code-barres du colis
-                </label>
-                <form onSubmit={handleScanSubmit} className="flex space-x-2">
-                  <input
-                    type="text"
-                    value={scanInput}
-                    onChange={(e) => setScanInput(e.target.value)}
-                    placeholder="Entrez ou scannez le code-barres..."
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-                    autoFocus
-                  />
-                  <button
-                    type="submit"
-                    className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md font-semibold"
-                  >
-                    Scanner
-                  </button>
-                </form>
-                {scanMessage && (
-                  <div className={`mt-2 p-2 rounded text-sm ${
-                    scanMessage.includes('✅') ? 'bg-green-100 text-green-800' :
-                    scanMessage.includes('⚠️') ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-red-100 text-red-800'
-                  }`}>
-                    {scanMessage}
-                  </div>
-                )}
-              </div>
-
-              {/* Scanned Parcels Progress */}
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="font-semibold text-blue-800">Progression du scan</span>
-                  <span className="text-sm text-blue-600">
-                    {scannedParcels.length} / {scanningMission.parcels?.length || 0}
-                  </span>
-                </div>
-                <div className="w-full bg-blue-200 rounded-full h-2">
-                  <div 
-                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                    style={{ 
-                      width: `${scanningMission.parcels?.length ? (scannedParcels.length / scanningMission.parcels.length) * 100 : 0}%` 
-                    }}
-                  ></div>
-                </div>
-              </div>
-
-              {/* Parcels List */}
-              <div>
-                <h4 className="font-semibold text-gray-700 mb-3">Colis de la mission</h4>
-                <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {scanningMission.parcels?.map((parcel) => (
-                    <div 
-                      key={parcel.id} 
-                      className={`p-3 rounded-lg border ${
-                        scannedParcels.includes(parcel.id) 
-                          ? 'bg-green-50 border-green-200' 
-                          : 'bg-gray-50 border-gray-200'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2">
-                            <span className="font-semibold text-sm">
-                              {parcel.recipient_name || parcel.destination || 'Colis sans nom'}
-                            </span>
-                            {scannedParcels.includes(parcel.id) && (
-                              <span className="text-green-600">✅</span>
-                            )}
-                          </div>
-                          <div className="text-xs text-gray-600 mt-1">
-                            {parcel.destination || 'Destination non spécifiée'}
-                          </div>
-                          {!scannedParcels.includes(parcel.id) && (
-                            <div className="text-xs text-blue-600 mt-1 font-medium">
-                              ⚠️ Scanner ce colis
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )) || (
-                    <div className="text-gray-500 text-sm">Aucun colis associé à cette mission</div>
-                  )}
-                </div>
-              </div>
-
-              {/* Complete Button */}
-              {scannedParcels.length === (scanningMission.parcels?.length || 0) && (
-                <div className="pt-4 border-t border-gray-200">
-                  <button
-                    onClick={handleCompleteScanning}
-                    className="w-full bg-green-500 hover:bg-green-600 text-white py-3 px-4 rounded-lg font-semibold text-lg"
-                  >
-                    ✅ Terminer le scanning - Mission Enlevé
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
+          <LivreurBarcodeScan
+            mission={scanningMission}
+            onScan={(parcelId, barcode) => {
+              console.log('📱 Parcel scanned:', parcelId, barcode);
+              setScannedParcels(prev => [...prev, parcelId]);
+            }}
+            onClose={(finalScannedParcels) => {
+              console.log('📱 Scanning completed with parcels:', finalScannedParcels);
+              handleCompleteScanning(finalScannedParcels);
+            }}
+          />
         )}
       </Modal>
     </div>

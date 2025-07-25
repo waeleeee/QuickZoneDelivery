@@ -496,12 +496,6 @@ const PaimentExpediteur = () => {
         {(currentUser?.role === 'Administration' || currentUser?.role === 'Finance') && (
           <div className="flex gap-2">
             <button
-              onClick={handleAdd}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
-            >
-              Ajouter un paiement
-            </button>
-            <button
               onClick={() => setIsColisSelectionOpen(true)}
               className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium"
             >
