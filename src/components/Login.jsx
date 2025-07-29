@@ -151,29 +151,6 @@ const Login = () => {
               </div>
             </div>
           </div>
-
-          {/* Test Credentials for Development */}
-          <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-            <div className="flex items-start">
-              <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <h4 className="text-sm font-medium text-blue-800">Comptes de Test</h4>
-                <div className="text-xs text-blue-700 mt-1 space-y-1">
-                  <div><strong>Admin:</strong> admin@quickzone.tn / admin123</div>
-                  <div><strong>Commercial:</strong> pierre@quickzone.tn / pierre123</div>
-                  <div><strong>Finance:</strong> claude@quickzone.tn / claude123</div>
-                  <div><strong>Chef d'agence:</strong> francois@quickzone.tn / francois123</div>
-                  <div><strong>Membre agence:</strong> thomas@quickzone.tn / thomas123</div>
-                  <div><strong>Livreur:</strong> marc@quickzone.tn / marc123</div>
-                  <div><strong>Expéditeur:</strong> expediteur1@quickzone.tn / expediteur123</div>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Footer */}

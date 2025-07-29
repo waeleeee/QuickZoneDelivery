@@ -441,21 +441,57 @@ export const apiService = {
     }
   },
 
+  // Get expediteur chart data
+  getExpediteurChartData: async (email) => {
+    try {
+      const response = await api.get(`/parcels/expediteur/${encodeURIComponent(email)}/chart-data`);
+      console.log('Expediteur chart data API response:', response.data);
+      
+      // Handle the response format: {success: true, data: {...}}
+      if (response.data.success && response.data.data) {
+        console.log('✅ Chart data extracted successfully:', response.data.data);
+        return response.data.data;
+      } else if (response.data && typeof response.data === 'object') {
+        // Direct data format (fallback)
+        console.log('⚠️ Using direct data format:', response.data);
+        return response.data;
+      } else {
+        console.warn('Unexpected expediteur chart data response format:', response.data);
+        return {
+          deliveryHistory: [],
+          geographicalData: []
+        };
+      }
+    } catch (error) {
+      console.error('Get expediteur chart data error:', error);
+      return {
+        deliveryHistory: [],
+        geographicalData: []
+      };
+    }
+  },
+
   // Get expediteur dashboard statistics
   getExpediteurStats: async (email) => {
     try {
       const response = await api.get(`/parcels/expediteur/${encodeURIComponent(email)}/stats`);
       console.log('Expediteur stats API response:', response.data);
       
+      // Handle both response formats: {success: true, data: {...}} and direct data
       if (response.data.success && response.data.data) {
         return response.data.data;
+      } else if (response.data && typeof response.data === 'object') {
+        // Direct data format (backend is returning data directly)
+        return response.data;
       } else {
         console.warn('Unexpected expediteur stats response format:', response.data);
         return {
           totalParcels: 0,
           totalRevenue: 0,
+          balance: 0,
           currentMonth: 0,
           deliveredThisMonth: 0,
+          paidDelivered: 0,
           complaintsCount: 0,
           monthlyChanges: { parcels: 0, delivered: 0 },
           statusStats: {}
@@ -466,9 +502,10 @@ export const apiService = {
       return {
         totalParcels: 0,
         totalRevenue: 0,
-        totalRevenue: 0,
+        balance: 0,
         currentMonth: 0,
         deliveredThisMonth: 0,
+        paidDelivered: 0,
         complaintsCount: 0,
         monthlyChanges: { parcels: 0, delivered: 0 },
         statusStats: {}
@@ -536,9 +573,20 @@ export const apiService = {
   updateParcel: async (id, updates) => {
     try {
       console.log('Updating parcel:', { id, updates });
-      const response = await api.put(`/parcels/${id}`, updates);
-      console.log('Update response:', response.data);
-      return response.data;
+      
+      // If we're only updating status, use the status-only endpoint
+      if (updates.status && Object.keys(updates).length === 1) {
+        console.log('Using status-only endpoint');
+        const response = await api.put(`/parcels/${id}/status`, { status: updates.status });
+        console.log('Status update response:', response.data);
+        return response.data;
+      } else {
+        // Use the full update endpoint for other updates
+        console.log('Using full update endpoint');
+        const response = await api.put(`/parcels/${id}`, updates);
+        console.log('Update response:', response.data);
+        return response.data;
+      }
     } catch (error) {
       console.error('Update parcel error:', error);
       console.error('Error response:', error.response?.data);
@@ -759,10 +807,25 @@ export const apiService = {
       console.log('Creating payment with data:', paymentData);
       const response = await api.post('/payments', paymentData);
       console.log('Create payment response:', response.data);
-      return response.data;
+      console.log('Create payment response status:', response.status);
+      console.log('Create payment response headers:', response.headers);
+      
+      // Check if response.data has success property (wrapped response)
+      if (response.data && typeof response.data === 'object' && 'success' in response.data) {
+        return response.data;
+      } else {
+        // Direct response - wrap it in success format
+        return {
+          success: true,
+          message: 'Payment created successfully',
+          data: response.data
+        };
+      }
     } catch (error) {
       console.error('Create payment error:', error);
       console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      console.error('Error message:', error.message);
       
       if (error.response?.data?.message) {
         throw new Error(error.response.data.message);
@@ -1079,7 +1142,7 @@ export const apiService = {
       });
       
       const response = await api.get(`/complaints/commercial/${commercialId}?${params}`);
-      return response.data || { complaints: [], pagination: {} };
+      return response || { complaints: [], pagination: {} };
     } catch (error) {
       console.error('Get commercial complaints error:', error);
       return { complaints: [], pagination: {} };
@@ -1453,10 +1516,10 @@ export const apiService = {
       const response = await api.get(`/complaints?${params}`, { headers });
       console.log('📡 Raw complaints response:', response);
       
-      // The response interceptor returns response.data, so we need to check the structure
-      if (response && response.success && response.data) {
-        console.log('✅ Complaints data found:', response.data);
-        return response.data;
+      // The response interceptor returns response.data, so the structure is already flattened
+      if (response && response.complaints) {
+        console.log('✅ Complaints data found:', response);
+        return response;
       } else {
         console.warn('⚠️ Unexpected complaints response format:', response);
         return { complaints: [], pagination: { page: 1, limit: 10, total: 0, pages: 0 } };
@@ -1477,8 +1540,8 @@ export const apiService = {
       const response = await api.get(`/complaints/expediteur/${encodeURIComponent(email)}?${params}`);
       console.log('Expediteur complaints response:', response);
       
-      if (response.data && response.data.success && response.data.data) {
-        return response.data.data;
+      if (response && response.complaints) {
+        return response;
       } else {
         console.warn('Unexpected expediteur complaints response format:', response);
         return { complaints: [], pagination: { page: 1, limit: 10, total: 0, pages: 0 } };
@@ -1494,8 +1557,8 @@ export const apiService = {
       const response = await api.get(`/complaints/${id}`);
       console.log('Single complaint response:', response);
       
-      if (response.data && response.data.success && response.data.data) {
-        return response.data.data;
+      if (response && response.id) {
+        return response;
       } else {
         console.warn('Unexpected single complaint response format:', response);
         return null;

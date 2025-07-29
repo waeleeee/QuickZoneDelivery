@@ -149,7 +149,24 @@ router.get('/expediteur/:email', async (req, res) => {
 // Create new payment
 router.post('/', async (req, res) => {
   try {
-    const { shipper_id, amount, payment_method, reference, status, payment_date } = req.body;
+    const { 
+      shipper_id, 
+      amount, 
+      payment_method, 
+      reference, 
+      status, 
+      payment_date,
+      // New payment type specific fields
+      card_date,
+      card_number,
+      check_date,
+      check_number,
+      transfer_date,
+      transfer_reference,
+      cash_date,
+      // Parcel IDs to update status
+      parcel_ids
+    } = req.body;
     
     console.log('Creating payment with data:', req.body);
     console.log('shipper_id type:', typeof shipper_id, 'value:', shipper_id);
@@ -160,6 +177,35 @@ router.post('/', async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'shipper_id, amount, and payment_method are required'
+      });
+    }
+    
+    // Validate payment type specific fields
+    if (payment_method === 'credit_card' && (!card_date || !card_number)) {
+      return res.status(400).json({
+        success: false,
+        message: 'card_date and card_number are required for credit card payments'
+      });
+    }
+    
+    if (payment_method === 'check' && (!check_date || !check_number)) {
+      return res.status(400).json({
+        success: false,
+        message: 'check_date and check_number are required for check payments'
+      });
+    }
+    
+    if (payment_method === 'bank_transfer' && (!transfer_date || !transfer_reference)) {
+      return res.status(400).json({
+        success: false,
+        message: 'transfer_date and transfer_reference are required for bank transfer payments'
+      });
+    }
+    
+    if (payment_method === 'cash' && !cash_date) {
+      return res.status(400).json({
+        success: false,
+        message: 'cash_date is required for cash payments'
       });
     }
     
@@ -190,14 +236,21 @@ router.post('/', async (req, res) => {
       });
     }
     
-    // Insert the payment
+    // Insert the payment with new fields
     console.log('Inserting payment with values:', {
       shipper_id,
       amount,
       date: payment_date || new Date().toISOString().split('T')[0],
       payment_method,
       reference: reference || null,
-      status: status || 'En attente'
+      status: status || 'En attente',
+      card_date,
+      card_number,
+      check_date,
+      check_number,
+      transfer_date,
+      transfer_reference,
+      cash_date
     });
     
     const result = await db.query(`
@@ -207,8 +260,15 @@ router.post('/', async (req, res) => {
         date,
         payment_method, 
         reference, 
-        status
-      ) VALUES ($1, $2, $3, $4, $5, $6)
+        status,
+        card_date,
+        card_number,
+        check_date,
+        check_number,
+        transfer_date,
+        transfer_reference,
+        cash_date
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
       RETURNING *
     `, [
       shipper_id,
@@ -216,10 +276,53 @@ router.post('/', async (req, res) => {
       payment_date || new Date().toISOString().split('T')[0],
       payment_method,
       reference || null,
-      status || 'En attente'
+      status || 'En attente',
+      card_date || null,
+      card_number || null,
+      check_date || null,
+      check_number || null,
+      transfer_date || null,
+      transfer_reference || null,
+      cash_date || null
     ]);
     
     console.log('Payment inserted successfully:', result.rows[0]);
+    
+    // Update parcel statuses if parcel_ids are provided
+    if (parcel_ids && Array.isArray(parcel_ids) && parcel_ids.length > 0) {
+      try {
+        console.log('📦 Updating parcel statuses for payment:', parcel_ids);
+        
+        // First, check what statuses the parcels currently have
+        const parcelStatusCheck = await db.query(`
+          SELECT id, status FROM parcels WHERE id = ANY($1)
+        `, [parcel_ids]);
+        
+        console.log('📦 Current parcel statuses:', parcelStatusCheck.rows);
+        
+        // Update parcels from "Livré" or "Retour" to "Livré payé"
+        const parcelUpdateResult = await db.query(`
+          UPDATE parcels 
+          SET status = 'Livré payé', updated_at = CURRENT_TIMESTAMP
+          WHERE id = ANY($1) AND status IN ('Livré', 'Retour', 'delivered', 'returned', 'livré', 'retour')
+          RETURNING id, status
+        `, [parcel_ids]);
+        
+        console.log(`✅ Updated ${parcelUpdateResult.rows.length} parcels to 'Livré payé'`);
+        console.log('Updated parcels:', parcelUpdateResult.rows);
+        
+        if (parcelUpdateResult.rows.length === 0) {
+          console.log('⚠️ No parcels were updated. This might be because:');
+          console.log('   - Parcels don\'t have the expected status');
+          console.log('   - Parcel IDs don\'t exist');
+          console.log('   - Status values are different than expected');
+        }
+      } catch (parcelError) {
+        console.error('⚠️ Error updating parcel statuses:', parcelError);
+        console.error('⚠️ Parcel error details:', parcelError.message);
+        // Don't fail the payment creation if parcel update fails
+      }
+    }
     
     // Get the created payment with shipper name
     const paymentWithShipper = await db.query(`
@@ -229,11 +332,15 @@ router.post('/', async (req, res) => {
       WHERE p.id = $1
     `, [result.rows[0].id]);
     
-    res.status(201).json({
+    const responseData = {
       success: true,
       message: 'Payment created successfully',
       data: paymentWithShipper.rows[0]
-    });
+    };
+    
+    console.log('📤 Sending response to frontend:', responseData);
+    
+    res.status(201).json(responseData);
   } catch (error) {
     console.error('Create payment error:', error);
     console.error('Error details:', error.message);

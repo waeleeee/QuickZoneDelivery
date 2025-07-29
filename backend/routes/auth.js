@@ -33,8 +33,8 @@ router.post('/login', async (req, res) => {
 
     const { email, password } = value;
 
-    // Find user by email or username
-    const userResult = await db.query(`
+    // First, try to find user in users table (admin, commercial, etc.)
+    let userResult = await db.query(`
       SELECT 
         u.id, u.username, u.email, u.password_hash, u.first_name, u.last_name,
         u.phone, u.is_active, u.last_login,
@@ -45,20 +45,62 @@ router.post('/login', async (req, res) => {
       WHERE (u.email = $1 OR u.username = $1) AND u.is_active = true AND ur.is_active = true
     `, [email]);
 
-    if (userResult.rows.length === 0) {
+    let user = null;
+    let isValidPassword = false;
+
+    // If user found in users table, verify password
+    if (userResult.rows.length > 0) {
+      user = userResult.rows[0];
+      isValidPassword = await bcrypt.compare(password, user.password_hash);
+    }
+
+    // If not found in users table, try to find in shippers table (expéditeurs)
+    if (!user || !isValidPassword) {
+      const shipperResult = await db.query(`
+        SELECT 
+          id, code as username, email, password, name, phone, status,
+          created_at as last_login
+        FROM shippers 
+        WHERE email = $1 AND status = 'Actif'
+      `, [email]);
+
+      if (shipperResult.rows.length > 0) {
+        const shipper = shipperResult.rows[0];
+        
+        // For shippers, we'll use a simple password comparison (assuming passwords are stored as plain text for now)
+        // In production, you should hash shipper passwords too
+        if (shipper.password === password) {
+          user = {
+            id: shipper.id,
+            username: shipper.username,
+            email: shipper.email,
+            first_name: shipper.name.split(' ')[0] || shipper.name,
+            last_name: shipper.name.split(' ').slice(1).join(' ') || '',
+            name: shipper.name,
+            phone: shipper.phone,
+            is_active: true,
+            last_login: shipper.last_login,
+            role: 'Expéditeur',
+            permissions: {
+              dashboard: true,
+              colis: true,
+              paiment_expediteur: true,
+              reclamation: true
+            }
+          };
+          isValidPassword = true;
+        }
+      }
+    }
+
+    if (!user || !isValidPassword) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    const user = userResult.rows[0];
-
-    // Verify password
-    const isValidPassword = await bcrypt.compare(password, user.password_hash);
-    if (!isValidPassword) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+    // Update last login (only for users table, not shippers)
+    if (user.role !== 'Expéditeur') {
+      await db.query('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1', [user.id]);
     }
-
-    // Update last login
-    await db.query('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1', [user.id]);
 
     // Generate JWT token
     const token = jwt.sign(
@@ -74,7 +116,7 @@ router.post('/login', async (req, res) => {
       email: user.email,
       firstName: user.first_name,
       lastName: user.last_name,
-      name: `${user.first_name} ${user.last_name}`,
+      name: user.name || `${user.first_name} ${user.last_name}`,
       phone: user.phone,
       role: user.role,
       permissions: typeof user.permissions === 'string' 

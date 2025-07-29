@@ -257,7 +257,7 @@ CREATE TABLE shippers (
     total_parcels INTEGER DEFAULT 0,          -- Total parcels sent
     delivered_parcels INTEGER DEFAULT 0,      -- Successfully delivered
     returned_parcels INTEGER DEFAULT 0,       -- Returned parcels
-    delivery_fees DECIMAL(10,2) DEFAULT 0,    -- Total delivery fees
+    delivery_fees DECIMAL(10,2) DEFAULT 8,    -- Total delivery fees
     return_fees DECIMAL(10,2) DEFAULT 0,      -- Total return fees
     status VARCHAR(20) DEFAULT 'Actif',       -- Account status
     siret VARCHAR(20),                        -- Business registration
@@ -307,7 +307,7 @@ CREATE TABLE parcels (
     estimated_delivery_date DATE,             -- Expected delivery date
     actual_delivery_date TIMESTAMP NULL,      -- Actual delivery date
     price DECIMAL(10,2),                      -- Delivery cost
-    delivery_fees DECIMAL(10,2) DEFAULT 0,    -- Additional fees
+    delivery_fees DECIMAL(10,2) DEFAULT 8,    -- Additional fees
     return_fees DECIMAL(10,2) DEFAULT 0,      -- Return shipping fees
     type VARCHAR(20) DEFAULT 'Standard',      -- Service type
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

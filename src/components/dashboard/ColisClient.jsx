@@ -72,7 +72,7 @@ const ColisClient = () => {
             weight: `${parcel.weight || 0} kg`,
             dateCreated: parcel.created_at ? new Date(parcel.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
             estimatedDelivery: parcel.estimated_delivery_date ? new Date(parcel.estimated_delivery_date).toISOString().split('T')[0] : new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-            price: `${parseFloat(parcel.price || 0).toFixed(2)} €`,
+            price: `${parseFloat(parcel.price || 0).toFixed(2)} DT`,
             phone: parcel.shipper_phone || "N/A",
             email: parcel.shipper_email || "N/A",
             reference: parcel.tracking_number || parcel.id,

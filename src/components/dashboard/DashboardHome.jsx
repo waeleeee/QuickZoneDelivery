@@ -1,60 +1,344 @@
 import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 import DeliveryChart from "../charts/DeliveryChart";
 import GeoChart from "../charts/GeoChart";
 import StatusChart from "../charts/StatusChart";
+import ColisCreate from "./ColisCreate";
 import { apiService } from "../../services/api";
 
 const DashboardHome = () => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [currentUser, setCurrentUser] = useState(null);
   const [roleSpecificStats, setRoleSpecificStats] = useState({});
   const [expediteurStats, setExpediteurStats] = useState(null);
+  const [expediteurChartData, setExpediteurChartData] = useState(null);
+  const [adminChartData, setAdminChartData] = useState(null);
+  const [chefAgenceStats, setChefAgenceStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [paidParcels, setPaidParcels] = useState([]);
+  
+  // Modal states
+  const [showNewParcelModal, setShowNewParcelModal] = useState(false);
+  const [showColisCreateModal, setShowColisCreateModal] = useState(false);
+  const [showTrackParcelModal, setShowTrackParcelModal] = useState(false);
+  const [showPaymentsModal, setShowPaymentsModal] = useState(false);
+  
+  // Track parcel states
+  const [trackingNumber, setTrackingNumber] = useState('');
+  const [parcelData, setParcelData] = useState(null);
+  const [isSearching, setIsSearching] = useState(false);
 
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem('currentUser') || 'null');
+    console.log('🔍 Dashboard - Current user from localStorage:', user);
     setCurrentUser(user);
     
     // Generate role-specific statistics
     if (user && user.role) {
+      console.log('🔍 Dashboard - User role:', user.role);
+      console.log('🔍 Dashboard - User email:', user.email);
       generateRoleSpecificStats(user.role);
       
       // Fetch real data for expéditeurs
       if (user.role === 'Expéditeur' && user.email) {
+        console.log('🔍 Dashboard - Fetching expediteur stats for:', user.email);
         fetchExpediteurStats(user.email);
+        fetchExpediteurChartData(user.email);
+      } else if (user.role === 'Administration' || user.role === 'Admin') {
+        console.log('🔍 Dashboard - Fetching admin chart data');
+        fetchAdminChartData();
+      } else if (user.role === 'Chef d\'agence') {
+        console.log('🔍 Dashboard - Fetching chef d\'agence stats');
+        fetchChefAgenceStats(user.email);
       } else {
+        console.log('🔍 Dashboard - No specific data fetching for role:', user.role);
         setLoading(false);
       }
     } else {
+      console.log('🔍 Dashboard - No user or role found');
       setLoading(false);
     }
   }, []);
 
-  // Regenerate stats when expediteurStats changes
+  // Regenerate stats when expediteurStats, adminChartData, or chefAgenceStats changes
   useEffect(() => {
     if (currentUser && currentUser.role) {
       generateRoleSpecificStats(currentUser.role);
     }
-  }, [expediteurStats, currentUser]);
+  }, [expediteurStats, adminChartData, chefAgenceStats, currentUser]);
+
+  const fetchAdminChartData = async () => {
+    try {
+      setLoading(true);
+      const data = await apiService.getAdminDashboard();
+      if (data && data.success && data.data) {
+        setAdminChartData(data.data);
+      } else {
+        // Create sample admin chart data
+        setAdminChartData({
+          deliveryHistory: generateSampleDeliveryHistory(),
+          geographicalData: generateSampleGeographicalData(),
+          statusStats: generateSampleStatusStats()
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching admin chart data:', error);
+      // Create sample admin chart data as fallback
+      setAdminChartData({
+        deliveryHistory: generateSampleDeliveryHistory(),
+        geographicalData: generateSampleGeographicalData(),
+        statusStats: generateSampleStatusStats()
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const generateSampleDeliveryHistory = () => {
+    const history = [];
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      history.push({
+        date: date.toISOString().split('T')[0],
+        delivered: Math.floor(Math.random() * 20) + 10 // Random 10-30 deliveries
+      });
+    }
+    return history;
+  };
+
+  const generateSampleGeographicalData = () => {
+    const regions = ['Tunis', 'Sousse', 'Sfax', 'Mahdia', 'Monastir', 'Gabès', 'Gafsa', 'Kairouan'];
+    return regions.map(region => ({
+      region: region,
+      count: Math.floor(Math.random() * 50) + 10 // Random 10-60 parcels
+    }));
+  };
+
+  const generateSampleStatusStats = () => {
+    return {
+      'En attente': Math.floor(Math.random() * 50) + 20,
+      'À enlever': Math.floor(Math.random() * 30) + 10,
+      'Enlevé': Math.floor(Math.random() * 40) + 15,
+      'Au dépôt': Math.floor(Math.random() * 60) + 25,
+      'En cours': Math.floor(Math.random() * 80) + 40,
+      'Livrés': Math.floor(Math.random() * 100) + 60,
+      'Livrés payés': Math.floor(Math.random() * 80) + 50,
+      'Retour définitif': Math.floor(Math.random() * 10) + 5
+    };
+  };
 
   const fetchExpediteurStats = async (email) => {
     try {
+      console.log('🔍 fetchExpediteurStats - Starting with email:', email);
       setLoading(true);
       const stats = await apiService.getExpediteurStats(email);
-      console.log('Fetched expediteur stats:', stats);
+      console.log('✅ fetchExpediteurStats - Success:', stats);
       setExpediteurStats(stats);
     } catch (error) {
-      console.error('Error fetching expediteur stats:', error);
+      console.error('❌ fetchExpediteurStats - Error:', error);
+      console.error('❌ fetchExpediteurStats - Error details:', error.response?.data);
       setExpediteurStats({
         totalParcels: 0,
         totalRevenue: 0,
         currentMonth: 0,
         deliveredThisMonth: 0,
+        inTransit: 0,
         complaintsCount: 0,
         monthlyChanges: { parcels: 0, delivered: 0 },
         statusStats: {}
       });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchExpediteurChartData = async (email) => {
+    try {
+      console.log('🔍 fetchExpediteurChartData - Starting with email:', email);
+      const chartData = await apiService.getExpediteurChartData(email);
+      console.log('✅ fetchExpediteurChartData - Success:', chartData);
+      
+      // Check if we have real data with actual values
+      const hasRealData = chartData && 
+        chartData.deliveryHistory && 
+        chartData.deliveryHistory.length > 0 && 
+        chartData.deliveryHistory.some(item => item.delivered > 0);
+      
+      if (hasRealData) {
+        console.log('✅ Using real chart data');
+        setExpediteurChartData(chartData);
+      } else {
+        console.log('📊 No real data available, using empty charts');
+        setExpediteurChartData({
+          deliveryHistory: [],
+          geographicalData: []
+        });
+      }
+    } catch (error) {
+      console.error('❌ fetchExpediteurChartData - Error:', error);
+      console.log('📊 Error occurred, using empty charts');
+      setExpediteurChartData({
+        deliveryHistory: [],
+        geographicalData: []
+      });
+    }
+  };
+
+  const fetchChefAgenceStats = async (email) => {
+    try {
+      console.log('🔍 fetchChefAgenceStats - Starting with email:', email);
+      setLoading(true);
+      
+      // Get agency manager data
+      const agencyManagers = await apiService.getAgencyManagers();
+      const agencyManager = agencyManagers.find(am => am.email === email);
+      
+      if (!agencyManager) {
+        console.error('❌ Agency manager not found for email:', email);
+        setChefAgenceStats(null);
+        setLoading(false);
+        return;
+      }
+      
+      console.log('🔍 Agency manager found:', agencyManager);
+      
+      // Get all users in the agency
+      const allUsers = [];
+      
+      // Fetch agency managers
+      const agencyManagersInAgency = agencyManagers.filter(am => am.governorate === agencyManager.governorate);
+      agencyManagersInAgency.forEach(am => {
+        allUsers.push({ role: 'Chef d\'agence', created_at: am.created_at });
+      });
+      
+      // Fetch agency members
+      const agencyMembers = await apiService.getAgencyMembers();
+      const agencyMembersInAgency = agencyMembers.filter(member => member.agency === agencyManager.governorate);
+      agencyMembersInAgency.forEach(member => {
+        allUsers.push({ role: member.role || 'Membre d\'agence', created_at: member.created_at });
+      });
+      
+      // Fetch drivers
+      const drivers = await apiService.getDrivers();
+      const driversInAgency = drivers.filter(driver => driver.agency === agencyManager.governorate);
+      driversInAgency.forEach(driver => {
+        allUsers.push({ role: 'Livreur', created_at: driver.created_at });
+      });
+      
+      // Fetch commercials
+      const commercials = await apiService.getCommercials();
+      const commercialsInAgency = commercials.filter(commercial => commercial.agency === agencyManager.governorate);
+      commercialsInAgency.forEach(commercial => {
+        allUsers.push({ role: 'Commercial', created_at: commercial.created_at });
+      });
+      
+      // Fetch shippers (expéditeurs)
+      const shippers = await apiService.getShippers();
+      const shippersInAgency = shippers.filter(shipper => shipper.agency === agencyManager.governorate);
+      shippersInAgency.forEach(shipper => {
+        allUsers.push({ role: 'Expéditeur', created_at: shipper.created_at });
+      });
+      
+      // Get parcels for the agency
+      const parcels = await apiService.getParcels();
+      const agencyParcels = parcels.filter(parcel => {
+        const shipper = shippersInAgency.find(s => s.id === parcel.shipper_id);
+        return shipper || shippersInAgency.some(s => 
+          s.name === parcel.shipper_name || s.code === parcel.shipper_code
+        );
+      });
+      
+      // Calculate statistics
+      const now = new Date();
+      const currentMonth = now.getMonth();
+      const currentYear = now.getFullYear();
+      const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+      const lastYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+      
+      // Team members growth
+      const currentMonthUsers = allUsers.filter(user => {
+        const userDate = new Date(user.created_at);
+        return userDate.getMonth() === currentMonth && userDate.getFullYear() === currentYear;
+      });
+      
+      const lastMonthUsers = allUsers.filter(user => {
+        const userDate = new Date(user.created_at);
+        return userDate.getMonth() === lastMonth && userDate.getFullYear() === lastYear;
+      });
+      
+      const teamGrowth = lastMonthUsers.length > 0 
+        ? currentMonthUsers.length - lastMonthUsers.length 
+        : currentMonthUsers.length;
+      
+      // Active missions (parcels in transit)
+      const activeMissions = agencyParcels.filter(parcel => 
+        ['En cours', 'Au dépôt', 'Enlevé'].includes(parcel.status)
+      );
+      
+      const lastMonthMissions = agencyParcels.filter(parcel => {
+        const parcelDate = new Date(parcel.created_at);
+        return parcelDate.getMonth() === lastMonth && parcelDate.getFullYear() === lastYear;
+      });
+      
+      const missionGrowth = lastMonthMissions.length > 0 
+        ? activeMissions.length - lastMonthMissions.length 
+        : activeMissions.length;
+      
+      // Parcels in processing
+      const processingParcels = agencyParcels.filter(parcel => 
+        ['En attente', 'À enlever', 'Enlevé', 'Au dépôt', 'En cours'].includes(parcel.status)
+      );
+      
+      const lastMonthProcessing = agencyParcels.filter(parcel => {
+        const parcelDate = new Date(parcel.created_at);
+        return parcelDate.getMonth() === lastMonth && parcelDate.getFullYear() === lastYear;
+      });
+      
+      const processingGrowth = lastMonthProcessing.length > 0 
+        ? Math.round(((processingParcels.length - lastMonthProcessing.length) / lastMonthProcessing.length) * 100)
+        : processingParcels.length > 0 ? 100 : 0;
+      
+      // Performance calculation
+      const deliveredParcels = agencyParcels.filter(parcel => 
+        ['Livrés', 'Livrés payés'].includes(parcel.status)
+      );
+      
+      const performance = agencyParcels.length > 0 
+        ? Math.round((deliveredParcels.length / agencyParcels.length) * 100)
+        : 0;
+      
+      const lastMonthDelivered = agencyParcels.filter(parcel => {
+        const parcelDate = new Date(parcel.created_at);
+        return parcelDate.getMonth() === lastMonth && parcelDate.getFullYear() === lastYear &&
+               ['Livrés', 'Livrés payés'].includes(parcel.status);
+      });
+      
+      const performanceGrowth = lastMonthDelivered.length > 0 
+        ? Math.round(((deliveredParcels.length - lastMonthDelivered.length) / lastMonthDelivered.length) * 100)
+        : deliveredParcels.length > 0 ? 100 : 0;
+      
+      const stats = {
+        teamMembers: allUsers.length,
+        teamGrowth: teamGrowth,
+        activeMissions: activeMissions.length,
+        missionGrowth: missionGrowth,
+        processingParcels: processingParcels.length,
+        processingGrowth: processingGrowth,
+        performance: performance,
+        performanceGrowth: performanceGrowth,
+        totalParcels: agencyParcels.length,
+        deliveredParcels: deliveredParcels.length
+      };
+      
+      console.log('✅ Chef d\'agence stats calculated:', stats);
+      setChefAgenceStats(stats);
+      
+    } catch (error) {
+      console.error('❌ fetchChefAgenceStats - Error:', error);
+      setChefAgenceStats(null);
     } finally {
       setLoading(false);
     }
@@ -69,6 +353,12 @@ const DashboardHome = () => {
         return (
           <svg className={iconSize} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+          </svg>
+        );
+      case "user":
+        return (
+          <svg className={iconSize} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
           </svg>
         );
       case "package":
@@ -164,11 +454,41 @@ const DashboardHome = () => {
         title: "Tableau de Bord",
         subtitle: "Statistiques globales de QuickZone",
         cards: [
-          { title: "Total Utilisateurs", value: "1,247", change: "+12%", color: "blue", icon: "users" },
-          { title: "Colis Reçus", value: "1,200", change: "+8%", color: "green", icon: "package" },
-          { title: "Colis Livrés", value: "950", change: "+5%", color: "purple", icon: "check" },
-          { title: "Expéditeurs", value: "456", change: "+15%", color: "purple", icon: "business" },
-          { title: "Revenus Mensuels", value: "€125,430", change: "+23%", color: "orange", icon: "money" }
+          { 
+            title: "Total Utilisateurs", 
+            value: adminChartData?.keyMetrics?.totalUsers?.toLocaleString() || "0", 
+            change: adminChartData?.keyMetrics?.userGrowth ? `${adminChartData.keyMetrics.userGrowth >= 0 ? '+' : ''}${adminChartData.keyMetrics.userGrowth}%` : "0%", 
+            color: "blue", 
+            icon: "user" 
+          },
+          { 
+            title: "Colis Reçus", 
+            value: adminChartData?.keyMetrics?.totalColis?.toLocaleString() || "0", 
+            change: adminChartData?.keyMetrics?.parcelGrowth ? `${adminChartData.keyMetrics.parcelGrowth >= 0 ? '+' : ''}${adminChartData.keyMetrics.parcelGrowth}%` : "0%", 
+            color: "green", 
+            icon: "package" 
+          },
+          { 
+            title: "Colis Livrés", 
+            value: adminChartData?.keyMetrics?.livraisonsCompletees?.toLocaleString() || "0", 
+            change: adminChartData?.keyMetrics?.deliveryGrowth ? `${adminChartData.keyMetrics.deliveryGrowth >= 0 ? '+' : ''}${adminChartData.keyMetrics.deliveryGrowth}%` : "0%", 
+            color: "purple", 
+            icon: "check" 
+          },
+          { 
+            title: "Expéditeurs", 
+            value: adminChartData?.keyMetrics?.totalShippers?.toLocaleString() || "0", 
+            change: adminChartData?.keyMetrics?.shipperGrowth ? `${adminChartData.keyMetrics.shipperGrowth >= 0 ? '+' : ''}${adminChartData.keyMetrics.shipperGrowth}%` : "0%", 
+            color: "purple", 
+            icon: "business" 
+          },
+          { 
+            title: "Revenus Mensuels", 
+            value: adminChartData?.keyMetrics?.monthlyRevenue ? `${adminChartData.keyMetrics.monthlyRevenue.toLocaleString()} DT` : "0 DT", 
+            change: adminChartData?.keyMetrics?.revenueGrowth ? `${adminChartData.keyMetrics.revenueGrowth >= 0 ? '+' : ''}${adminChartData.keyMetrics.revenueGrowth}%` : "0%", 
+            color: "orange", 
+            icon: "money" 
+          }
         ]
       },
       'Commercial': {
@@ -176,7 +496,7 @@ const DashboardHome = () => {
         subtitle: "Gestion des clients, paiements et réclamations",
         cards: [
           { title: "Clients Actifs", value: "234", change: "+18%", color: "blue", icon: "users" },
-          { title: "Paiements Reçus", value: "€45,230", change: "+19%", color: "green", icon: "card" },
+          { title: "Paiements Reçus", value: "45,230 DT", change: "+19%", color: "green", icon: "card" },
           { title: "Réclamations", value: "12", change: "-5%", color: "orange", icon: "warning" },
           { title: "Nouveaux Clients", value: "23", change: "+25%", color: "purple", icon: "new" }
         ]
@@ -185,20 +505,44 @@ const DashboardHome = () => {
         title: "Tableau de Bord Financier",
         subtitle: "Gestion financière et comptabilité",
         cards: [
-          { title: "Paiements Reçus", value: "€89,450", change: "+14%", color: "green", icon: "card" },
-          { title: "Paiements En Attente", value: "€12,340", change: "-5%", color: "orange", icon: "clock" },
+          { title: "Paiements Reçus", value: "89,450 DT", change: "+14%", color: "green", icon: "card" },
+          { title: "Paiements En Attente", value: "12,340 DT", change: "-5%", color: "orange", icon: "clock" },
           { title: "Factures Émises", value: "156", change: "+8%", color: "blue", icon: "document" },
-          { title: "Marge Brute", value: "€23,450", change: "+22%", color: "purple", icon: "chart" }
+          { title: "Marge Brute", value: "23,450 DT", change: "+22%", color: "purple", icon: "chart" }
         ]
       },
       'Chef d\'agence': {
         title: "Tableau de Bord Opérationnel",
         subtitle: "Gestion de l'agence et des équipes",
         cards: [
-          { title: "Membres d'Équipe", value: "12", change: "+2", color: "blue", icon: "users" },
-          { title: "Missions Actives", value: "45", change: "+8", color: "green", icon: "truck" },
-          { title: "Colis en Traitement", value: "234", change: "+15%", color: "purple", icon: "package" },
-          { title: "Performance", value: "94%", change: "+3%", color: "orange", icon: "trending" }
+          { 
+            title: "Membres d'Équipe", 
+            value: chefAgenceStats ? chefAgenceStats.teamMembers.toString() : "0", 
+            change: chefAgenceStats ? (chefAgenceStats.teamGrowth >= 0 ? `+${chefAgenceStats.teamGrowth}` : `${chefAgenceStats.teamGrowth}`) : "0", 
+            color: "blue", 
+            icon: "users" 
+          },
+          { 
+            title: "Missions Actives", 
+            value: chefAgenceStats ? chefAgenceStats.activeMissions.toString() : "0", 
+            change: chefAgenceStats ? (chefAgenceStats.missionGrowth >= 0 ? `+${chefAgenceStats.missionGrowth}` : `${chefAgenceStats.missionGrowth}`) : "0", 
+            color: "green", 
+            icon: "truck" 
+          },
+          { 
+            title: "Colis en Traitement", 
+            value: chefAgenceStats ? chefAgenceStats.processingParcels.toString() : "0", 
+            change: chefAgenceStats ? `${chefAgenceStats.processingGrowth >= 0 ? '+' : ''}${chefAgenceStats.processingGrowth}%` : "0%", 
+            color: "purple", 
+            icon: "package" 
+          },
+          { 
+            title: "Performance", 
+            value: chefAgenceStats ? `${chefAgenceStats.performance}%` : "0%", 
+            change: chefAgenceStats ? `${chefAgenceStats.performanceGrowth >= 0 ? '+' : ''}${chefAgenceStats.performanceGrowth}%` : "0%", 
+            color: "orange", 
+            icon: "trending" 
+          }
         ]
       },
       'Membre de l\'agence': {
@@ -233,23 +577,23 @@ const DashboardHome = () => {
             icon: "package" 
           },
           { 
-            title: "En Transit", 
-            value: expediteurStats ? (expediteurStats.statusStats["En cours"] || 0).toString() : "0", 
+            title: "Livrés", 
+            value: expediteurStats ? (expediteurStats.statusStats?.['Livrés'] || 0).toString() : "0", 
             change: expediteurStats ? (expediteurStats.monthlyChanges.delivered >= 0 ? `+${expediteurStats.monthlyChanges.delivered}` : `${expediteurStats.monthlyChanges.delivered}`) : "0", 
             color: "green", 
-            icon: "truck" 
-          },
-          { 
-            title: "Livrés", 
-            value: expediteurStats ? expediteurStats.deliveredThisMonth.toString() : "0", 
-            change: expediteurStats ? (expediteurStats.monthlyChanges.delivered >= 0 ? `+${expediteurStats.monthlyChanges.delivered}` : `${expediteurStats.monthlyChanges.delivered}`) : "0", 
-            color: "purple", 
             icon: "check" 
           },
           { 
+            title: "Livrés payés", 
+            value: expediteurStats ? (expediteurStats.statusStats?.['Livrés payés'] || 0).toString() : "0", 
+            change: "0", 
+            color: "purple", 
+            icon: "card" 
+          },
+          { 
             title: "Solde", 
-            value: expediteurStats ? `€${expediteurStats.totalRevenue.toFixed(2)}` : "€0.00", 
-            change: expediteurStats ? (expediteurStats.monthlyChanges.parcels >= 0 ? `+€${(expediteurStats.monthlyChanges.parcels * 10).toFixed(2)}` : `-€${Math.abs(expediteurStats.monthlyChanges.parcels * 10).toFixed(2)}`) : "€0.00", 
+            value: expediteurStats ? `${expediteurStats.balance?.toFixed(2) || '0.00'} DT` : "0.00 DT", 
+            change: "", 
             color: "orange", 
             icon: "money" 
           },
@@ -276,6 +620,99 @@ const DashboardHome = () => {
       red: "bg-gradient-to-br from-red-500 to-red-600 text-white"
     };
     return colors[color] || colors.blue;
+  };
+
+  // Quick action functions
+  const handleNewParcel = () => {
+    setShowColisCreateModal(true);
+  };
+
+  const handleTrackParcel = () => {
+    setShowTrackParcelModal(true);
+  };
+
+  const handlePayments = async () => {
+    try {
+      if (currentUser && currentUser.email) {
+        // Fetch paid parcels (Livrés payés)
+        const response = await apiService.getExpediteurParcels(currentUser.email);
+        const paidParcelsList = response.filter(parcel => parcel.status === 'Livrés payés');
+        setPaidParcels(paidParcelsList);
+      }
+    } catch (error) {
+      console.error('Error fetching paid parcels:', error);
+      setPaidParcels([]);
+    }
+    setShowPaymentsModal(true);
+  };
+
+  const handleSearchParcel = async () => {
+    if (!trackingNumber.trim()) return;
+    
+    setIsSearching(true);
+    try {
+      // For now, using mock data. Replace with actual API call
+      const mockParcelData = {
+        tracking_number: trackingNumber,
+        status: 'En cours',
+        created_at: '2025-07-24T00:59:22.000Z',
+        updated_at: '2025-07-24T12:30:00.000Z',
+        shipper: {
+          name: 'Ritej Chaieb',
+          company: 'Zina Wear',
+          phone: '27107374',
+          governorate: 'Mahdia'
+        },
+        recipient: {
+          name: 'Ahmed Ben Ali',
+          phone: '98765432',
+          governorate: 'Tunis',
+          address: '123 Rue de la Paix, Tunis'
+        },
+        parcel: {
+          article_name: 'Vêtements',
+          price: 45.50,
+          delivery_fee: 8.00,
+          weight: 2.5,
+          pieces: 1,
+          service: 'Livraison'
+        },
+        timeline: [
+          {
+            date: '2025-07-24T12:30:00.000Z',
+            status: 'En cours',
+            location: 'Centre de tri Tunis',
+            description: 'Colis en cours de livraison'
+          },
+          {
+            date: '2025-07-24T08:15:00.000Z',
+            status: 'Au dépôt',
+            location: 'Dépôt Mahdia',
+            description: 'Colis reçu au dépôt'
+          },
+          {
+            date: '2025-07-24T00:59:22.000Z',
+            status: 'Créé',
+            location: 'Mahdia',
+            description: 'Colis créé par l\'expéditeur'
+          }
+        ]
+      };
+      
+      setParcelData(mockParcelData);
+    } catch (error) {
+      console.error('Error searching parcel:', error);
+      setParcelData(null);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const resetTrackModal = () => {
+    setShowTrackParcelModal(false);
+    setTrackingNumber('');
+    setParcelData(null);
+    setIsSearching(false);
   };
 
   if (!currentUser || loading) {
@@ -348,7 +785,40 @@ const DashboardHome = () => {
             {currentUser?.role === 'Commercial' ? 'Évolution des Clients' : 'Performance des Livraisons'}
           </h3>
           <div className="h-80">
-            <DeliveryChart />
+            {currentUser?.role === 'Expéditeur' && expediteurChartData?.deliveryHistory?.length > 0 ? (
+              <DeliveryChart 
+                deliveryData={expediteurChartData.deliveryHistory.map(item => ({
+                  label: new Date(item.date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }),
+                  value: item.delivered
+                }))}
+              />
+            ) : (currentUser?.role === 'Administration' || currentUser?.role === 'Admin') && adminChartData?.deliveryHistory ? (
+              <DeliveryChart 
+                deliveryData={adminChartData.deliveryHistory.map(item => ({
+                  label: new Date(item.date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }),
+                  value: item.delivered
+                }))}
+              />
+            ) : currentUser?.role === 'Expéditeur' ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center">
+                  <div className="text-gray-400 mb-2">
+                    <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                  </div>
+                  <p className="text-gray-500 text-sm">Aucune donnée de livraison disponible</p>
+                  <p className="text-gray-400 text-xs mt-1">Les données apparaîtront ici une fois que vous aurez des colis livrés</p>
+                </div>
+              </div>
+            ) : (
+              <DeliveryChart 
+                deliveryData={generateSampleDeliveryHistory().map(item => ({
+                  label: new Date(item.date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }),
+                  value: item.delivered
+                }))}
+              />
+            )}
           </div>
         </div>
 
@@ -361,7 +831,40 @@ const DashboardHome = () => {
             {currentUser?.role === 'Commercial' ? 'Répartition des Clients' : 'Répartition Géographique'}
           </h3>
           <div className="h-80">
-            <GeoChart />
+            {currentUser?.role === 'Expéditeur' && expediteurChartData?.geographicalData?.length > 0 ? (
+              <GeoChart 
+                geoData={expediteurChartData.geographicalData.map(item => ({
+                  label: item.region,
+                  value: item.count
+                }))}
+              />
+            ) : (currentUser?.role === 'Administration' || currentUser?.role === 'Admin') && adminChartData?.geographicalData ? (
+              <GeoChart 
+                geoData={adminChartData.geographicalData.map(item => ({
+                  label: item.region,
+                  value: item.count
+                }))}
+              />
+            ) : currentUser?.role === 'Expéditeur' ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center">
+                  <div className="text-gray-400 mb-2">
+                    <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <p className="text-gray-500 text-sm">Aucune donnée géographique disponible</p>
+                  <p className="text-gray-400 text-xs mt-1">Les données apparaîtront ici une fois que vous aurez des colis avec destinations</p>
+                </div>
+              </div>
+            ) : (
+              <GeoChart 
+                geoData={generateSampleGeographicalData().map(item => ({
+                  label: item.region,
+                  value: item.count
+                }))}
+              />
+            )}
           </div>
         </div>
       </div>
@@ -375,7 +878,31 @@ const DashboardHome = () => {
           {currentUser?.role === 'Commercial' ? 'Statut des Paiements' : 'Statut des Colis'}
         </h3>
         <div className="h-96">
-          <StatusChart />
+          {currentUser?.role === 'Expéditeur' && expediteurStats?.statusStats ? (
+            <StatusChart 
+              statusStats={expediteurStats.statusStats}
+            />
+          ) : currentUser?.role === 'Expéditeur' ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center">
+                <div className="text-gray-400 mb-2">
+                  <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                </div>
+                <p className="text-gray-500 text-sm">Aucun colis disponible</p>
+                <p className="text-gray-400 text-xs mt-1">Les données apparaîtront ici une fois que vous aurez des colis</p>
+              </div>
+            </div>
+          ) : (currentUser?.role === 'Administration' || currentUser?.role === 'Admin') && adminChartData?.statusStats ? (
+            <StatusChart 
+              statusStats={adminChartData.statusStats}
+            />
+          ) : (
+            <StatusChart 
+              statusStats={generateSampleStatusStats()}
+            />
+          )}
         </div>
       </div>
 
@@ -426,7 +953,10 @@ const DashboardHome = () => {
             </>
           ) : currentUser?.role === 'Expéditeur' ? (
             <>
-              <button className="group flex items-center justify-center p-6 border-2 border-dashed border-gray-300 rounded-xl hover:border-red-500 hover:bg-red-50 transition-all duration-300 transform hover:scale-105">
+              <button 
+                onClick={handleNewParcel}
+                className="group flex items-center justify-center p-6 border-2 border-dashed border-gray-300 rounded-xl hover:border-red-500 hover:bg-red-50 transition-all duration-300 transform hover:scale-105 cursor-pointer"
+              >
                 <div className="text-center">
                   <div className="mb-3 group-hover:scale-110 transition-transform">
                     <svg className="w-12 h-12 text-red-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -437,7 +967,10 @@ const DashboardHome = () => {
                   <p className="text-sm text-gray-500 mt-1">Créer un nouveau colis</p>
                 </div>
               </button>
-              <button className="group flex items-center justify-center p-6 border-2 border-dashed border-gray-300 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all duration-300 transform hover:scale-105">
+              <button 
+                onClick={handleTrackParcel}
+                className="group flex items-center justify-center p-6 border-2 border-dashed border-gray-300 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all duration-300 transform hover:scale-105 cursor-pointer"
+              >
                 <div className="text-center">
                   <div className="mb-3 group-hover:scale-110 transition-transform">
                     <svg className="w-12 h-12 text-blue-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -448,7 +981,10 @@ const DashboardHome = () => {
                   <p className="text-sm text-gray-500 mt-1">Suivre mes colis</p>
                 </div>
               </button>
-              <button className="group flex items-center justify-center p-6 border-2 border-dashed border-gray-300 rounded-xl hover:border-green-500 hover:bg-green-50 transition-all duration-300 transform hover:scale-105">
+              <button 
+                onClick={handlePayments}
+                className="group flex items-center justify-center p-6 border-2 border-dashed border-gray-300 rounded-xl hover:border-green-500 hover:bg-green-50 transition-all duration-300 transform hover:scale-105 cursor-pointer"
+              >
                 <div className="text-center">
                   <div className="mb-3 group-hover:scale-110 transition-transform">
                     <svg className="w-12 h-12 text-green-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -499,6 +1035,293 @@ const DashboardHome = () => {
           )}
         </div>
       </div>
+
+      {/* ColisCreate Modal */}
+      {showColisCreateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 p-6 rounded-t-xl">
+              <div className="flex justify-between items-center">
+                <h3 className="text-2xl font-bold text-gray-900">Créer un nouveau colis</h3>
+                <button 
+                  onClick={() => setShowColisCreateModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            
+            <div className="p-6">
+              <ColisCreate onClose={() => setShowColisCreateModal(false)} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Track Parcel Modal */}
+      {showTrackParcelModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 p-6 rounded-t-xl">
+              <div className="flex justify-between items-center">
+                <h3 className="text-2xl font-bold text-gray-900">Suivre Colis</h3>
+                <button 
+                  onClick={resetTrackModal}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            
+            <div className="p-6">
+              {!parcelData ? (
+                // Search Form
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Numéro de Suivi</label>
+                    <input 
+                      type="text" 
+                      value={trackingNumber}
+                      onChange={(e) => setTrackingNumber(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Entrez le numéro de suivi"
+                      onKeyPress={(e) => e.key === 'Enter' && handleSearchParcel()}
+                    />
+                  </div>
+                  <div className="flex space-x-3">
+                    <button 
+                      onClick={resetTrackModal}
+                      className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
+                    >
+                      Annuler
+                    </button>
+                    <button 
+                      onClick={handleSearchParcel}
+                      disabled={isSearching || !trackingNumber.trim()}
+                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isSearching ? 'Recherche...' : 'Rechercher'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                // Parcel Details
+                <div className="space-y-6">
+                  {/* Header with Status */}
+                  <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-4 rounded-lg">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <h4 className="text-lg font-bold text-gray-900">Colis #{parcelData.tracking_number}</h4>
+                        <p className="text-sm text-gray-600">Créé le {new Date(parcelData.created_at).toLocaleDateString('fr-FR')}</p>
+                      </div>
+                      <div className="text-right">
+                        <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                          parcelData.status === 'Livrés' ? 'bg-green-100 text-green-800' :
+                          parcelData.status === 'En cours' ? 'bg-blue-100 text-blue-800' :
+                          parcelData.status === 'Au dépôt' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {parcelData.status}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Three Column Layout */}
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    
+                    {/* EXPÉDITEUR */}
+                    <div className="space-y-4">
+                      <h5 className="text-lg font-bold text-blue-600 uppercase">EXPÉDITEUR</h5>
+                      <div className="bg-gray-50 p-4 rounded-lg space-y-3">
+                        <div>
+                          <label className="text-sm font-medium text-gray-600">Nom</label>
+                          <p className="text-gray-900">{parcelData.shipper.name}</p>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-gray-600">Société</label>
+                          <p className="text-gray-900">{parcelData.shipper.company}</p>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-gray-600">Téléphone</label>
+                          <p className="text-gray-900">{parcelData.shipper.phone}</p>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-gray-600">Gouvernorat</label>
+                          <p className="text-gray-900">{parcelData.shipper.governorate}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* DESTINATAIRE */}
+                    <div className="space-y-4">
+                      <h5 className="text-lg font-bold text-blue-600 uppercase">DESTINATAIRE</h5>
+                      <div className="bg-gray-50 p-4 rounded-lg space-y-3">
+                        <div>
+                          <label className="text-sm font-medium text-gray-600">Nom</label>
+                          <p className="text-gray-900">{parcelData.recipient.name}</p>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-gray-600">Téléphone</label>
+                          <p className="text-gray-900">{parcelData.recipient.phone}</p>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-gray-600">Gouvernorat</label>
+                          <p className="text-gray-900">{parcelData.recipient.governorate}</p>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-gray-600">Adresse</label>
+                          <p className="text-gray-900">{parcelData.recipient.address}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* COLIS */}
+                    <div className="space-y-4">
+                      <h5 className="text-lg font-bold text-blue-600 uppercase">COLIS</h5>
+                      <div className="bg-gray-50 p-4 rounded-lg space-y-3">
+                        <div>
+                          <label className="text-sm font-medium text-gray-600">Article</label>
+                          <p className="text-gray-900">{parcelData.parcel.article_name}</p>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-gray-600">Prix</label>
+                          <p className="text-gray-900">{parcelData.parcel.price.toFixed(2)} DT</p>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-gray-600">Frais de livraison</label>
+                          <p className="text-gray-900">{parcelData.parcel.delivery_fee.toFixed(2)} DT</p>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-gray-600">Poids</label>
+                          <p className="text-gray-900">{parcelData.parcel.weight} kg</p>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-gray-600">Service</label>
+                          <p className="text-gray-900">{parcelData.parcel.service}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Timeline */}
+                  <div className="space-y-4">
+                    <h5 className="text-lg font-bold text-blue-600 uppercase">HISTORIQUE</h5>
+                    <div className="space-y-3">
+                      {parcelData.timeline.map((event, index) => (
+                        <div key={index} className="flex items-start space-x-4 p-4 bg-gray-50 rounded-lg">
+                          <div className="flex-shrink-0 w-3 h-3 bg-blue-500 rounded-full mt-2"></div>
+                          <div className="flex-1">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <p className="font-medium text-gray-900">{event.status}</p>
+                                <p className="text-sm text-gray-600">{event.description}</p>
+                                <p className="text-sm text-gray-500">{event.location}</p>
+                              </div>
+                              <span className="text-sm text-gray-500">
+                                {new Date(event.date).toLocaleString('fr-FR')}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200">
+                    <button 
+                      onClick={() => {
+                        setParcelData(null);
+                        setTrackingNumber('');
+                      }}
+                      className="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
+                    >
+                      Nouvelle Recherche
+                    </button>
+                    <button 
+                      onClick={resetTrackModal}
+                      className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      Fermer
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Payments Modal */}
+      {showPaymentsModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-2xl mx-4 max-h-[80vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-gray-900">Mes Paiements</h3>
+              <button 
+                onClick={() => setShowPaymentsModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <h4 className="font-semibold text-green-800">Total Revenus Livrés Payés</h4>
+                  <p className="text-2xl font-bold text-green-600">
+                    {paidParcels.reduce((total, parcel) => total + (parseFloat(parcel.price) || 0), 0).toFixed(2)} DT
+                  </p>
+                </div>
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <h4 className="font-semibold text-blue-800">Colis Livrés</h4>
+                  <p className="text-2xl font-bold text-blue-600">
+                    {expediteurStats?.statusStats?.['Livrés'] || 0}
+                  </p>
+                </div>
+                <div className="bg-purple-50 p-4 rounded-lg">
+                  <h4 className="font-semibold text-purple-800">Livrés Payés</h4>
+                  <p className="text-2xl font-bold text-purple-600">
+                    {expediteurStats?.statusStats?.['Livrés payés'] || 0}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="border-t pt-4">
+                <h4 className="font-semibold text-gray-900 mb-3">Liste des Colis Livrés Payés</h4>
+                <div className="space-y-2">
+                  {paidParcels.length > 0 ? (
+                    paidParcels.map((parcel, index) => (
+                      <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                        <div>
+                          <p className="font-medium text-gray-900">Colis #{parcel.tracking_number}</p>
+                          <p className="text-sm text-gray-600">
+                            Livré le {parcel.updated_at ? new Date(parcel.updated_at).toLocaleDateString('fr-FR') : 'N/A'}
+                          </p>
+                        </div>
+                        <span className="font-bold text-green-600">+{parseFloat(parcel.price || 0).toFixed(2)} DT</span>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-4 text-gray-500">
+                      Aucun colis livré payé trouvé
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

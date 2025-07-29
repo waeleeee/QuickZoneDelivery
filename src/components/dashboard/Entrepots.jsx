@@ -54,13 +54,119 @@ const Entrepots = () => {
   const [bonLivraisonColis, setBonLivraisonColis] = useState(null);
   const [selectedParcel, setSelectedParcel] = useState(null);
   const [parcelDetailsModal, setParcelDetailsModal] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [userAgency, setUserAgency] = useState(null);
+  const [agencyParcels, setAgencyParcels] = useState([]);
+  const [agencyParcelStats, setAgencyParcelStats] = useState({});
+  const [agencyUsers, setAgencyUsers] = useState([]);
+  const [showingAllWarehouses, setShowingAllWarehouses] = useState(false);
+
+  // Helper functions for calculating real statistics
+  const calculateAverageDeliveryTime = (parcels) => {
+    if (!parcels || parcels.length === 0) return '0h';
+    
+    const deliveredParcels = parcels.filter(parcel => 
+      parcel.status === 'Livrés' || parcel.status === 'Livrés payés'
+    );
+    
+    if (deliveredParcels.length === 0) return '0h';
+    
+    let totalHours = 0;
+    let validDeliveries = 0;
+    
+    deliveredParcels.forEach(parcel => {
+      if (parcel.created_at && parcel.delivery_date) {
+        const created = new Date(parcel.created_at);
+        const delivered = new Date(parcel.delivery_date);
+        const hoursDiff = (delivered - created) / (1000 * 60 * 60);
+        if (hoursDiff > 0 && hoursDiff < 720) { // Between 0 and 30 days
+          totalHours += hoursDiff;
+          validDeliveries++;
+        }
+      }
+    });
+    
+    if (validDeliveries === 0) return '0h';
+    const avgHours = Math.round(totalHours / validDeliveries);
+    return `${avgHours}h`;
+  };
+
+  const calculateMonthlyGrowth = (parcels) => {
+    if (!parcels || parcels.length === 0) return '0%';
+    
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    
+    const currentMonthParcels = parcels.filter(parcel => {
+      const parcelDate = new Date(parcel.created_at);
+      return parcelDate.getMonth() === currentMonth && parcelDate.getFullYear() === currentYear;
+    });
+    
+    const lastMonthParcels = parcels.filter(parcel => {
+      const parcelDate = new Date(parcel.created_at);
+      const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+      const lastYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+      return parcelDate.getMonth() === lastMonth && parcelDate.getFullYear() === lastYear;
+    });
+    
+    if (lastMonthParcels.length === 0) return currentMonthParcels.length > 0 ? '+100%' : '0%';
+    
+    const growth = ((currentMonthParcels.length - lastMonthParcels.length) / lastMonthParcels.length) * 100;
+    return `${growth >= 0 ? '+' : ''}${Math.round(growth)}%`;
+  };
+
+  const calculateCustomerSatisfaction = (parcels) => {
+    if (!parcels || parcels.length === 0) return '0/5';
+    
+    const deliveredParcels = parcels.filter(parcel => 
+      parcel.status === 'Livrés' || parcel.status === 'Livrés payés'
+    );
+    
+    if (deliveredParcels.length === 0) return '0/5';
+    
+    // Simulate satisfaction based on delivery success rate and timing
+    const totalDelivered = deliveredParcels.length;
+    const onTimeDeliveries = deliveredParcels.filter(parcel => {
+      if (parcel.created_at && parcel.delivery_date) {
+        const created = new Date(parcel.created_at);
+        const delivered = new Date(parcel.delivery_date);
+        const hoursDiff = (delivered - created) / (1000 * 60 * 60);
+        return hoursDiff <= 48; // On time if delivered within 48 hours
+      }
+      return true;
+    }).length;
+    
+    const satisfactionRate = onTimeDeliveries / totalDelivered;
+    const rating = Math.round(satisfactionRate * 5 * 10) / 10; // Scale to 5 stars
+    return `${rating}/5`;
+  };
 
 
-  // Fetch warehouses data on component mount
+  // Get current user from localStorage on component mount
   useEffect(() => {
-    fetchWarehouses();
-    fetchChefAgences();
+    const user = JSON.parse(localStorage.getItem('currentUser') || 'null');
+    setCurrentUser(user);
+    console.log('🔍 Current user:', user);
+    console.log('🔍 User role:', user?.role);
+    console.log('🔍 User email:', user?.email);
   }, []);
+
+  // Fetch warehouses data when currentUser is available
+  useEffect(() => {
+    if (currentUser) {
+      fetchWarehouses();
+      fetchChefAgences();
+    }
+  }, [currentUser]);
+
+  // Fetch warehouse agency parcels and users when selectedWarehouse changes
+  useEffect(() => {
+    if (selectedWarehouse && currentUser && currentUser.role === 'Chef d\'agence') {
+      fetchWarehouseAgencyParcels(selectedWarehouse);
+      fetchAgencyUsers(selectedWarehouse);
+    }
+  }, [selectedWarehouse, currentUser]);
 
   const fetchWarehouses = async () => {
     try {
@@ -69,7 +175,7 @@ const Entrepots = () => {
       console.log('🔍 Fetching warehouses data...');
       
       const response = await warehousesService.getWarehouses();
-      console.log('📦 Warehouses data received:', response);
+      console.log('📦 Raw warehouses data received:', response);
       
       // Handle both expected format (response.success && response.data) and direct array format
       let warehousesData = [];
@@ -83,8 +189,55 @@ const Entrepots = () => {
         return;
       }
       
+      // Filter warehouses by agency for Chef d'agence users
+      let filteredWarehousesData = warehousesData;
+      if (currentUser && currentUser.role === 'Chef d\'agence') {
+        console.log('🔍 User is Chef d\'agence, applying agency filtering...');
+        
+        try {
+          // Get user's agency from agency_managers table
+          const { apiService } = await import('../../services/api');
+          const agencyManagerResponse = await apiService.getAgencyManagers();
+          const agencyManager = agencyManagerResponse.find(am => am.email === currentUser.email);
+          
+          if (agencyManager) {
+            setUserAgency(agencyManager.agency);
+            console.log('🔍 User agency:', agencyManager.agency);
+            console.log('🔍 User governorate:', agencyManager.governorate);
+            console.log('🔍 All warehouses before filtering:', warehousesData.map(w => ({ name: w.name, governorate: w.governorate })));
+            
+            // Filter warehouses by governorate (assuming governorate corresponds to agency)
+            // This is a simplified approach - you might need to adjust based on your data structure
+            filteredWarehousesData = warehousesData.filter(warehouse => {
+              const warehouseGovernorate = warehouse.governorate;
+              const matchesAgency = warehouseGovernorate === agencyManager.governorate;
+              
+              console.log(`🔍 Checking warehouse ${warehouse.name}: governorate="${warehouseGovernorate}" vs user governorate="${agencyManager.governorate}", matches=${matchesAgency}`);
+              
+              return matchesAgency;
+            });
+            
+            console.log('🔍 Filtered warehouses count:', filteredWarehousesData.length);
+            console.log('🔍 Filtered warehouses:', filteredWarehousesData.map(w => ({ name: w.name, governorate: w.governorate })));
+            
+            // If no warehouses found for the specific governorate, show only Tunis Central warehouse
+            if (filteredWarehousesData.length === 0) {
+              console.log('⚠️ No warehouses found for governorate:', agencyManager.governorate);
+              console.log('⚠️ Showing only Tunis Central warehouse as fallback');
+              filteredWarehousesData = warehousesData.filter(warehouse => warehouse.name === 'Entrepôt Tunis Central');
+            }
+          } else {
+            console.log('⚠️ Agency manager not found for user:', currentUser.email);
+          }
+        } catch (error) {
+          console.error('❌ Error fetching agency manager data:', error);
+        }
+      } else {
+        console.log('🔍 User is not Chef d\'agence, showing all warehouses');
+      }
+      
       // Transform the data to match the expected format
-      const transformedWarehouses = warehousesData.map(warehouse => ({
+      const transformedWarehouses = filteredWarehousesData.map(warehouse => ({
           id: warehouse.id,
           name: warehouse.name,
           location: warehouse.governorate,
@@ -114,6 +267,19 @@ const Entrepots = () => {
         
         setWarehouses(transformedWarehouses);
         console.log('✅ Warehouses data transformed and set:', transformedWarehouses);
+        
+        // For Chef d'agence users, automatically show the first warehouse details
+        if (currentUser && currentUser.role === 'Chef d\'agence' && transformedWarehouses.length > 0) {
+          console.log('🔍 Auto-selecting first warehouse for Chef d\'agence');
+          const firstWarehouse = transformedWarehouses[0];
+          setSelectedWarehouse(firstWarehouse);
+          // Fetch detailed information for the selected warehouse
+          await fetchWarehouseDetails(firstWarehouse.id);
+          // Fetch warehouse agency parcels
+          await fetchWarehouseAgencyParcels(firstWarehouse);
+          // Fetch warehouse agency users
+          await fetchAgencyUsers(firstWarehouse);
+        }
     } catch (error) {
       console.error('❌ Error fetching warehouses:', error);
       setError('Failed to fetch warehouses data');
@@ -140,6 +306,195 @@ const Entrepots = () => {
       }
     } catch (error) {
       console.error('❌ Error fetching Chef d\'agence users:', error);
+    }
+  };
+
+  const fetchWarehouseAgencyParcels = async (warehouse) => {
+    if (!warehouse || !warehouse.gouvernorat) {
+      return;
+    }
+
+    try {
+      console.log('🔍 Fetching parcels for warehouse agency:', warehouse.gouvernorat);
+      
+      // Get all shippers in the warehouse's governorate/agency
+      const { apiService } = await import('../../services/api');
+      const shippersData = await apiService.getShippers();
+      const warehouseAgencyShippers = shippersData.filter(shipper => shipper.agency === warehouse.gouvernorat);
+      const warehouseAgencyShipperIds = warehouseAgencyShippers.map(shipper => shipper.id);
+      
+      console.log('🔍 Warehouse agency shippers:', warehouseAgencyShippers.map(s => ({ id: s.id, name: s.name, agency: s.agency })));
+      console.log('🔍 Warehouse agency shipper IDs:', warehouseAgencyShipperIds);
+
+      // Get all parcels
+      const parcelsData = await apiService.getParcels();
+      
+      // Filter parcels by warehouse agency shippers
+      const warehouseAgencyParcels = parcelsData.filter(parcel => 
+        warehouseAgencyShipperIds.includes(parcel.shipper_id) ||
+        warehouseAgencyShippers.some(shipper => 
+          shipper.name === parcel.shipper_name || 
+          shipper.code === parcel.shipper_code
+        )
+      );
+      
+      console.log('🔍 Warehouse agency parcels found:', warehouseAgencyParcels.length);
+      
+      // Calculate status distribution
+      const statusStats = {};
+      const allStatuses = [
+        'En attente', 'À enlever', 'Enlevé', 'Au dépôt', 'En cours', 
+        'RTN dépôt', 'Livrés', 'Livrés payés', 'Retour définitif', 
+        'RTN client agence', 'Retour Expéditeur', 'Retour En Cours d\'expédition', 'Retour reçu'
+      ];
+      
+      // Initialize all statuses with 0
+      allStatuses.forEach(status => {
+        statusStats[status] = 0;
+      });
+      
+      // Count parcels by status
+      warehouseAgencyParcels.forEach(parcel => {
+        const status = parcel.status || 'En attente';
+        statusStats[status] = (statusStats[status] || 0) + 1;
+      });
+      
+      console.log('🔍 Warehouse agency parcel status stats:', statusStats);
+      
+      setAgencyParcels(warehouseAgencyParcels);
+      setAgencyParcelStats(statusStats);
+      
+    } catch (error) {
+      console.error('❌ Error fetching warehouse agency parcels:', error);
+    }
+  };
+
+  const fetchAgencyUsers = async (warehouse) => {
+    if (!warehouse || !warehouse.gouvernorat) {
+      return;
+    }
+
+    try {
+      console.log('🔍 Fetching users for warehouse agency:', warehouse.gouvernorat);
+      
+      const { apiService } = await import('../../services/api');
+      const allUsers = [];
+      
+      // Fetch agency managers
+      try {
+        const agencyManagersResponse = await apiService.getAgencyManagers();
+        const agencyManagers = agencyManagersResponse.filter(am => am.governorate === warehouse.gouvernorat);
+        agencyManagers.forEach(am => {
+          allUsers.push({
+            id: am.id,
+            name: am.name,
+            role: 'Chef d\'agence',
+            email: am.email,
+            phone: am.phone,
+            status: 'Actif',
+            entry_date: am.created_at,
+            packages_processed: 0,
+            performance_percentage: 0
+          });
+        });
+        console.log('🔍 Agency managers found:', agencyManagers.length);
+      } catch (error) {
+        console.error('❌ Error fetching agency managers:', error);
+      }
+
+      // Fetch agency members
+      try {
+        const agencyMembersResponse = await apiService.getAgencyMembers();
+        const agencyMembers = agencyMembersResponse.filter(member => member.agency === warehouse.gouvernorat);
+        agencyMembers.forEach(member => {
+          allUsers.push({
+            id: member.id,
+            name: member.name,
+            role: member.role || 'Membre d\'agence',
+            email: member.email,
+            phone: member.phone,
+            status: member.status || 'Actif',
+            entry_date: member.created_at,
+            packages_processed: 0,
+            performance_percentage: 0
+          });
+        });
+        console.log('🔍 Agency members found:', agencyMembers.length);
+      } catch (error) {
+        console.error('❌ Error fetching agency members:', error);
+      }
+
+      // Fetch drivers
+      try {
+        const driversResponse = await apiService.getDrivers();
+        const drivers = driversResponse.filter(driver => driver.agency === warehouse.gouvernorat);
+        drivers.forEach(driver => {
+          allUsers.push({
+            id: driver.id,
+            name: driver.name,
+            role: 'Livreur',
+            email: driver.email,
+            phone: driver.phone,
+            status: 'Actif',
+            entry_date: driver.created_at,
+            packages_processed: 0,
+            performance_percentage: 0
+          });
+        });
+        console.log('🔍 Drivers found:', drivers.length);
+      } catch (error) {
+        console.error('❌ Error fetching drivers:', error);
+      }
+
+      // Fetch commercial users
+      try {
+        const commercialsResponse = await apiService.getCommercials();
+        const commercials = commercialsResponse.filter(commercial => commercial.agency === warehouse.gouvernorat);
+        commercials.forEach(commercial => {
+          allUsers.push({
+            id: commercial.id,
+            name: commercial.name,
+            role: 'Commercial',
+            email: commercial.email,
+            phone: commercial.phone,
+            status: 'Actif',
+            entry_date: commercial.created_at,
+            packages_processed: 0,
+            performance_percentage: 0
+          });
+        });
+        console.log('🔍 Commercials found:', commercials.length);
+      } catch (error) {
+        console.error('❌ Error fetching commercials:', error);
+      }
+
+      // Fetch expéditeurs (shippers)
+      try {
+        const shippersResponse = await apiService.getShippers();
+        const shippers = shippersResponse.filter(shipper => shipper.agency === warehouse.gouvernorat);
+        shippers.forEach(shipper => {
+          allUsers.push({
+            id: shipper.id,
+            name: shipper.name,
+            role: 'Expéditeur',
+            email: shipper.email,
+            phone: shipper.phone,
+            status: shipper.status || 'Actif',
+            entry_date: shipper.created_at,
+            packages_processed: 0,
+            performance_percentage: 0
+          });
+        });
+        console.log('🔍 Expéditeurs found:', shippers.length);
+      } catch (error) {
+        console.error('❌ Error fetching expéditeurs:', error);
+      }
+
+      console.log('🔍 Total agency users found:', allUsers.length);
+      setAgencyUsers(allUsers);
+      
+    } catch (error) {
+      console.error('❌ Error fetching agency users:', error);
     }
   };
 
@@ -209,21 +564,6 @@ const Entrepots = () => {
     { key: "address", header: "Adresse" },
     { key: "manager", header: "Responsable" },
     {
-      key: "currentStock",
-      header: "Stock actuel",
-      render: (value) => (
-        <div className="flex items-center">
-          <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
-            <div 
-              className="bg-blue-600 h-2 rounded-full" 
-              style={{ width: value }}
-            ></div>
-          </div>
-          <span className="text-sm text-gray-600">{value}</span>
-        </div>
-      ),
-    },
-    {
       key: "actions",
       header: "Actions",
       render: (_, warehouse) => (
@@ -236,11 +576,30 @@ const Entrepots = () => {
     },
   ];
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
+    // Determine the governorate for the new warehouse based on current user
+    let defaultGovernorate = 'Tunis';
+    
+    if (currentUser && currentUser.role === 'Chef d\'agence') {
+      // For Chef d'agence, get their governorate from the agency_managers table
+      try {
+        const { apiService } = await import('../../services/api');
+        const agencyManagerResponse = await apiService.getAgencyManagers();
+        const agencyManager = agencyManagerResponse.find(am => am.email === currentUser.email);
+        
+        if (agencyManager) {
+          defaultGovernorate = agencyManager.governorate;
+          console.log('🔍 Setting governorate for new warehouse:', defaultGovernorate);
+        }
+      } catch (error) {
+        console.error('Error fetching agency manager data:', error);
+      }
+    }
+    
     setEditingWarehouse(null);
     setFormData({
       name: "",
-      gouvernorat: "Tunis",
+      gouvernorat: defaultGovernorate,
       address: "",
       manager: "",
       status: "Actif",
@@ -321,14 +680,27 @@ const Entrepots = () => {
     if (count === 0) return; // Don't open modal if no parcels
     
     try {
-      console.log('🔍 Fetching parcels for status:', status, 'in warehouse:', selectedWarehouse.id);
+      let parcels = [];
       
-      // Fetch parcels for this specific status and warehouse
-      const response = await fetch(`http://localhost:5000/api/parcels?warehouse_id=${selectedWarehouse.id}&status=${encodeURIComponent(status)}`);
-      const data = await response.json();
+      if (currentUser && currentUser.role === 'Chef d\'agence') {
+        // For Chef d'agence, filter warehouse agency parcels by status
+        console.log('🔍 Filtering warehouse agency parcels for status:', status);
+        parcels = agencyParcels.filter(parcel => parcel.status === status);
+      } else {
+        // For other users, fetch warehouse-specific parcels
+        console.log('🔍 Fetching parcels for status:', status, 'in warehouse:', selectedWarehouse.id);
+        
+        // Fetch parcels for this specific status and warehouse
+        const response = await fetch(`http://localhost:5000/api/parcels?warehouse_id=${selectedWarehouse.id}&status=${encodeURIComponent(status)}`);
+        const data = await response.json();
+        
+        if (data.success && data.data) {
+          parcels = data.data;
+        }
+      }
       
-      if (data.success && data.data) {
-        const parcels = data.data.map(parcel => ({
+      if (parcels.length > 0) {
+        const transformedParcels = parcels.map(parcel => ({
           id: parcel.id,
           code: parcel.tracking_number || parcel.id,
           expediteur: parcel.shipper_name || 'N/A',
@@ -336,7 +708,7 @@ const Entrepots = () => {
           status: parcel.status,
           poids: parcel.weight ? `${parseFloat(parcel.weight).toFixed(2)} kg` : 'N/A',
           date_creation: parcel.created_at ? new Date(parcel.created_at).toLocaleDateString('fr-FR') : 'N/A',
-          prix: parcel.price ? `${parseFloat(parcel.price).toFixed(2)} €` : 'N/A',
+          prix: parcel.price ? `${parseFloat(parcel.price).toFixed(2)} DT` : 'N/A',
           phone: parcel.sender_phone || parcel.shipper_phone || 'N/A',
           adresse: parcel.destination || 'N/A',
           designation: parcel.type || 'Livraison',
@@ -355,12 +727,12 @@ const Entrepots = () => {
           type: parcel.type || 'Livraison'
         }));
         
-        console.log('📦 Found parcels:', parcels.length, 'for status:', status);
+        console.log('📦 Found parcels:', transformedParcels.length, 'for status:', status);
         
         setColisModal({
           open: true,
           status: status,
-          colis: parcels
+          colis: transformedParcels
         });
       } else {
         console.warn('No parcels found for status:', status);
@@ -370,6 +742,8 @@ const Entrepots = () => {
           colis: []
         });
       }
+      
+      
     } catch (error) {
       console.error('❌ Error fetching parcels for status:', error);
       setColisModal({
@@ -436,8 +810,6 @@ const Entrepots = () => {
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Téléphone</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date d'entrée</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Colis traités</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Performance</th>
           </tr>
         </thead>
         <tbody className="bg-white divide-y divide-gray-200">
@@ -457,13 +829,11 @@ const Entrepots = () => {
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                 {user.entry_date ? new Date(user.entry_date).toLocaleDateString('fr-FR') : 'N/A'}
               </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.packages_processed || 0}</td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.performance_percentage || 0}%</td>
             </tr>
           )) : (
             <tr>
-              <td colSpan="8" className="px-6 py-4 text-center text-sm text-gray-500">
-                Aucun utilisateur assigné à cet entrepôt
+              <td colSpan="6" className="px-6 py-4 text-center text-sm text-gray-500">
+                Aucun utilisateur trouvé pour cet entrepôt
               </td>
             </tr>
           )}
@@ -502,62 +872,58 @@ const Entrepots = () => {
   );
 
   const renderCharts = (warehouse) => (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-      {/* Graphique de performance des utilisateurs */}
+    <div className="grid grid-cols-1 gap-6 mb-6">
+      {/* Graphique de répartition des utilisateurs par rôle */}
       <div className="bg-white p-6 rounded-lg shadow border">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Performance des utilisateurs</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Répartition des utilisateurs par rôle</h3>
         <div className="space-y-4">
-          {warehouse.users && warehouse.users.length > 0 ? warehouse.users.map((user) => (
-            <div key={user.id} className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                  <span className="text-sm font-medium text-blue-600">{user.name?.charAt(0) || 'U'}</span>
-                </div>
-                <div>
-                  <div className="text-sm font-medium text-gray-900">{user.name}</div>
-                  <div className="text-xs text-gray-500">{user.role}</div>
-                </div>
-              </div>
-              <div className="flex items-center space-x-2">
-                <div className="w-20 bg-gray-200 rounded-full h-2">
-                  <div 
-                    className="bg-blue-600 h-2 rounded-full" 
-                    style={{ width: `${user.performance_percentage || 0}%` }}
-                  ></div>
-                </div>
-                <span className="text-sm text-gray-600 w-12">{user.performance_percentage || 0}%</span>
-              </div>
-            </div>
-          )) : (
-            <div className="text-center text-gray-500 py-4">
-              Aucun utilisateur assigné
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Graphique de répartition des colis */}
-      <div className="bg-white p-6 rounded-lg shadow border">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Répartition des colis</h3>
-        <div className="space-y-4">
-          {warehouse.parcelsByStatus && warehouse.parcelsByStatus.length > 0 ? (
-            warehouse.parcelsByStatus.map((item) => (
-              <div key={item.status} className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">{item.status}</span>
-            <div className="flex items-center space-x-2">
-              <div className="w-16 bg-blue-200 rounded-full h-2">
-                <div 
-                  className="bg-blue-600 h-2 rounded-full" 
-                      style={{ width: `${(item.count / warehouse.statistics.totalPackages) * 100}%` }}
-                ></div>
+          {currentUser && currentUser.role === 'Chef d\'agence' && agencyUsers.length > 0 ? (
+            (() => {
+              const roleStats = {};
+              agencyUsers.forEach(user => {
+                roleStats[user.role] = (roleStats[user.role] || 0) + 1;
+              });
+              
+              return Object.entries(roleStats).map(([role, count]) => (
+                <div key={role} className="flex items-center justify-between">
+                  <span className="text-sm text-gray-600">{role}</span>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-16 bg-green-200 rounded-full h-2">
+                      <div 
+                        className="bg-green-600 h-2 rounded-full" 
+                        style={{ width: `${(count / agencyUsers.length) * 100}%` }}
+                      ></div>
+                    </div>
+                    <span className="text-sm font-medium">{count}</span>
                   </div>
-                  <span className="text-sm font-medium">{item.count}</span>
                 </div>
-              </div>
-            ))
+              ));
+            })()
+          ) : warehouse.users && warehouse.users.length > 0 ? (
+            (() => {
+              const roleStats = {};
+              warehouse.users.forEach(user => {
+                roleStats[user.role] = (roleStats[user.role] || 0) + 1;
+              });
+              
+              return Object.entries(roleStats).map(([role, count]) => (
+                <div key={role} className="flex items-center justify-between">
+                  <span className="text-sm text-gray-600">{role}</span>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-16 bg-green-200 rounded-full h-2">
+                      <div 
+                        className="bg-green-600 h-2 rounded-full" 
+                        style={{ width: `${(count / warehouse.users.length) * 100}%` }}
+                      ></div>
+                    </div>
+                    <span className="text-sm font-medium">{count}</span>
+                  </div>
+                </div>
+              ));
+            })()
           ) : (
             <div className="text-center text-gray-500 py-4">
-              Aucun colis dans cet entrepôt
+              Aucun utilisateur trouvé
             </div>
           )}
         </div>
@@ -586,8 +952,23 @@ const Entrepots = () => {
       {/* Header harmonisé */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Gestion des entrepôts</h1>
-          <p className="text-gray-600 mt-1">Gérez les informations de vos entrepôts et leurs utilisateurs</p>
+          <h1 className="text-2xl font-bold text-gray-900">
+            {currentUser && currentUser.role === 'Chef d\'agence'
+              ? 'Entrepôts de mon Agence'
+              : 'Gestion des entrepôts'
+            }
+          </h1>
+          <p className="text-gray-600 mt-1">
+            {currentUser && currentUser.role === 'Chef d\'agence'
+              ? 'Gérez les informations de vos entrepôts et leurs utilisateurs'
+              : 'Gérez les informations de vos entrepôts et leurs utilisateurs'
+            }
+          </p>
+          {currentUser && currentUser.role === 'Chef d\'agence' && warehouses.length > 0 && userAgency && (
+            <p className="text-orange-600 mt-1 text-sm">
+              💡 Affichage de tous les entrepôts (aucun entrepôt trouvé pour votre gouvernorat: {userAgency})
+            </p>
+          )}
         </div>
         <button
           onClick={handleAdd}
@@ -619,7 +1000,6 @@ const Entrepots = () => {
                 <p><strong>Responsable:</strong> {selectedWarehouse.manager}</p>
                 <p><strong>Téléphone:</strong> {selectedWarehouse.phone || "Non renseigné"}</p>
                 <p><strong>Email:</strong> {selectedWarehouse.email || "Non renseigné"}</p>
-                <p><strong>Stock actuel:</strong> {selectedWarehouse.currentStock}</p>
                 <p><strong>Date de création:</strong> {selectedWarehouse.createdAt}</p>
                 <p><strong>Statut:</strong> 
                   <span className={`ml-2 px-2 py-1 text-xs font-medium rounded-full ${
@@ -649,19 +1029,36 @@ const Entrepots = () => {
           {/* Statistiques */}
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Statistiques de l'entrepôt</h3>
-            {renderStatistics(selectedWarehouse.statistics)}
+            {renderStatistics(currentUser && currentUser.role === 'Chef d\'agence' ? {
+              totalPackages: agencyParcels.length,
+              deliveredToday: (agencyParcelStats['Livrés'] || 0) + (agencyParcelStats['Livrés payés'] || 0),
+              pendingPackages: agencyParcelStats['En attente'] || 0,
+              averageDeliveryTime: calculateAverageDeliveryTime(agencyParcels),
+              monthlyGrowth: calculateMonthlyGrowth(agencyParcels),
+              customerSatisfaction: calculateCustomerSatisfaction(agencyParcels)
+            } : selectedWarehouse.statistics)}
           </div>
 
           {/* Status cards grid */}
           <div className="mb-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Répartition des colis par statut</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              {currentUser && currentUser.role === 'Chef d\'agence' 
+                ? `Répartition des colis par statut - Agence ${selectedWarehouse?.gouvernorat || userAgency}`
+                : 'Répartition des colis par statut'
+              }
+            </h3>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 gap-4">
               {/* Total Card */}
               <div className="bg-white p-4 rounded-xl shadow-lg border border-gray-100">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs font-medium text-gray-600">Total</p>
-                    <p className="text-xl font-bold text-blue-600">{selectedWarehouse.statistics?.totalPackages || 0}</p>
+                    <p className="text-xl font-bold text-blue-600">
+                      {currentUser && currentUser.role === 'Chef d\'agence' 
+                        ? agencyParcels.length 
+                        : (selectedWarehouse.statistics?.totalPackages || 0)
+                      }
+                    </p>
                   </div>
                   <div className="p-2 bg-blue-100 rounded-full">
                     <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -673,8 +1070,17 @@ const Entrepots = () => {
 
               {/* Status Cards */}
             {COLIS_STATUSES.map((status) => {
-              const statusData = selectedWarehouse.parcelsByStatus?.find(s => s.status === status.key);
-              const count = statusData ? statusData.count : 0;
+              let count = 0;
+              
+              if (currentUser && currentUser.role === 'Chef d\'agence') {
+                // Use agency-wide stats for Chef d'agence
+                count = agencyParcelStats[status.key] || 0;
+              } else {
+                // Use warehouse-specific stats for other users
+                const statusData = selectedWarehouse.parcelsByStatus?.find(s => s.status === status.key);
+                count = statusData ? statusData.count : 0;
+              }
+              
               return (
                 <div
                   key={status.key}
@@ -704,9 +1110,12 @@ const Entrepots = () => {
           {/* Utilisateurs de l'entrepôt */}
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Utilisateurs de l'entrepôt ({selectedWarehouse.users?.length || 0})
+              {currentUser && currentUser.role === 'Chef d\'agence' 
+                ? `Tous les utilisateurs de l'agence ${selectedWarehouse?.gouvernorat || userAgency} (${agencyUsers.length})`
+                : `Utilisateurs de l'entrepôt (${selectedWarehouse.users?.length || 0})`
+              }
             </h3>
-            {renderUserTable(selectedWarehouse.users)}
+            {renderUserTable(currentUser && currentUser.role === 'Chef d\'agence' ? agencyUsers : selectedWarehouse.users)}
           </div>
         </div>
       )}
@@ -735,18 +1144,29 @@ const Entrepots = () => {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Gouvernorat
             </label>
-            <select
-              name="gouvernorat"
-              value={formData.gouvernorat}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              {gouvernorats.map((gouvernorat) => (
-                <option key={gouvernorat} value={gouvernorat}>
-                  {gouvernorat}
-                </option>
-                ))}
-              </select>
+            {currentUser && currentUser.role === 'Chef d\'agence' ? (
+              <input
+                type="text"
+                name="gouvernorat"
+                value={formData.gouvernorat}
+                readOnly
+                disabled
+                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600"
+              />
+            ) : (
+              <select
+                name="gouvernorat"
+                value={formData.gouvernorat}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {gouvernorats.map((gouvernorat) => (
+                  <option key={gouvernorat} value={gouvernorat}>
+                    {gouvernorat}
+                  </option>
+                  ))}
+                </select>
+            )}
             </div>
             <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -867,19 +1287,6 @@ const Entrepots = () => {
                               className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-50 transition-colors"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleParcelClick(colis);
-                              }}
-                              title="Voir détails"
-                            >
-                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                              </svg>
-                            </button>
-                            <button 
-                              className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-50 transition-colors"
-                              onClick={(e) => {
-                                e.stopPropagation();
                                 setBonLivraisonColis([colis]);
                               }}
                               title="Bon de livraison"
@@ -888,18 +1295,7 @@ const Entrepots = () => {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                               </svg>
                             </button>
-                            <button 
-                              className="text-blue-600 hover:text-blue-800 p-1 rounded-full hover:bg-blue-50 transition-colors"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setFactureColis([colis]);
-                              }}
-                              title="Facture"
-                            >
-                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                              </svg>
-                            </button>
+
                           </div>
                         </td>
                 </tr>
@@ -942,10 +1338,10 @@ const Entrepots = () => {
                 nif: factureColis[0]?.shipper_tax_number
               }}
               prix={{
-                ttc: factureColis[0]?.prix || '0.00 €',
-                ht: factureColis[0]?.prix || '0.00 €',
-                tva: '0.00 €',
-                totalLivraison: factureColis[0]?.prix || '0.00 €'
+                ttc: factureColis[0]?.prix || '0.00 DT',
+                ht: factureColis[0]?.prix || '0.00 DT',
+                tva: '0.00 DT',
+                totalLivraison: factureColis[0]?.prix || '0.00 DT'
               }}
         />
           </Modal>
@@ -959,25 +1355,7 @@ const Entrepots = () => {
             size="xl"
           >
             <BonLivraisonColis
-              colis={{
-                code: bonLivraisonColis[0]?.code || bonLivraisonColis[0]?.tracking_number
-              }}
-              expediteur={{
-                nom: bonLivraisonColis[0]?.shipper_name || bonLivraisonColis[0]?.expediteur,
-                adresse: bonLivraisonColis[0]?.shipper_address || 'Tunis',
-                tel: bonLivraisonColis[0]?.shipper_phone || '+216 20 123 456',
-                nif: bonLivraisonColis[0]?.shipper_tax_number || 'N/A'
-              }}
-              destinataire={{
-                nom: bonLivraisonColis[0]?.recipient_name || bonLivraisonColis[0]?.destination,
-                adresse: bonLivraisonColis[0]?.recipient_address || bonLivraisonColis[0]?.destination,
-                tel: bonLivraisonColis[0]?.recipient_phone || '+216 20 123 456'
-              }}
-              route="Tunis >> ---- Dispatch ---- >> Monastir"
-              date={bonLivraisonColis[0]?.date_creation || new Date().toLocaleDateString('fr-FR')}
-              docNumber={bonLivraisonColis[0]?.code || bonLivraisonColis[0]?.tracking_number}
-              montant={bonLivraisonColis[0]?.prix || '0.00 €'}
-              designation={bonLivraisonColis[0]?.designation || 'Livraison'}
+              parcelId={bonLivraisonColis[0]?.id}
             />
           </Modal>
         )}

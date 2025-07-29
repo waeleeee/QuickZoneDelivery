@@ -96,7 +96,19 @@ const Reclamation = () => {
       console.log('👤 User type:', typeof user);
       console.log('👤 User keys:', user ? Object.keys(user) : 'null');
       
-      const response = await getComplaints(1, 10, {});
+      // Get current user from localStorage as fallback
+      let currentUser = user;
+      if (!currentUser) {
+        try {
+          const userFromStorage = JSON.parse(localStorage.getItem('currentUser') || 'null');
+          currentUser = userFromStorage;
+          console.log('👤 User from localStorage:', currentUser);
+        } catch (e) {
+          console.warn('Failed to get user from localStorage:', e);
+        }
+      }
+      
+      const response = await getComplaints(1, 10, {}, currentUser);
       console.log('📦 Complaints response in component:', response);
       
       // The API returns { complaints: [...], pagination: {...} }

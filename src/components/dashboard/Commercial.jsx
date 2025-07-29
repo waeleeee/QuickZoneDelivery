@@ -541,7 +541,7 @@ const CommercialDashboard = ({ commercial, onViewExpediteur }) => {
                              {payment.date ? new Date(payment.date).toLocaleDateString() : "N/A"}
                            </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-green-700 font-semibold">
-                            €{parseFloat(payment.amount || 0).toFixed(2)}
+                            DT{parseFloat(payment.amount || 0).toFixed(2)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{payment.payment_method || "N/A"}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{payment.reference || "N/A"}</td>

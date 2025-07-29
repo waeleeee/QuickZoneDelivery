@@ -67,7 +67,7 @@ router.get('/', async (req, res) => {
     const conditions = [];
     
     // Role-based filtering
-    if (userRole === 'expediteur' && userEmail) {
+    if ((userRole === 'expediteur' || userRole === 'Expéditeur') && userEmail) {
       // Expéditeurs can only see their own complaints
       conditions.push(`s.email = $${queryParams.length + 1}`);
       queryParams.push(userEmail);
@@ -112,7 +112,7 @@ router.get('/', async (req, res) => {
     const countConditions = [];
     
     // Apply same role-based filtering to count query
-    if (userRole === 'expediteur' && userEmail) {
+    if ((userRole === 'expediteur' || userRole === 'Expéditeur') && userEmail) {
       countConditions.push(`s.email = $${countParams.length + 1}`);
       countParams.push(userEmail);
     }

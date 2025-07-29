@@ -8,7 +8,8 @@ const FactureColis = ({
   prix = {},
   note = "",
   invoiceNumber = "",
-  invoiceDate = ""
+  invoiceDate = "",
+  payment = null
 }) => {
   const factureRef = useRef();
 
@@ -97,10 +98,66 @@ const FactureColis = ({
 
   const agencyInfo = getAgencyInfo(expediteur);
 
+  // Function to render payment details based on payment method
+  const renderPaymentDetails = () => {
+    if (!payment) return null;
+    
+    const methodMap = {
+      'cash': 'Espèces',
+      'credit_card': 'Cartes bancaires',
+      'bank_transfer': 'Virements bancaires',
+      'check': 'Chèque',
+      'online': 'En ligne'
+    };
+    
+    const displayMethod = methodMap[payment.method_enum || payment.method] || payment.method || "Non spécifié";
+    
+    return (
+      <div className="mt-4 pt-4 border-t border-gray-200">
+        <div className="font-semibold mb-2 text-red-600">Informations de Paiement</div>
+        <div className="text-sm space-y-1">
+          <div><b>Méthode de paiement:</b> {displayMethod}</div>
+          <div><b>Référence:</b> {payment.reference || "N/A"}</div>
+          <div><b>Date de paiement:</b> {payment.date || "N/A"}</div>
+          <div><b>Montant:</b> {payment.amount || "N/A"}</div>
+          <div><b>Statut:</b> {payment.status || "N/A"}</div>
+          
+          {/* Payment method specific details */}
+          {payment.method_enum === 'credit_card' && (
+            <>
+              <div><b>Numéro de carte:</b> {payment.card_number || "N/A"}</div>
+              <div><b>Date de transaction:</b> {payment.card_date || "N/A"}</div>
+            </>
+          )}
+          
+          {payment.method_enum === 'bank_transfer' && (
+            <>
+              <div><b>Référence de virement:</b> {payment.transfer_reference || "N/A"}</div>
+              <div><b>Date de virement:</b> {payment.transfer_date || "N/A"}</div>
+            </>
+          )}
+          
+          {payment.method_enum === 'check' && (
+            <>
+              <div><b>N° Chèque:</b> {payment.check_number || "N/A"}</div>
+              <div><b>Date d'encaissement:</b> {payment.check_date || payment.date || "N/A"}</div>
+            </>
+          )}
+          
+          {payment.method_enum === 'cash' && (
+            <>
+              <div><b>Date de versement:</b> {payment.cash_date || payment.date || "N/A"}</div>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="bg-white" ref={factureRef} style={{ fontFamily: 'Arial, sans-serif', color: '#222' }}>
       {/* Page 1 - Main Invoice */}
-      <div className="p-8 max-w-4xl mx-auto" style={{ pageBreakAfter: 'always' }}>
+      <div className="p-8 max-w-4xl mx-auto" style={{ pageBreakAfter: 'always', minHeight: '100vh' }}>
         {/* Header */}
         <div className="flex justify-between items-start mb-8">
           <div className="flex items-center space-x-4">
@@ -112,7 +169,7 @@ const FactureColis = ({
             />
           </div>
           <div className="flex flex-col items-end">
-            <div className="text-2xl font-bold text-blue-600">Facture</div>
+            <div className="text-2xl font-bold text-red-600">Facture</div>
             <div className="text-lg text-gray-600">REF-{invoiceNumber}</div>
             {invoiceNumber && (
               <Barcode value={invoiceNumber} width={1.5} height={40} fontSize={12} margin={0} />
@@ -126,20 +183,21 @@ const FactureColis = ({
             <div className="font-semibold mb-2">{agencyInfo.name}</div>
             <div className="text-sm">
               <div><b>Adresse:</b> {agencyInfo.address}</div>
-              <div><b>Numéro de Téléphone:</b> {agencyInfo.phone}</div>
+              <div><b>Téléphone:</b> {agencyInfo.phone}</div>
               <div><b>Email:</b> {agencyInfo.email}</div>
               <div><b>Horaires:</b> {agencyInfo.hours}</div>
             </div>
+            {renderPaymentDetails()}
           </div>
           <div>
             <div className="font-semibold mb-2">Détails du Expéditeur</div>
             <div className="text-sm">
               <div><b>Nom de société:</b> {expediteur.company_name || expediteur.name || "N/A"}</div>
               <div><b>Nom et prénom:</b> {expediteur.name || "N/A"}</div>
-              <div><b>Numéro d'Immatriculation Fiscale:</b> {expediteur.fiscal_number || expediteur.tax_number || "N/A"}</div>
+              <div><b>{hasPatente ? 'N° Im:' : 'Numéro CIN:'}</b> {hasPatente ? (expediteur.fiscal_number || expediteur.tax_number || "N/A") : (expediteur.identity_number || "N/A")}</div>
               <div><b>Adresse:</b> {expediteur.address || expediteur.company_address || "Adresse non spécifiée"}</div>
               <div><b>Gouvernorat:</b> {expediteur.governorate || expediteur.company_governorate || "N/A"}</div>
-              <div><b>Numéro de Téléphone:</b> {expediteur.phone || "N/A"}</div>
+              <div><b>Téléphone:</b> {expediteur.phone || "N/A"}</div>
               <div><b>Email:</b> {expediteur.email || "N/A"}</div>
             </div>
           </div>
@@ -222,7 +280,7 @@ const FactureColis = ({
               </div>
               <div className="flex justify-between font-bold border-t pt-1">
                 <span>MONTANT EXPIDITEUR TOTAL:</span>
-                <span>{shipperTotal.toFixed(3)} TND</span>
+                <span className="text-red-600">{shipperTotal.toFixed(3)} TND</span>
               </div>
             </div>
           </div>
@@ -235,26 +293,25 @@ const FactureColis = ({
             <div className="text-sm space-y-2">
               <div>Signature: _________________</div>
               <div>Date: {invoiceDate}</div>
-              <div>Admin</div>
-              <div>Processor</div>
-              <div className="mt-4">Cachet</div>
+              
+              
             </div>
           </div>
           <div className="border-2 border-gray-300 p-4">
             <div className="font-semibold mb-2">Signature et cache</div>
             <div className="text-sm space-y-2">
-              <div>Expéditeur</div>
+              
               <div>Signature: _________________</div>
               <div>Date: {invoiceDate}</div>
               <div>{expediteur.name || "N/A"}</div>
-              <div className="mt-4">Cachet</div>
+              
             </div>
           </div>
         </div>
       </div>
 
-      {/* Page 2 - Parcel Details */}
-      <div className="p-8 max-w-4xl mx-auto">
+      {/* Page 2 - Parcel Details (Always on its own page) */}
+      <div className="p-8 max-w-4xl mx-auto" style={{ pageBreakBefore: 'always', minHeight: '100vh' }}>
         {/* Header for Page 2 */}
         <div className="flex justify-between items-start mb-8">
           <div className="flex items-center space-x-4">
@@ -266,19 +323,19 @@ const FactureColis = ({
             />
           </div>
           <div className="flex flex-col items-end">
-            <div className="text-2xl font-bold text-blue-600">Détails des Colis</div>
+            <div className="text-2xl font-bold text-red-600">Détails des Colis</div>
             <div className="text-lg text-gray-600">REF-{invoiceNumber}</div>
           </div>
         </div>
 
-        {/* Parcel Details Table */}
+        {/* Parcel Details Table - Dark Design with Red Text */}
         <div className="bg-white rounded-lg shadow-lg p-6">
           <div className="text-xl font-bold text-gray-800 mb-4 border-b pb-2">
             Détails des Colis + Livraison
           </div>
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-gray-100 border-b">
+              <tr className="bg-gray-800 text-red-400 border-b">
                 <th className="px-4 py-3 text-left font-semibold">Date</th>
                 <th className="px-4 py-3 text-left font-semibold">État</th>
                 <th className="px-4 py-3 text-left font-semibold">Code</th>
@@ -290,7 +347,7 @@ const FactureColis = ({
             </thead>
             <tbody>
               {colis.map((parcel, index) => (
-                <tr key={index} className="border-b hover:bg-gray-50">
+                <tr key={index} className={`border-b ${index % 2 === 0 ? 'bg-gray-100' : 'bg-white'} hover:bg-gray-50`}>
                   <td className="px-4 py-3">{parcel.date || invoiceDate}</td>
                   <td className="px-4 py-3">
                     <span className={`px-3 py-1 rounded-full text-xs font-medium ${
@@ -299,19 +356,19 @@ const FactureColis = ({
                       {parcel.status}
                     </span>
                   </td>
-                  <td className="px-4 py-3 font-mono text-blue-600">{parcel.code}</td>
+                  <td className="px-4 py-3 font-mono text-red-600">{parcel.code}</td>
                   <td className="px-4 py-3">
                     <div className="font-medium">{parcel.client_name}</div>
                     <div className="text-xs text-gray-500">{parcel.client_phone}</div>
                   </td>
                   <td className="px-4 py-3">{parcel.designation}</td>
                   <td className="px-4 py-3">{parcel.governorate}</td>
-                  <td className="px-4 py-3 text-right font-semibold">{parseFloat(parcel.prix).toFixed(3)} TND</td>
+                  <td className="px-4 py-3 text-right font-semibold text-red-600">{parseFloat(parcel.prix).toFixed(3)} TND</td>
                 </tr>
               ))}
-              <tr className="bg-blue-50 font-bold">
+              <tr className="bg-gray-800 text-red-400 font-bold">
                 <td colSpan="6" className="px-4 py-3">Total ({totalColis} colis)</td>
-                <td className="px-4 py-3 text-right text-blue-600">{totalAmount.toFixed(3)} TND</td>
+                <td className="px-4 py-3 text-right">{totalAmount.toFixed(3)} TND</td>
               </tr>
             </tbody>
           </table>
@@ -320,7 +377,7 @@ const FactureColis = ({
 
       <button
         onClick={handleExportPDF}
-        className="fixed bottom-4 right-4 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold shadow-lg print:hidden"
+        className="fixed bottom-4 right-4 bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-semibold shadow-lg print:hidden"
       >
         Exporter en PDF
       </button>

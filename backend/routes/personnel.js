@@ -111,8 +111,14 @@ router.get('/agency-managers', async (req, res) => {
   }
 });
 
-// Allowed agencies
-const ALLOWED_AGENCIES = ['Siège', 'Tunis', 'Sousse', 'Sfax', 'Monastir'];
+// Allowed agencies - All Tunisian governorates
+const ALLOWED_AGENCIES = [
+  'Siège',
+  'Ariana', 'Béja', 'Ben Arous', 'Bizerte', 'Gabès', 'Gafsa', 'Jendouba', 
+  'Kairouan', 'Kasserine', 'Kébili', 'Kef', 'Mahdia', 'Manouba', 'Médenine', 
+  'Monastir', 'Nabeul', 'Sfax', 'Sidi Bouzid', 'Siliana', 'Sousse', 'Tataouine', 
+  'Tozeur', 'Tunis', 'Zaghouan'
+];
 
 // Create new agency manager
 router.post('/agency-managers', async (req, res) => {
@@ -131,17 +137,20 @@ router.post('/agency-managers', async (req, res) => {
     if (!ALLOWED_AGENCIES.includes(agency)) {
       return res.status(400).json({
         success: false,
-        message: "L'agence doit être l'une de : Siège, Tunis, Sousse, Sfax, Monastir."
+        message: "L'agence doit être l'une des 24 gouvernorats de Tunisie ou 'Siège'."
       });
     }
 
-    // Only one chef per agency
-    const existing = await db.query('SELECT id FROM agency_managers WHERE agency = $1', [agency]);
-    if (existing.rows.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Cette agence a déjà un chef d'agence."
-      });
+    // Check if agency exists in agencies table, if not create it
+    let agencyExists = await db.query('SELECT id FROM agencies WHERE name = $1', [agency]);
+    if (agencyExists.rows.length === 0) {
+      // Create new agency
+      console.log(`🏢 Creating new agency: ${agency} for governorate: ${governorate}`);
+      await client.query(`
+        INSERT INTO agencies (name, governorate, address, phone, email, status)
+        VALUES ($1, $2, $3, $4, $5, 'active')
+      `, [agency, governorate, address || '', phone || '', email || '']);
+      console.log(`✅ New agency created: ${agency}`);
     }
 
     // Check if agency manager already exists by email
@@ -234,7 +243,9 @@ router.post('/agency-managers', async (req, res) => {
       const result = await client.query(`
         INSERT INTO agency_managers (name, email, phone, governorate, address, agency, password)
         VALUES ($1, $2, $3, $4, $5, $6, $7)
-        RETURNING id, name, email, phone, governorate, address, agency, created_at
+        RETURNING id, name, email, phone, governorate, address, agency, 
+                  CASE WHEN password IS NOT NULL THEN true ELSE false END as has_password,
+                  created_at
       `, [name, email, phone, governorate, address, agency, hashedPassword]);
       
       await client.query('COMMIT');
@@ -290,7 +301,7 @@ router.put('/agency-managers/:id', async (req, res) => {
       await client.query('ROLLBACK');
       return res.status(400).json({
         success: false,
-        message: "L'agence doit être l'une de : Siège, Tunis, Sousse, Sfax, Monastir."
+        message: "L'agence doit être l'une des 24 gouvernorats de Tunisie ou 'Siège'."
       });
     }
 
@@ -321,7 +332,9 @@ router.put('/agency-managers/:id', async (req, res) => {
         console.log('⚠️ No password provided for update');
       }
       
-      managerQuery += ` WHERE id = $${managerParams.length + 1} RETURNING id, name, email, phone, governorate, address, agency, updated_at`;
+      managerQuery += ` WHERE id = $${managerParams.length + 1} RETURNING id, name, email, phone, governorate, address, agency, 
+                       CASE WHEN password IS NOT NULL THEN true ELSE false END as has_password,
+                       updated_at`;
       managerParams.push(id);
       
       const result = await client.query(managerQuery, managerParams);

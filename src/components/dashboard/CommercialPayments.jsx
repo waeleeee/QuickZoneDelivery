@@ -202,7 +202,7 @@ const CommercialPayments = () => {
       key: "amount", 
       header: "MONTANT",
       render: (value) => (
-        <span className="font-semibold text-green-600">€{parseFloat(value || 0).toFixed(2)}</span>
+        <span className="font-semibold text-green-600">DT{parseFloat(value || 0).toFixed(2)}</span>
       )
     },
     { key: "payment_method", header: "MÉTHODE" },
@@ -328,7 +328,7 @@ const CommercialPayments = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Total Reçu</p>
-              <p className="text-2xl font-bold text-green-600">{(paymentStats.total_paid || 0).toLocaleString('fr-FR')} €</p>
+              <p className="text-2xl font-bold text-green-600">{(paymentStats.total_paid || 0).toLocaleString('fr-FR')} DT</p>
             </div>
             <div className="p-3 bg-green-100 rounded-full">
               <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -342,7 +342,7 @@ const CommercialPayments = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">En Attente</p>
-              <p className="text-2xl font-bold text-orange-600">{(paymentStats.total_pending || 0).toLocaleString('fr-FR')} €</p>
+              <p className="text-2xl font-bold text-orange-600">{(paymentStats.total_pending || 0).toLocaleString('fr-FR')} DT</p>
             </div>
             <div className="p-3 bg-orange-100 rounded-full">
               <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -356,7 +356,7 @@ const CommercialPayments = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Commissions</p>
-              <p className="text-2xl font-bold text-blue-600">{(paymentStats.commission_total || 0).toLocaleString('fr-FR')} €</p>
+              <p className="text-2xl font-bold text-blue-600">{(paymentStats.commission_total || 0).toLocaleString('fr-FR')} DT</p>
             </div>
             <div className="p-3 bg-blue-100 rounded-full">
               <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -370,7 +370,7 @@ const CommercialPayments = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Salaires</p>
-              <p className="text-2xl font-bold text-purple-600">{(paymentStats.salary_total || 0).toLocaleString('fr-FR')} €</p>
+              <p className="text-2xl font-bold text-purple-600">{(paymentStats.salary_total || 0).toLocaleString('fr-FR')} DT</p>
             </div>
             <div className="p-3 bg-purple-100 rounded-full">
               <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -491,7 +491,7 @@ const CommercialPayments = () => {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Montant (€)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Montant (DT)</label>
                 <input
                   type="number"
                   name="amount"

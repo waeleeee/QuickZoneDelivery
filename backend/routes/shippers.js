@@ -325,7 +325,7 @@ router.post('/', upload.fields([
         phone || null,
         agency || null,
         commercial_id ? parseInt(commercial_id) : null,
-        delivery_fees ? parseFloat(delivery_fees) : 0,
+        delivery_fees ? parseFloat(delivery_fees) : 8,
         return_fees ? parseFloat(return_fees) : 0,
         status || 'Actif',
         identity_number || null,

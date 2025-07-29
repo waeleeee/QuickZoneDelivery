@@ -39,7 +39,6 @@ const Sidebar = ({ onSelect, selectedKey }) => {
         <div className="flex items-center justify-center mb-1">
           <img src="/images/quickzonelogo.png" alt="QuickZone" className="h-9 w-auto" style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.04))' }} />
         </div>
-        <div className="text-lg font-bold text-[#D32F2F] tracking-tight">QuickZone</div>
         <div className="text-xs text-gray-500 font-medium">Système de Gestion</div>
       </div>
 

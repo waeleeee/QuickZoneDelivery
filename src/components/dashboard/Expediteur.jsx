@@ -68,6 +68,12 @@ const Expediteur = () => {
       try {
         setLoading(true);
         
+        // Get current user from localStorage
+        const user = JSON.parse(localStorage.getItem('currentUser') || 'null');
+        console.log('🔍 Current user:', user);
+        console.log('🔍 User role:', user?.role);
+        console.log('🔍 User email:', user?.email);
+        
         // Fetch commercials for dropdown
         const commercialsData = await apiService.getCommercials();
         console.log('Commercials data:', commercialsData);
@@ -79,23 +85,60 @@ const Expediteur = () => {
         setAgencies(agenciesData || []);
         
         // Fetch shippers based on user role
+        let shippersData = [];
+        
         if (isCommercialUser) {
           // For commercial users, get only their shippers
           const commercial = commercialsData.find(c => c.email === currentUser.email);
           if (commercial) {
-            const shippersData = await apiService.getShippersByCommercial(commercial.id);
+            shippersData = await apiService.getShippersByCommercial(commercial.id);
             console.log('Commercial shippers data:', shippersData);
-            setShippers(shippersData || []);
           } else {
             console.error('Commercial not found for user:', currentUser.email);
-            setShippers([]);
+            shippersData = [];
+          }
+        } else if (user && user.role === 'Chef d\'agence') {
+          // For Chef d'agence, get all shippers first, then filter by agency
+          console.log('🔍 User is Chef d\'agence, applying filtering...');
+          shippersData = await apiService.getShippers();
+          console.log('🔍 All shippers data before filtering:', shippersData);
+          
+          // Get the user's agency from the agency_managers table
+          try {
+            console.log('🔍 Fetching agency managers for filtering...');
+            const agencyManagerResponse = await apiService.getAgencyManagers();
+            console.log('🔍 All agency managers response:', agencyManagerResponse);
+            
+            const agencyManager = agencyManagerResponse.find(am => am.email === user.email);
+            console.log('🔍 Looking for agency manager with email:', user.email);
+            console.log('🔍 Found agency manager:', agencyManager);
+            
+            if (agencyManager) {
+              console.log('🔍 Agency manager found:', agencyManager);
+              console.log('🔍 Agency manager agency:', agencyManager.agency);
+              
+              // Filter shippers by agency
+              shippersData = shippersData.filter(shipper => {
+                console.log(`🔍 Checking shipper ${shipper.name}: shipper.agency="${shipper.agency}" vs agencyManager.agency="${agencyManager.agency}"`);
+                const matches = shipper.agency === agencyManager.agency;
+                console.log(`🔍 Match result: ${matches}`);
+                return matches;
+              });
+              console.log('🔍 Filtered shippers count:', shippersData.length);
+              console.log('🔍 Filtered shippers:', shippersData);
+            } else {
+              console.log('⚠️ Agency manager not found for user:', user.email);
+            }
+          } catch (error) {
+            console.error('❌ Error fetching agency manager data:', error);
           }
         } else {
           // For admin users, get all shippers
-          const shippersData = await apiService.getShippers();
+          shippersData = await apiService.getShippers();
           console.log('All shippers data:', shippersData);
-          setShippers(shippersData || []);
         }
+        
+        setShippers(shippersData || []);
         
       } catch (error) {
         console.error('Error fetching data:', error);
@@ -135,7 +178,7 @@ const Expediteur = () => {
     address: "",
     agency_id: "",
     commercial_id: "",
-    delivery_fees: 0,
+    delivery_fees: 8,
     return_fees: 0,
     status: "Actif",
     
@@ -205,12 +248,12 @@ const Expediteur = () => {
     { 
       key: "delivery_fees", 
       header: "Frais de livraison",
-      render: (value) => `€${parseFloat(value || 0).toFixed(2)}`
+      render: (value) => `${parseFloat(value || 0).toFixed(2)} DT`
     },
     { 
       key: "return_fees", 
       header: "Frais de retour",
-      render: (value) => `€${parseFloat(value || 0).toFixed(2)}`
+      render: (value) => `${parseFloat(value || 0).toFixed(2)} DT`
     },
     {
       key: "has_password",
@@ -317,6 +360,8 @@ const Expediteur = () => {
     
     // For commercial users, automatically set the commercial_id
     let commercialId = "";
+    let defaultAgency = "";
+    
     if (isCommercialUser) {
       try {
         const commercials = await apiService.getCommercials();
@@ -327,6 +372,19 @@ const Expediteur = () => {
       } catch (error) {
         console.error('Error finding commercial:', error);
       }
+    } else if (currentUser && currentUser.role === 'Chef d\'agence') {
+      // For Chef d'agence, get their agency from the agency_managers table
+      try {
+        const agencyManagerResponse = await apiService.getAgencyManagers();
+        const agencyManager = agencyManagerResponse.find(am => am.email === currentUser.email);
+        
+        if (agencyManager) {
+          defaultAgency = agencyManager.agency;
+          console.log('🔍 Setting agency for new shipper:', defaultAgency);
+        }
+      } catch (error) {
+        console.error('Error fetching agency manager data:', error);
+      }
     }
     
     setFormData({
@@ -336,9 +394,9 @@ const Expediteur = () => {
       name: "",
       email: "",
       phone: "",
-      agency: "",
+      agency: defaultAgency,
       commercial_id: commercialId,
-      delivery_fees: 0,
+      delivery_fees: 8,
       return_fees: 0,
       status: "Actif",
       identity_number: "",
@@ -1016,8 +1074,18 @@ const Expediteur = () => {
       {/* Header harmonisé */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Gestion des expéditeurs</h1>
-          <p className="text-gray-600 mt-1">Liste des expéditeurs et leurs informations</p>
+          <h1 className="text-2xl font-bold text-gray-900">
+            {currentUser && currentUser.role === 'Chef d\'agence'
+              ? 'Expéditeurs de mon Agence'
+              : 'Gestion des expéditeurs'
+            }
+          </h1>
+          <p className="text-gray-600 mt-1">
+            {currentUser && currentUser.role === 'Chef d\'agence'
+              ? 'Liste des expéditeurs de votre agence'
+              : 'Liste des expéditeurs et leurs informations'
+            }
+          </p>
         </div>
         <button
           onClick={handleAdd}
@@ -1161,7 +1229,7 @@ const Expediteur = () => {
                       </div>
                       <div className="flex justify-between">
                         <span className="font-medium">Chiffre d'affaires:</span>
-                        <span className="text-green-600 font-semibold">€{shipperDetails?.statistics?.totalRevenue || "0.00"}</span>
+                        <span className="text-green-600 font-semibold">{shipperDetails?.statistics?.totalRevenue || "0.00"} DT</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="font-medium">Date d'inscription:</span>
@@ -1226,7 +1294,7 @@ const Expediteur = () => {
                                 {payment.date ? new Date(payment.date).toLocaleDateString() : "N/A"}
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-green-700 font-semibold">
-                                €{parseFloat(payment.amount || 0).toFixed(2)}
+                                {parseFloat(payment.amount || 0).toFixed(2)} DT
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{payment.payment_method || "N/A"}</td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{payment.reference || "N/A"}</td>
@@ -1520,18 +1588,29 @@ const Expediteur = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Agence *</label>
-                <select 
-                  name="agency" 
-                  value={formData.agency || ''} 
-                  onChange={handleInputChange} 
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="">Sélectionner une agence</option>
-                  {agencies.map(agency => (
-                    <option key={agency.id} value={agency.name}>{agency.name}</option>
-                  ))}
-                </select>
+                {currentUser && currentUser.role === 'Chef d\'agence' ? (
+                  <input
+                    type="text"
+                    name="agency"
+                    value={formData.agency || ''}
+                    readOnly
+                    disabled
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600"
+                  />
+                ) : (
+                  <select 
+                    name="agency" 
+                    value={formData.agency || ''} 
+                    onChange={handleInputChange} 
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Sélectionner une agence</option>
+                    {agencies.map(agency => (
+                      <option key={agency.id} value={agency.name}>{agency.name}</option>
+                    ))}
+                  </select>
+                )}
               </div>
 
               <div>
@@ -1561,7 +1640,7 @@ const Expediteur = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Frais de livraison (€)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Frais de livraison (DT)</label>
                 <input 
                   type="number" 
                   name="delivery_fees" 
@@ -1574,7 +1653,7 @@ const Expediteur = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Frais de retour (€)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Frais de retour (DT)</label>
                 <input 
                   type="number" 
                   name="return_fees" 
@@ -1775,7 +1854,7 @@ const Expediteur = () => {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Montant (€)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Montant (DT)</label>
             <input
               type="number"
               name="amount"
@@ -1850,7 +1929,7 @@ const Expediteur = () => {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Montant (€)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Montant (DT)</label>
             <input
               type="number"
               name="amount"

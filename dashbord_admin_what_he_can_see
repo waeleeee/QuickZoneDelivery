@@ -73,7 +73,7 @@ Expéditeurs
 ce mois
 Revenus Mensuels
 
-€125,430
+DT125,430
 
 +23%
 ce mois
@@ -147,11 +147,11 @@ Gérez vos expéditeurs et suivez leurs performances
 
 Rechercher...
 CODE	NOM	EMAIL	TÉLÉPHONE	ENTREPRISE	TOTAL COLIS	COLIS LIVRÉ	COLIS RETOURNÉ	FRAIS DE LIVRAISON	FRAIS DE RETOUR	STATUT	ACTIONS
-EXP001	Pierre Dubois	pierre.dubois@email.com	+33 1 23 45 67 89	Dubois Logistics	45	3	0	€86.40	€0.00	Actif	
+EXP001	Pierre Dubois	pierre.dubois@email.com	+33 1 23 45 67 89	Dubois Logistics	45	3	0	DT86.40	DT0.00	Actif	
 
-EXP002	Sarah Ahmed	sarah.ahmed@email.com	+33 1 98 76 54 32	Ahmed Trading	32	2	0	€57.75	€0.00	Actif	
+EXP002	Sarah Ahmed	sarah.ahmed@email.com	+33 1 98 76 54 32	Ahmed Trading	32	2	0	DT57.75	DT0.00	Actif	
 
-EXP003	Mohamed Ali	mohamed.ali@email.com	+33 1 11 22 33 44	Ali Import Export	28	1	1	€45.00	€0.00	Inactif	
+EXP003	Mohamed Ali	mohamed.ali@email.com	+33 1 11 22 33 44	Ali Import Export	28	1	1	DT45.00	DT0.00	Inactif	
 
 " and when he aslo click to the eye button he see this "Détails de l'expéditeur
 Pierre Dubois - Dubois Logistics
@@ -159,7 +159,7 @@ Pierre Dubois - Dubois Logistics
 Fermer
 Exporter en PDF
 Résumé des Performances
-€1150.50
+DT1150.50
 Chiffre d'affaires total
 42
 Colis réussis
@@ -184,19 +184,19 @@ Colis réussis:
 Taux de réussite:
 93.3%
 Chiffre d'affaires:
-€1150.50
+DT1150.50
 Date d'inscription:
 2023-01-15
 Paiements à cet expéditeur
 Date	Montant	Méthode	Référence	Statut
-2024-01-20	400,00 €	Virement bancaire	REF-004	Payé
+2024-01-20	400,00 DT	Virement bancaire	REF-004	Payé
 Colis récents
 ID	Statut	Date	Montant
-COL001	Livés	2024-01-18	€25.50
-COL002	En cours	2024-01-19	€18.75
-COL003	Livés	2024-01-17	€32.00
-COL004	En attente	2024-01-20	€15.25
-COL005	Livés	2024-01-16	€28.90" and he see this page of Gestion des comptables
+COL001	Livés	2024-01-18	DT25.50
+COL002	En cours	2024-01-19	DT18.75
+COL003	Livés	2024-01-17	DT32.00
+COL004	En attente	2024-01-20	DT15.25
+COL005	Livés	2024-01-16	DT28.90" and he see this page of Gestion des comptables
 Gérez les comptables et leurs informations
 
 Ajouter Comptable
@@ -330,9 +330,9 @@ Agence :
 Tunis Sud
 Commercial :
 Ahmed Ben Ali
-Frais de livraison (€) :
+Frais de livraison (DT) :
 15
-Frais de retour (€) :
+Frais de retour (DT) :
 10
 Documents :
 FactureBon de livraison
@@ -346,9 +346,9 @@ FR76 1234 5678 9012 3456 7890 123
 BIC :
 AGRIFRPP123
 Statistiques
-2840.5€
+2840.5DT
 Chiffre d'affaires
-63.12€
+63.12DT
 Moyenne/colis
 92%
 Livraison à temps
@@ -372,19 +372,19 @@ Historique des colis
 Ajouter un colis
 Rechercher dans les colis (ID, destination, type, statut, date, montant)...
 ID Colis	Destination	Type	Poids	Statut	Date	Montant	Actions
-COL001	Paris	Standard	2.5kg	Livés	2024-01-18	25.5€	
+COL001	Paris	Standard	2.5kg	Livés	2024-01-18	25.5DT	
 
 
-COL002	Lyon	Express	1.8kg	En cours	2024-01-19	18.75€	
+COL002	Lyon	Express	1.8kg	En cours	2024-01-19	18.75DT	
 
 
-COL003	Marseille	Standard	3.2kg	Livés	2024-01-17	32€	
+COL003	Marseille	Standard	3.2kg	Livés	2024-01-17	32DT	
 
 
-COL004	Toulouse	Standard	1.5kg	En attente	2024-01-20	15.25€	
+COL004	Toulouse	Standard	1.5kg	En attente	2024-01-20	15.25DT	
 
 
-COL005	Nice	Express	2.8kg	Livés	2024-01-16	28.9€	
+COL005	Nice	Express	2.8kg	Livés	2024-01-16	28.9DT	
 
 
 Historique des paiements
@@ -392,13 +392,13 @@ Historique des paiements
 Ajouter un paiement
 Rechercher dans les paiements (ID, référence, méthode, statut, date, montant)...
 ID Paiement	Référence	Méthode	Statut	Date	Montant	Actions
-PAY001	REF001	Carte bancaire	Payé	2024-01-15	150.25€	
+PAY001	REF001	Carte bancaire	Payé	2024-01-15	150.25DT	
 
 
-PAY002	REF002	Virement	En attente	2024-01-10	89.5€	
+PAY002	REF002	Virement	En attente	2024-01-10	89.5DT	
 
 
-PAY003	REF003	Chèque	Payé	2024-01-05	210.75€	
+PAY003	REF003	Chèque	Payé	2024-01-05	210.75DT	
 
 
  and he see this estion des Colis
@@ -618,13 +618,13 @@ Gérez les paiements et les transactions des expéditeurs
 Ajouter un paiement
 Rechercher...
 ID	Expéditeur	Montant	Date	Méthode de paiement	Référence	Statut	Facture	Actions
-PAY001	Ahmed Mohamed	250,00 €	2024-01-15	Virement bancaire	REF-001	Payé	Facture	
+PAY001	Ahmed Mohamed	250,00 DT	2024-01-15	Virement bancaire	REF-001	Payé	Facture	
 
 
-PAY002	Sarah Ahmed	180,00 €	2024-01-14	Espèces	REF-002	Payé	Facture	
+PAY002	Sarah Ahmed	180,00 DT	2024-01-14	Espèces	REF-002	Payé	Facture	
 
 
-PAY003	Mohamed Ali	320,00 €	2024-01-13	Chèque	REF-003	En attente	Facture	
+PAY003	Mohamed Ali	320,00 DT	2024-01-13	Chèque	REF-003	En attente	Facture	
 
 
  and when he click to the facture he see this Facture du paiement
@@ -654,7 +654,7 @@ Coûts Supplémentaires (Livraison Rapide)	8.00 DT
 Total Frais de Livraison	8.00 DT
 Total HT	29.17 DT
 TVA (7%)	5.83 DT
-Prix colis	250,00 €
+Prix colis	250,00 DT
 Total TTC	43.00 DT
 Exporter en PD and he see this also this Gestion des réclamations
 Liste des réclamations clients et leur suivi

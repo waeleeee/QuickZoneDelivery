@@ -4,36 +4,53 @@ import { Chart as ChartJS, LineElement, PointElement, LinearScale, CategoryScale
 
 ChartJS.register(LineElement, PointElement, LinearScale, CategoryScale, Tooltip, Legend, Filler);
 
-const data = {
-  labels: ['1 Jan', '5 Jan', '10 Jan', '15 Jan', '20 Jan', '25 Jan', '30 Jan'],
-  datasets: [
-    {
-      label: 'Livraisons',
-      data: [45, 52, 48, 67, 73, 89, 95],
-      borderColor: '#dc2626',
-      backgroundColor: 'rgba(220, 38, 38, 0.1)',
-      tension: 0.4,
-      fill: true,
+const DeliveryChart = ({ deliveryData = [] }) => {
+  // If no data provided, show empty state
+  if (!deliveryData || deliveryData.length === 0) {
+    return (
+      <div style={{ width: '100%', height: 300 }} className="flex items-center justify-center">
+        <div className="text-center text-gray-500">
+          <p>Aucune donnée de livraison disponible</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Extract labels and data from the provided deliveryData
+  const labels = deliveryData.map(item => item.label || item.date);
+  const data = deliveryData.map(item => item.value || item.count);
+
+  const chartData = {
+    labels: labels,
+    datasets: [
+      {
+        label: 'Livraisons',
+        data: data,
+        borderColor: '#dc2626',
+        backgroundColor: 'rgba(220, 38, 38, 0.1)',
+        tension: 0.4,
+        fill: true,
+      },
+    ],
+  };
+
+  const options = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
     },
-  ],
-};
+    scales: {
+      y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.1)' } },
+      x: { grid: { display: false } },
+    },
+  };
 
-const options = {
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: {
-    legend: { display: false },
-  },
-  scales: {
-    y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.1)' } },
-    x: { grid: { display: false } },
-  },
-};
-
-export default function DeliveryChart() {
   return (
     <div style={{ width: '100%', height: 300 }}>
-      <Line data={data} options={options} />
+      <Line data={chartData} options={options} />
     </div>
   );
-} 
+};
+
+export default DeliveryChart; 

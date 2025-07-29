@@ -16,21 +16,90 @@ const ColisSelectionModal = ({
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [selectedShipper, setSelectedShipper] = useState(null);
-  const [step, setStep] = useState('shipper'); // 'shipper', 'parcels', or 'payment'
+  const [step, setStep] = useState('agency'); // 'agency', 'shipper', 'payment', 'parcels'
   const [shipperSearchTerm, setShipperSearchTerm] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("");
+  
+  // Agency selection states
+  const [selectedAgency, setSelectedAgency] = useState("");
+  const [agencyFilteredShippers, setAgencyFilteredShippers] = useState([]);
+
+  // Payment information states
+  const [paymentDetails, setPaymentDetails] = useState({
+    // Cash payment fields
+    cash_date: "",
+    // Check payment fields
+    check_date: "",
+    check_number: "",
+    // Bank transfer payment fields
+    transfer_date: "",
+    transfer_reference: ""
+  });
+
+  // Agency options
+  const agencyOptions = [
+    "Siège",
+    "Tunis", 
+    "Sousse",
+    "Sfax",
+    "Monastir"
+  ];
+
+  // Agency to expediteur mapping
+  const agencyExpediteurMapping = {
+    "Siège": ["Hayder altayeb"],
+    "Tunis": ["Toumi Marwen", "Ritej Chaieb"],
+    "Sousse": ["Ayeb Hichem", "fedi", "asma gharbi"],
+    "Sfax": ["Wael Riahi"],
+    "Monastir": []
+  };
 
   // Reset state when modal opens
   useEffect(() => {
     if (isOpen) {
-      setStep('shipper');
+      setStep('agency');
       setSelectedShipper(null);
       setSelectedParcels([]);
       setParcels([]);
       setShipperSearchTerm("");
       setPaymentMethod("");
+      setSelectedAgency("");
+      setAgencyFilteredShippers([]);
+      setPaymentDetails({
+        // Cash payment fields
+        cash_date: "",
+        // Check payment fields
+        check_date: "",
+        check_number: "",
+        // Bank transfer payment fields
+        transfer_date: "",
+        transfer_reference: ""
+      });
     }
   }, [isOpen]);
+
+  // Agency change handler
+  const handleAgencyChange = (e) => {
+    const agency = e.target.value;
+    setSelectedAgency(agency);
+    
+    if (agency) {
+      // Filter shippers based on agency
+      const agencyShippers = shippers.filter(shipper => {
+        // Check if shipper belongs to the selected agency
+        const shipperName = shipper.name || `${shipper.first_name || ''} ${shipper.last_name || ''}`.trim();
+        return agencyExpediteurMapping[agency]?.includes(shipperName) || 
+               shipper.agency === agency ||
+               shipper.governorate === agency;
+      });
+      setAgencyFilteredShippers(agencyShippers);
+    } else {
+      setAgencyFilteredShippers([]);
+    }
+    
+    // Reset shipper selection when agency changes
+    setSelectedShipper(null);
+  };
 
   // Fetch parcels for the expediteur
   useEffect(() => {
@@ -72,12 +141,15 @@ const ColisSelectionModal = ({
       
       console.log('📦 Raw parcels data:', parcelsData);
       
-      // Filter only delivered or returned parcels (including French and English statuses)
-      const filteredParcels = parcelsData.filter(p => 
-        p.status === 'Livré' || p.status === 'Retour' || 
-        p.status === 'delivered' || p.status === 'returned' ||
-        p.status === 'Livrés' || p.status === 'Livrés payés'
-      );
+      // Filter only delivered or returned parcels (only "livrés" and "retour")
+      const filteredParcels = parcelsData.filter(p => {
+        const status = p.status?.toLowerCase();
+        return status === 'livrés' || 
+               status === 'retour';
+      });
+      
+      console.log('📦 Available statuses in data:', [...new Set(parcelsData.map(p => p.status))]);
+      console.log('📦 Filtered parcels count:', filteredParcels.length);
       
       console.log('📦 Filtered parcels (Livré/Retour):', filteredParcels.length);
       setParcels(filteredParcels);
@@ -110,7 +182,7 @@ const ColisSelectionModal = ({
 
   const handleShipperSelect = (shipper) => {
     setSelectedShipper(shipper);
-    setStep('parcels');
+    setStep('payment');
   };
 
   const handleConfirm = () => {
@@ -118,7 +190,36 @@ const ColisSelectionModal = ({
       alert('Veuillez sélectionner au moins un colis');
       return;
     }
-    onConfirm(selectedParcels);
+    if (!paymentMethod) {
+      alert('Veuillez sélectionner un type de paiement');
+      return;
+    }
+    
+    // Validate payment type specific fields
+    if (paymentMethod === "Espèces" && !paymentDetails.cash_date) {
+      alert('Veuillez entrer la date de paiement pour les espèces');
+      return;
+    }
+    
+    if (paymentMethod === "Paiement avec chèque" && (!paymentDetails.check_date || !paymentDetails.check_number)) {
+      alert('Veuillez entrer la date et le numéro de chèque');
+      return;
+    }
+    
+    if (paymentMethod === "Virements bancaires" && (!paymentDetails.transfer_date || !paymentDetails.transfer_reference)) {
+      alert('Veuillez entrer la date et la référence du virement');
+      return;
+    }
+    
+    onConfirm({
+      shipper: selectedShipper,
+      parcels: selectedParcels,
+      paymentMethod: paymentMethod,
+      paymentDetails: paymentDetails,
+      totalAmount: totalAmount,
+      subtotal: subtotal,
+      deduction: deduction
+    });
     onClose();
   };
 
@@ -141,8 +242,8 @@ const ColisSelectionModal = ({
 
   const identityInfo = selectedShipper ? getIdentityInfo(selectedShipper) : null;
 
-  // Filter shippers based on search
-  const filteredShippers = shippers.filter(shipper => {
+  // Filter shippers based on search (from agency-filtered list)
+  const filteredShippers = agencyFilteredShippers.filter(shipper => {
     const matchesSearch = !shipperSearchTerm || 
       shipper.name?.toLowerCase().includes(shipperSearchTerm.toLowerCase()) ||
       shipper.email?.toLowerCase().includes(shipperSearchTerm.toLowerCase()) ||
@@ -204,25 +305,93 @@ const ColisSelectionModal = ({
         <div className="flex items-center justify-center mb-4">
           <div className="flex items-center">
             <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-              step === 'shipper' ? 'bg-blue-600 text-white' : 'bg-green-600 text-white'
+              step === 'agency' ? 'bg-blue-600 text-white' : 'bg-green-600 text-white'
             }`}>
               1
+            </div>
+            <div className={`w-16 h-1 ${step === 'shipper' || step === 'payment' || step === 'parcels' ? 'bg-green-600' : 'bg-gray-300'}`}></div>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+              step === 'shipper' ? 'bg-blue-600 text-white' : step === 'payment' || step === 'parcels' ? 'bg-green-600 text-white' : 'bg-gray-300 text-gray-600'
+            }`}>
+              2
+            </div>
+            <div className={`w-16 h-1 ${step === 'payment' || step === 'parcels' ? 'bg-green-600' : 'bg-gray-300'}`}></div>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+              step === 'payment' ? 'bg-blue-600 text-white' : step === 'parcels' ? 'bg-green-600 text-white' : 'bg-gray-300 text-gray-600'
+            }`}>
+              3
             </div>
             <div className={`w-16 h-1 ${step === 'parcels' ? 'bg-green-600' : 'bg-gray-300'}`}></div>
             <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
               step === 'parcels' ? 'bg-blue-600 text-white' : 'bg-gray-300 text-gray-600'
             }`}>
-              2
+              4
             </div>
           </div>
         </div>
 
-        {step === 'shipper' ? (
+        {step === 'agency' ? (
+          /* Agency Selection Step */
+          <div className="space-y-4">
+            <div className="text-center mb-4">
+              <h3 className="text-lg font-medium">Sélection de l'Agence</h3>
+              <p className="text-sm text-gray-600">Choisissez l'agence de l'expéditeur</p>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-96 overflow-y-auto">
+              {agencyOptions.map((agency) => (
+                <div
+                  key={agency}
+                  onClick={() => {
+                    setSelectedAgency(agency);
+                    handleAgencyChange({ target: { value: agency } });
+                  }}
+                  className={`p-4 border-2 rounded-lg cursor-pointer transition-all duration-200 ${
+                    selectedAgency === agency
+                      ? 'border-blue-500 bg-blue-50 shadow-md'
+                      : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50'
+                  }`}
+                >
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center">
+                      <span className="text-white text-lg">🏢</span>
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-semibold text-gray-900">{agency}</div>
+                      <div className="text-sm text-gray-600">
+                        {agencyExpediteurMapping[agency]?.length || 0} expéditeur(s)
+                      </div>
+                    </div>
+                  </div>
+                  {selectedAgency === agency && (
+                    <div className="mt-2 pt-2 border-t border-blue-200">
+                      <div className="text-xs text-blue-600">
+                        ✅ Agence sélectionnée
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : step === 'shipper' ? (
           /* Shipper Selection Step */
           <div className="space-y-4">
             <div className="text-center mb-4">
-              <h3 className="text-lg font-medium">Choisissez l'expéditeur pour créer la facture</h3>
+              <h3 className="text-lg font-medium">Sélection de l'Expéditeur</h3>
+              <p className="text-sm text-gray-600">Choisissez l'expéditeur pour créer la facture</p>
             </div>
+            
+            {/* Back button */}
+            <button
+              onClick={() => setStep('agency')}
+              className="flex items-center text-blue-600 hover:text-blue-800 mb-2"
+            >
+              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              Retour à la sélection d'agence
+            </button>
             
             {/* Search bar for shippers */}
             <div className="mb-4">
@@ -258,9 +427,175 @@ const ColisSelectionModal = ({
             
             {filteredShippers.length === 0 && (
               <div className="text-center py-8 text-gray-500">
-                {shipperSearchTerm ? 'Aucun expéditeur trouvé pour cette recherche' : 'Aucun expéditeur disponible'}
+                {!selectedAgency ? 'Veuillez d\'abord sélectionner une agence' : 
+                 shipperSearchTerm ? 'Aucun expéditeur trouvé pour cette recherche' : 
+                 'Aucun expéditeur disponible pour cette agence'}
               </div>
             )}
+          </div>
+        ) : step === 'payment' ? (
+          /* Payment Type Selection Step */
+          <div className="space-y-4">
+            <div className="text-center mb-4">
+              <h3 className="text-lg font-medium">Type de Paiement</h3>
+              <p className="text-sm text-gray-600">Choisissez le type de paiement pour {selectedShipper?.name}</p>
+            </div>
+            
+            {/* Back button */}
+            <button
+              onClick={() => setStep('shipper')}
+              className="flex items-center text-blue-600 hover:text-blue-800 mb-2"
+            >
+              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              Retour à la sélection d'expéditeur
+            </button>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {[
+                { 
+                  type: "Espèces", 
+                  icon: "💵", 
+                  description: "Paiement en espèces",
+                  color: "green",
+                  fieldKey: "cashDetails"
+                },
+                { 
+                  type: "Paiement avec chèque", 
+                  icon: "📄", 
+                  description: "Paiement par chèque",
+                  color: "blue",
+                  fieldKey: "checkDetails"
+                },
+                { 
+                  type: "Virements bancaires", 
+                  icon: "🏦", 
+                  description: "Paiement par virement bancaire",
+                  color: "purple",
+                  fieldKey: "bankTransferDetails"
+                }
+              ].map((paymentOption) => (
+                <div
+                  key={paymentOption.type}
+                  onClick={() => setPaymentMethod(paymentOption.type)}
+                  className={`p-4 border-2 rounded-lg cursor-pointer transition-all duration-200 ${
+                    paymentMethod === paymentOption.type
+                      ? `border-${paymentOption.color}-500 bg-${paymentOption.color}-50 shadow-md`
+                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  <div className="flex items-center space-x-3">
+                    <div className={`w-12 h-12 bg-gradient-to-br from-${paymentOption.color}-500 to-${paymentOption.color}-600 rounded-full flex items-center justify-center`}>
+                      <span className="text-white text-xl">{paymentOption.icon}</span>
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-semibold text-gray-900">{paymentOption.type}</div>
+                      <div className="text-sm text-gray-600">{paymentOption.description}</div>
+                    </div>
+                  </div>
+                  
+                  {paymentMethod === paymentOption.type && (
+                    <div className="mt-3 pt-3 border-t border-gray-200 space-y-3">
+                      <div className={`text-xs text-${paymentOption.color}-600 font-medium`}>
+                        ✅ Type sélectionné
+                      </div>
+                      
+                      {/* Payment Type Specific Fields */}
+                      {paymentOption.type === "Espèces" && (
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Date de paiement *
+                          </label>
+                          <input
+                            type="date"
+                            value={paymentDetails.cash_date}
+                            onChange={(e) => setPaymentDetails(prev => ({
+                              ...prev,
+                              cash_date: e.target.value
+                            }))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </div>
+                      )}
+                      
+                      {paymentOption.type === "Paiement avec chèque" && (
+                        <>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                              Date du chèque *
+                            </label>
+                            <input
+                              type="date"
+                              value={paymentDetails.check_date}
+                              onChange={(e) => setPaymentDetails(prev => ({
+                                ...prev,
+                                check_date: e.target.value
+                              }))}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                              N° Chèque *
+                            </label>
+                            <input
+                              type="text"
+                              value={paymentDetails.check_number}
+                              onChange={(e) => setPaymentDetails(prev => ({
+                                ...prev,
+                                check_number: e.target.value
+                              }))}
+                              placeholder="Ex : CHK-001-2024"
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          </div>
+                        </>
+                      )}
+                      
+                      {paymentOption.type === "Virements bancaires" && (
+                        <>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                              Date du virement *
+                            </label>
+                            <input
+                              type="date"
+                              value={paymentDetails.transfer_date}
+                              onChange={(e) => setPaymentDetails(prev => ({
+                                ...prev,
+                                transfer_date: e.target.value
+                              }))}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                              Référence du virement *
+                            </label>
+                            <input
+                              type="text"
+                              value={paymentDetails.transfer_reference}
+                              onChange={(e) => setPaymentDetails(prev => ({
+                                ...prev,
+                                transfer_reference: e.target.value
+                              }))}
+                              placeholder="Ex : VIR-001-2024"
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         ) : (
           /* Parcels Selection Step */
@@ -294,43 +629,15 @@ const ColisSelectionModal = ({
                   className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
                 >
                   <option value="">Tous les statuts</option>
-                  <option value="Livré">Livré</option>
                   <option value="Livrés">Livrés</option>
                   <option value="Livrés payés">Livrés payés</option>
                   <option value="Retour">Retour</option>
-                  <option value="delivered">Delivered</option>
-                  <option value="returned">Returned</option>
+                  <option value="Retour En Cours">Retour En Cours</option>
                 </select>
               </div>
             </div>
 
-            {/* Selection Summary */}
-            {selectedParcels.length > 0 && (
-              <div className="bg-blue-50 p-3 rounded-md">
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="font-medium">
-                      {selectedParcels.length} colis sélectionné(s)
-                    </span>
-                    <span className="font-bold text-blue-600">
-                      Total: {totalAmount.toFixed(3)} TND
-                    </span>
-                  </div>
-                  {deduction > 0 && (
-                    <div className="text-sm text-gray-600 border-t pt-2">
-                      <div className="flex justify-between">
-                        <span>Sous-total:</span>
-                        <span>{subtotal.toFixed(3)} TND</span>
-                      </div>
-                      <div className="flex justify-between text-red-600">
-                        <span>Retenu à la source (3%):</span>
-                        <span>-{deduction.toFixed(3)} TND</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
+
 
             {/* Parcels List */}
             {loading ? (
@@ -421,22 +728,72 @@ const ColisSelectionModal = ({
         )}
 
         {/* Action Buttons */}
-        <div className="flex justify-end gap-3 pt-4 border-t">
+        <div className="flex justify-between items-center pt-4 border-t">
           <button
             onClick={onClose}
             className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
           >
             Annuler
           </button>
-          {step === 'parcels' && (
-            <button
-              onClick={handleConfirm}
-              disabled={selectedParcels.length === 0}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
-            >
-              Créer la Facture ({selectedParcels.length})
-            </button>
-          )}
+          
+          <div className="flex space-x-2">
+            {step === 'agency' && (
+              <button
+                onClick={() => setStep('shipper')}
+                disabled={!selectedAgency}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center space-x-1"
+              >
+                <span>Suivant</span>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            )}
+            
+            {step === 'shipper' && (
+              <button
+                onClick={() => setStep('payment')}
+                disabled={!selectedShipper}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center space-x-1"
+              >
+                <span>Suivant</span>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            )}
+            
+            {step === 'payment' && (
+              <button
+                onClick={() => setStep('parcels')}
+                disabled={
+                  !paymentMethod || 
+                  (paymentMethod === "Espèces" && !paymentDetails.cash_date) ||
+                  (paymentMethod === "Paiement avec chèque" && (!paymentDetails.check_date || !paymentDetails.check_number)) ||
+                  (paymentMethod === "Virements bancaires" && (!paymentDetails.transfer_date || !paymentDetails.transfer_reference))
+                }
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center space-x-1"
+              >
+                <span>Suivant</span>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            )}
+            
+            {step === 'parcels' && (
+              <button
+                onClick={handleConfirm}
+                disabled={selectedParcels.length === 0}
+                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center space-x-1"
+              >
+                <span>Créer la Facture ({selectedParcels.length})</span>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </Modal>

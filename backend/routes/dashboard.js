@@ -268,31 +268,169 @@ router.get('/performance', async (req, res) => {
 // Get admin dashboard data
 router.get('/admin', async (req, res) => {
   try {
-    // Get key metrics
+    // Get total users (all roles)
+    const usersResult = await db.query(`
+      SELECT COUNT(*) as total_users,
+             COUNT(CASE WHEN created_at >= DATE_TRUNC('month', CURRENT_DATE) THEN 1 END) as new_users_this_month
+      FROM users WHERE is_active = true
+    `);
+
+    // Get total parcels with real statistics
     const parcelsResult = await db.query(`
       SELECT COUNT(*) as total_parcels,
-             COUNT(CASE WHEN status = 'Livrés' THEN 1 END) as delivered_parcels
+             COUNT(CASE WHEN created_at >= DATE_TRUNC('month', CURRENT_DATE) THEN 1 END) as new_parcels_this_month,
+             COUNT(CASE WHEN status IN ('Livrés', 'Livrés payés') THEN 1 END) as delivered_parcels,
+             COUNT(CASE WHEN status IN ('Livrés', 'Livrés payés') AND updated_at >= DATE_TRUNC('month', CURRENT_DATE) THEN 1 END) as delivered_this_month
       FROM parcels
     `);
     
+    // Get total shippers
+    const shippersResult = await db.query(`
+      SELECT COUNT(*) as total_shippers,
+             COUNT(CASE WHEN created_at >= DATE_TRUNC('month', CURRENT_DATE) THEN 1 END) as new_shippers_this_month
+      FROM shippers WHERE status = 'Actif'
+    `);
+
+    // Get monthly revenue from delivered and paid parcels only
+    const revenueResult = await db.query(`
+      SELECT COALESCE(SUM(price), 0) as monthly_revenue
+      FROM parcels 
+      WHERE status = 'Livrés payés' 
+      AND updated_at >= DATE_TRUNC('month', CURRENT_DATE)
+    `);
+
+    // Get last month's revenue for growth calculation
+    const lastMonthRevenueResult = await db.query(`
+      SELECT COALESCE(SUM(price), 0) as last_month_revenue
+      FROM parcels 
+      WHERE status = 'Livrés payés' 
+      AND updated_at >= DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month')
+      AND updated_at < DATE_TRUNC('month', CURRENT_DATE)
+    `);
+    
+    // Get drivers statistics
     const driversResult = await db.query(`
       SELECT COUNT(*) as total_drivers,
              COUNT(CASE WHEN status = 'Disponible' THEN 1 END) as active_drivers
       FROM drivers
     `);
-    
-    const shippersResult = await db.query(`
-      SELECT COUNT(*) as total_shippers
-      FROM shippers WHERE status = 'Actif'
+
+    // Get delivery history for charts (last 7 days)
+    const deliveryHistoryResult = await db.query(`
+      SELECT 
+        DATE(updated_at) as date,
+        COUNT(*) as delivered
+      FROM parcels 
+      WHERE status IN ('Livrés', 'Livrés payés')
+      AND updated_at >= CURRENT_DATE - INTERVAL '7 days'
+      GROUP BY DATE(updated_at)
+      ORDER BY date
     `);
+
+    // Get geographical data for charts
+    const geographicalDataResult = await db.query(`
+      SELECT 
+        CASE 
+          WHEN destination LIKE '%,%' THEN 
+            TRIM(SPLIT_PART(destination, ',', 2))
+          ELSE 
+            COALESCE(destination, 'Non spécifié')
+        END as region,
+        COUNT(*) as count
+      FROM parcels 
+      WHERE destination IS NOT NULL AND destination != ''
+      GROUP BY 
+        CASE 
+          WHEN destination LIKE '%,%' THEN 
+            TRIM(SPLIT_PART(destination, ',', 2))
+          ELSE 
+            COALESCE(destination, 'Non spécifié')
+        END
+      ORDER BY count DESC
+      LIMIT 10
+    `);
+
+    // Get status distribution for charts
+    const statusStatsResult = await db.query(`
+      SELECT status, COUNT(*) as count
+      FROM parcels 
+      GROUP BY status
+      ORDER BY count DESC
+    `);
+
+    // Calculate growth percentages
+    const users = usersResult.rows[0];
+    const parcels = parcelsResult.rows[0];
+    const shippers = shippersResult.rows[0];
+    const revenue = revenueResult.rows[0];
+    const lastMonthRevenue = lastMonthRevenueResult.rows[0];
+
+    // Calculate month-over-month growth with better logic for new systems
+    const lastMonthUsers = users.total_users - users.new_users_this_month;
+    const lastMonthParcels = parcels.total_parcels - parcels.new_parcels_this_month;
+    const lastMonthShippers = shippers.total_shippers - shippers.new_shippers_this_month;
+    const lastMonthDelivered = parcels.delivered_parcels - parcels.delivered_this_month;
+
+    // Calculate growth percentages with proper handling for new data
+    const userGrowth = lastMonthUsers > 0 
+      ? Math.round(((users.new_users_this_month / lastMonthUsers) * 100) * 100) / 100
+      : users.new_users_this_month > 0 ? 100 : 0;
     
+    const parcelGrowth = lastMonthParcels > 0 
+      ? Math.round(((parcels.new_parcels_this_month / lastMonthParcels) * 100) * 100) / 100
+      : parcels.new_parcels_this_month > 0 ? 100 : 0;
+    
+    const shipperGrowth = lastMonthShippers > 0 
+      ? Math.round(((shippers.new_shippers_this_month / lastMonthShippers) * 100) * 100) / 100
+      : shippers.new_shippers_this_month > 0 ? 100 : 0;
+    
+    const deliveryGrowth = lastMonthDelivered > 0 
+      ? Math.round(((parcels.delivered_this_month / lastMonthDelivered) * 100) * 100) / 100
+      : parcels.delivered_this_month > 0 ? 100 : 0;
+    
+    const revenueGrowth = lastMonthRevenue.last_month_revenue > 0 
+      ? Math.round(((revenue.monthly_revenue - lastMonthRevenue.last_month_revenue) / lastMonthRevenue.last_month_revenue * 100) * 100) / 100
+      : revenue.monthly_revenue > 0 ? 100 : 0;
+
+    // Create status stats object
+    const statusStats = {};
+    statusStatsResult.rows.forEach(row => {
+      statusStats[row.status] = parseInt(row.count);
+    });
+
+    const keyMetrics = {
+      totalUsers: parseInt(users.total_users),
+      totalColis: parseInt(parcels.total_parcels),
+      livreursActifs: parseInt(driversResult.rows[0].active_drivers),
+      livraisonsCompletees: parseInt(parcels.delivered_parcels),
+      totalShippers: parseInt(shippers.total_shippers),
+      monthlyRevenue: parseFloat(revenue.monthly_revenue),
+      userGrowth: userGrowth,
+      parcelGrowth: parcelGrowth,
+      shipperGrowth: shipperGrowth,
+      deliveryGrowth: deliveryGrowth,
+      revenueGrowth: revenueGrowth
+    };
+
+    // Format delivery history for charts
+    const deliveryHistory = deliveryHistoryResult.rows.map(row => ({
+      date: row.date,
+      delivered: parseInt(row.delivered)
+    }));
+
+    // Format geographical data for charts
+    const geographicalData = geographicalDataResult.rows.map(row => ({
+      region: row.region,
+      count: parseInt(row.count)
+    }));
+
     // Get top drivers
     const topDrivers = await db.query(`
       SELECT d.name, COUNT(p.id) as delivery_count
       FROM drivers d
       LEFT JOIN pickup_missions pm ON d.id = pm.driver_id
       LEFT JOIN parcels p ON pm.id = p.id
-      WHERE p.status = 'Livrés'
+      WHERE p.status IN ('Livrés', 'Livrés payés')
       GROUP BY d.id, d.name
       ORDER BY delivery_count DESC
       LIMIT 5
@@ -300,23 +438,12 @@ router.get('/admin', async (req, res) => {
     
     // Get recent activities
     const recentParcels = await db.query(`
-      SELECT p.tracking_number, p.status, p.created_date, s.name as shipper_name
+      SELECT p.tracking_number, p.status, p.created_at, s.name as shipper_name
       FROM parcels p
       LEFT JOIN shippers s ON p.shipper_id = s.id
-      ORDER BY p.created_date DESC
+      ORDER BY p.created_at DESC
       LIMIT 5
     `);
-    
-    const keyMetrics = {
-      totalColis: parseInt(parcelsResult.rows[0].total_parcels),
-      livreursActifs: parseInt(driversResult.rows[0].active_drivers),
-      livraisonsCompletees: parseInt(parcelsResult.rows[0].delivered_parcels),
-      tauxSatisfaction: 98.5, // Mock for now
-      colisGrowth: "+12% ce mois",
-      livreursGrowth: "+8% cette semaine", 
-      livraisonsGrowth: "+15% aujourd'hui",
-      satisfactionGrowth: "+2.3% ce mois"
-    };
     
     const topLivreurs = topDrivers.rows.map((driver, index) => ({
       rank: index + 1,
@@ -327,7 +454,7 @@ router.get('/admin', async (req, res) => {
     const recentActivities = recentParcels.rows.map(parcel => ({
       type: parcel.status === 'Livrés' ? 'delivered' : 'created',
       message: `Colis #${parcel.tracking_number} ${parcel.status.toLowerCase()}`,
-      time: new Date(parcel.created_date).toLocaleString('fr-FR'),
+      time: new Date(parcel.created_at).toLocaleString('fr-FR'),
       color: parcel.status === 'Livrés' ? 'green' : 'blue'
     }));
     
@@ -335,6 +462,9 @@ router.get('/admin', async (req, res) => {
       success: true,
       data: {
         keyMetrics,
+        deliveryHistory,
+        geographicalData,
+        statusStats,
         topLivreurs,
         recentActivities
       }

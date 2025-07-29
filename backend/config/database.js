@@ -9,7 +9,7 @@ const pool = new Pool({
   database: process.env.DB_NAME || 'quickzone_db',
   user: process.env.DB_USER || 'postgres',
   password: process.env.DB_PASSWORD || 'waelrh',
-  max: 20,
+  max: 200,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 2000,
   ssl: false

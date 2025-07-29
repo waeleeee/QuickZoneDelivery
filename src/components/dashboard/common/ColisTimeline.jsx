@@ -269,7 +269,7 @@ const ColisTimeline = ({ parcel, onClose }) => {
       <div className="bg-white rounded-xl shadow-lg p-6 mb-8 flex flex-wrap justify-between items-center gap-4">
         <div className="text-sm text-gray-700 min-w-[180px]">
           <div><b>Client:</b> {parcel?.shipper || parcel?.shipper_name || "-"}</div>
-          <div><b>Montant:</b> {parcel?.price ? `${parcel.price} €` : "-"}</div>
+          <div><b>Montant:</b> {parcel?.price ? `${parcel.price} DT` : "-"}</div>
           <div><b>Téléphone:</b> {parcel?.shipper_phone || "N/A"}</div>
         </div>
         <div className="text-sm text-gray-700 text-right min-w-[180px]">

@@ -26,6 +26,7 @@ const Livreurs = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDriver, setEditingDriver] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -59,12 +60,68 @@ const Livreurs = () => {
       try {
         console.log('🔄 Starting to fetch drivers...');
         setLoading(true);
+        
+        // Get current user from localStorage
+        const user = JSON.parse(localStorage.getItem('currentUser') || 'null');
+        setCurrentUser(user);
+        console.log('🔍 Current user:', user);
+        console.log('🔍 User role:', user?.role);
+        console.log('🔍 User email:', user?.email);
+        
         const data = await apiService.getDrivers();
-        console.log('📊 Drivers data received in component:', data);
+        console.log('📊 Raw drivers data:', data);
         console.log('📊 Drivers data type:', typeof data);
         console.log('📊 Drivers data length:', Array.isArray(data) ? data.length : 'Not an array');
         
-        setDrivers(data || []);
+        // Filter drivers based on user role and agency
+        let filteredData = data || [];
+        
+        if (user && user.role === 'Chef d\'agence') {
+          console.log('🔍 User is Chef d\'agence, applying filtering...');
+          // For Chef d'agence, only show drivers from their agency
+          // We need to get the user's agency from the agency_managers table
+          try {
+            console.log('🔍 Fetching agency managers for filtering...');
+            const agencyManagerResponse = await apiService.getAgencyManagers();
+            console.log('🔍 All agency managers response:', agencyManagerResponse);
+            console.log('🔍 Agency managers type:', typeof agencyManagerResponse);
+            console.log('🔍 Agency managers length:', Array.isArray(agencyManagerResponse) ? agencyManagerResponse.length : 'Not an array');
+            
+            const agencyManager = agencyManagerResponse.find(am => am.email === user.email);
+            console.log('🔍 Looking for agency manager with email:', user.email);
+            console.log('🔍 Found agency manager:', agencyManager);
+            
+            if (agencyManager) {
+              console.log('🔍 Agency manager found:', agencyManager);
+              console.log('🔍 Agency manager agency:', agencyManager.agency);
+              console.log('🔍 Agency manager agency type:', typeof agencyManager.agency);
+              
+              // Show all drivers first for debugging
+              console.log('🔍 All drivers before filtering:', data);
+              console.log('🔍 Sample driver structure:', data[0]);
+              
+              filteredData = data.filter(driver => {
+                console.log(`🔍 Checking driver ${driver.name}: driver.agency="${driver.agency}" (type: ${typeof driver.agency}) vs agencyManager.agency="${agencyManager.agency}" (type: ${typeof agencyManager.agency})`);
+                const matches = driver.agency === agencyManager.agency;
+                console.log(`🔍 Match result: ${matches}`);
+                return matches;
+              });
+              console.log('🔍 Filtered drivers count:', filteredData.length);
+              console.log('🔍 Filtered drivers:', filteredData);
+            } else {
+              console.log('⚠️ Agency manager not found for user:', user.email);
+              console.log('⚠️ Available agency managers:', agencyManagerResponse.map(am => ({ email: am.email, agency: am.agency })));
+            }
+          } catch (error) {
+            console.error('❌ Error fetching agency manager data:', error);
+            console.error('❌ Error details:', error.response?.data || error.message);
+          }
+        } else {
+          console.log('🔍 User is not Chef d\'agence, showing all drivers');
+        }
+        
+        console.log('🔍 Final filtered data count:', filteredData.length);
+        setDrivers(filteredData);
         console.log('✅ Drivers state updated');
       } catch (error) {
         console.error('❌ Error fetching drivers:', error);
@@ -186,20 +243,40 @@ const Livreurs = () => {
     },
   ];
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
+    // Determine the agency for the new driver based on current user
+    let defaultAgency = 'Siège';
+    let defaultGovernorate = 'Tunis';
+    
+    if (currentUser && currentUser.role === 'Chef d\'agence') {
+      // For Chef d'agence, get their agency from the agency_managers table
+      try {
+        const agencyManagerResponse = await apiService.getAgencyManagers();
+        const agencyManager = agencyManagerResponse.find(am => am.email === currentUser.email);
+        
+        if (agencyManager) {
+          defaultAgency = agencyManager.agency;
+          defaultGovernorate = agencyManager.governorate;
+          console.log('🔍 Setting agency for new driver:', defaultAgency);
+        }
+      } catch (error) {
+        console.error('Error fetching agency manager data:', error);
+      }
+    }
+    
     setEditingDriver(null);
     setFormData({
       name: "",
       email: "",
       phone: "",
       address: "",
-      governorate: "Tunis",
+      governorate: defaultGovernorate,
       cin_number: "",
       driving_license: "",
       car_number: "",
       car_type: "",
       insurance_number: "",
-      agency: "Siège",
+      agency: defaultAgency,
       photo_url: "",
       personal_documents_url: "",
       car_documents_url: "",
@@ -408,8 +485,18 @@ const Livreurs = () => {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Gestion des livreurs</h1>
-            <p className="text-gray-600 mt-1">Liste des livreurs et leurs informations</p>
+            <h1 className="text-2xl font-bold text-gray-900">
+              {currentUser && currentUser.role === 'Chef d\'agence'
+                ? 'Livreurs de mon Agence'
+                : 'Gestion des livreurs'
+              }
+            </h1>
+            <p className="text-gray-600 mt-1">
+              {currentUser && currentUser.role === 'Chef d\'agence'
+                ? 'Liste des livreurs de votre agence'
+                : 'Liste des livreurs et leurs informations'
+              }
+            </p>
           </div>
         </div>
         <div className="flex items-center justify-center py-12">
@@ -425,11 +512,21 @@ const Livreurs = () => {
   return (
     <div className="space-y-6">
       {/* Header harmonisé */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Gestion des livreurs</h1>
-          <p className="text-gray-600 mt-1">Liste des livreurs et leurs informations</p>
-        </div>
+              <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">
+              {currentUser && currentUser.role === 'Chef d\'agence'
+                ? 'Livreurs de mon Agence'
+                : 'Gestion des livreurs'
+              }
+            </h1>
+            <p className="text-gray-600 mt-1">
+              {currentUser && currentUser.role === 'Chef d\'agence'
+                ? 'Liste des livreurs de votre agence'
+                : 'Liste des livreurs et leurs informations'
+              }
+            </p>
+          </div>
         <button
           onClick={handleAdd}
           className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
@@ -654,17 +751,28 @@ const Livreurs = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Agence</label>
-                <select
-                  name="agency"
-                  value={formData.agency}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500"
-                  required
-                >
-                  {agencyOptions.map(agency => (
-                    <option key={agency} value={agency}>{agency}</option>
-                  ))}
-                </select>
+                {currentUser && currentUser.role === 'Chef d\'agence' ? (
+                  <input
+                    type="text"
+                    name="agency"
+                    value={formData.agency}
+                    readOnly
+                    disabled
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600"
+                  />
+                ) : (
+                  <select
+                    name="agency"
+                    value={formData.agency}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500"
+                    required
+                  >
+                    {agencyOptions.map(agency => (
+                      <option key={agency} value={agency}>{agency}</option>
+                    ))}
+                  </select>
+                )}
               </div>
             </div>
 

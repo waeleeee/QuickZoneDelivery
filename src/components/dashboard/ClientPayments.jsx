@@ -8,7 +8,7 @@ const ClientPayments = () => {
     {
       id: "PAY001",
       shipper: "Ahmed Mohamed",
-      amount: "250,00 €",
+      amount: "250,00 DT",
       date: "2024-01-15",
       method: "Virement bancaire",
       reference: "REF-001",
@@ -17,7 +17,7 @@ const ClientPayments = () => {
     {
       id: "PAY002",
       shipper: "Ahmed Mohamed",
-      amount: "180,00 €",
+      amount: "180,00 DT",
       date: "2024-01-14",
       method: "Espèces",
       reference: "REF-002",
@@ -26,7 +26,7 @@ const ClientPayments = () => {
     {
       id: "PAY003",
       shipper: "Ahmed Mohamed",
-      amount: "320,00 €",
+      amount: "320,00 DT",
       date: "2024-01-13",
       method: "Chèque",
       reference: "REF-003",
@@ -35,7 +35,7 @@ const ClientPayments = () => {
     {
       id: "PAY004",
       shipper: "Ahmed Mohamed",
-      amount: "150,00 €",
+      amount: "150,00 DT",
       date: "2024-01-10",
       method: "Virement bancaire",
       reference: "REF-004",
@@ -44,7 +44,7 @@ const ClientPayments = () => {
     {
       id: "PAY005",
       shipper: "Ahmed Mohamed",
-      amount: "95,00 €",
+      amount: "95,00 DT",
       date: "2024-01-08",
       method: "Espèces",
       reference: "REF-005",
@@ -121,7 +121,8 @@ const ClientPayments = () => {
       prixColis: payment.amount,
       ttc: "43.00 DT",
     },
-    note: "Le jeudi svp"
+    note: "Le jeudi svp",
+    payment: payment // Pass the payment data to the invoice
   });
 
   return (

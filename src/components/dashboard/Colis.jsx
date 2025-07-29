@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import DataTable from "./common/DataTable";
 import Modal from "./common/Modal";
 import ColisTimeline from "./common/ColisTimeline";
@@ -6,6 +6,7 @@ import ColisCreate from "./ColisCreate";
 import { useParcels, useCreateParcel, useUpdateParcel, useDeleteParcel } from "../../hooks/useApi";
 import { useAppStore } from "../../stores/useAppStore";
 import { useForm } from "react-hook-form";
+import { apiService } from "../../services/api";
 
 const Colis = () => {
   const { parcels, loading, selectedParcel, setSelectedParcel } = useAppStore();
@@ -45,7 +46,47 @@ const Colis = () => {
     pages: 0
   });
 
+  const [userAgency, setUserAgency] = useState(null);
+  const [shippersByAgency, setShippersByAgency] = useState({});
+
   const { register, handleSubmit, reset, formState: { errors } } = useForm();
+
+  // Fetch agency information for Chef d'agence users
+  useEffect(() => {
+    const fetchAgencyData = async () => {
+      if (currentUser && currentUser.role === 'Chef d\'agence') {
+        try {
+          console.log('🔍 Fetching agency data for Chef d\'agence...');
+          
+          // Get user's agency
+          const agencyManagerResponse = await apiService.getAgencyManagers();
+          const agencyManager = agencyManagerResponse.find(am => am.email === currentUser.email);
+          
+          if (agencyManager) {
+            setUserAgency(agencyManager.agency);
+            console.log('🔍 User agency:', agencyManager.agency);
+            
+            // Get all shippers to filter by agency
+            const shippersData = await apiService.getShippers();
+            const agencyShippers = shippersData.filter(shipper => shipper.agency === agencyManager.agency);
+            
+            // Create a map of shipper IDs by agency for quick lookup
+            const shippersMap = {};
+            agencyShippers.forEach(shipper => {
+              shippersMap[shipper.id] = shipper;
+            });
+            
+            setShippersByAgency(shippersMap);
+            console.log('🔍 Agency shippers:', agencyShippers.map(s => ({ id: s.id, name: s.name, agency: s.agency })));
+          }
+        } catch (error) {
+          console.error('❌ Error fetching agency data:', error);
+        }
+      }
+    };
+
+    fetchAgencyData();
+  }, [currentUser]);
 
   const statusOptions = [
     "En attente",
@@ -302,7 +343,33 @@ const Colis = () => {
   // Memoized filtered data for better performance
   const filteredParcels = useMemo(() => {
     const data = parcelsData && parcelsData.length > 0 ? parcelsData : MOCK_PARCELS;
-    return data.filter((parcel) => {
+    
+    // Filter by agency for Chef d'agence users
+    let agencyFilteredData = data;
+    if (currentUser && currentUser.role === 'Chef d\'agence' && userAgency && Object.keys(shippersByAgency).length > 0) {
+      console.log('🔍 User is Chef d\'agence, applying agency filtering...');
+      console.log('🔍 User agency:', userAgency);
+      console.log('🔍 Available shippers in agency:', Object.keys(shippersByAgency));
+      
+      // Filter parcels to only show those from shippers in the same agency
+      agencyFilteredData = data.filter(parcel => {
+        // Check if the parcel's shipper is in the user's agency
+        // We need to match by shipper ID or shipper name
+        const shipperInAgency = Object.values(shippersByAgency).some(agencyShipper => 
+          agencyShipper.id === parcel.shipper_id || 
+          agencyShipper.name === parcel.shipper_name ||
+          agencyShipper.code === parcel.shipper_code
+        );
+        
+        console.log(`🔍 Checking parcel ${parcel.id}: shipper_id=${parcel.shipper_id}, shipper_name=${parcel.shipper_name}, shipper_code=${parcel.shipper_code}, in_agency=${shipperInAgency}`);
+        
+        return shipperInAgency;
+      });
+      
+      console.log('🔍 Filtered parcels count:', agencyFilteredData.length);
+    }
+    
+    return agencyFilteredData.filter((parcel) => {
       // Recherche simple
       const matchesSearch = searchTerm === "" || 
         Object.values(parcel).some(value =>
@@ -324,7 +391,7 @@ const Colis = () => {
       return matchesSearch && matchesStatus && matchesShipper && 
              matchesDestination && matchesDateFrom && matchesDateTo;
     });
-  }, [parcelsData, searchTerm, advancedFilters]);
+  }, [parcelsData, searchTerm, advancedFilters, currentUser, userAgency, shippersByAgency]);
 
   const handleAdd = () => {
     setEditingParcel(null);
@@ -385,8 +452,18 @@ const Colis = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Gestion des Colis</h1>
-          <p className="text-gray-600">Gérez vos colis et suivez leur statut</p>
+          <h1 className="text-2xl font-bold text-gray-900">
+            {currentUser && currentUser.role === 'Chef d\'agence'
+              ? 'Colis de mon Agence'
+              : 'Gestion des Colis'
+            }
+          </h1>
+          <p className="text-gray-600">
+            {currentUser && currentUser.role === 'Chef d\'agence'
+              ? 'Gérez les colis de votre agence et suivez leur statut'
+              : 'Gérez vos colis et suivez leur statut'
+            }
+          </p>
         </div>
         <div className="flex space-x-3">
           <button
@@ -728,22 +805,7 @@ const Colis = () => {
                 />
               </div>
               
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Type
-                </label>
-                <select
-                  {...register("type", { required: "Le type est requis" })}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                >
-                  <option value="Standard">Standard</option>
-                  <option value="Express">Express</option>
-                  <option value="Premium">Premium</option>
-                </select>
-                {errors.type && (
-                  <p className="text-red-500 text-sm mt-1">{errors.type.message}</p>
-                )}
-              </div>
+
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">

@@ -13,10 +13,7 @@ const gouvernorats = [
 
 const agenceOptions = [
   { value: "Siège", label: "Siège" },
-  { value: "Tunis", label: "Tunis" },
-  { value: "Sousse", label: "Sousse" },
-  { value: "Sfax", label: "Sfax" },
-  { value: "Monastir", label: "Monastir" },
+  ...gouvernorats.map(gov => ({ value: gov, label: gov }))
 ];
 
 const ChefAgence = () => {
@@ -97,7 +94,22 @@ const ChefAgence = () => {
     }
   }, [selectedChef, showMembersModal]);
 
+  const generateUniqueAgencyName = (governorate) => {
+    // Count existing agencies for this governorate
+    const existingAgencies = chefs.filter(chef => chef.governorate === governorate);
+    const count = existingAgencies.length + 1;
+    
+    if (governorate === 'Tunis' && count === 1) {
+      return 'Siège';
+    }
+    
+    return `Agence ${governorate} ${count > 1 ? count : ''}`.trim();
+  };
+
   const handleAddChef = () => {
+    const defaultGovernorate = 'Tunis';
+    const defaultAgency = generateUniqueAgencyName(defaultGovernorate);
+    
     setEditChef({
       id: '',
       name: '',
@@ -105,8 +117,8 @@ const ChefAgence = () => {
       password: '',
       phone: '',
       address: '',
-      agency: 'Siège',
-      governorate: 'Tunis',
+      agency: defaultAgency,
+      governorate: defaultGovernorate,
     });
     setShowEditModal(true);
   };
@@ -420,7 +432,20 @@ const ChefAgence = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Gouvernorat</label>
-                <select className="border border-gray-300 rounded-md px-3 py-2 w-full focus:outline-none focus:ring-1 focus:ring-blue-500" value={editChef.governorate || 'Tunis'} onChange={e => setEditChef({ ...editChef, governorate: e.target.value })} required>
+                <select 
+                  className="border border-gray-300 rounded-md px-3 py-2 w-full focus:outline-none focus:ring-1 focus:ring-blue-500" 
+                  value={editChef.governorate || 'Tunis'} 
+                  onChange={e => {
+                    const newGovernorate = e.target.value;
+                    const newAgency = generateUniqueAgencyName(newGovernorate);
+                    setEditChef({ 
+                      ...editChef, 
+                      governorate: newGovernorate,
+                      agency: newAgency
+                    });
+                  }} 
+                  required
+                >
                   {gouvernorats.map(gov => (
                     <option key={gov} value={gov}>{gov}</option>
                   ))}
@@ -432,9 +457,35 @@ const ChefAgence = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Agence</label>
-                <select className="border border-gray-300 rounded-md px-3 py-2 w-full focus:outline-none focus:ring-1 focus:ring-blue-500" value={editChef.agency || 'Tunis'} onChange={e => setEditChef({ ...editChef, agency: e.target.value })} required>
-                  {agenceOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                </select>
+                {editChef.id ? (
+                  // For editing existing agency manager - show dropdown of existing agencies
+                  <select 
+                    className="border border-gray-300 rounded-md px-3 py-2 w-full focus:outline-none focus:ring-1 focus:ring-blue-500" 
+                    value={editChef.agency || ''} 
+                    onChange={e => setEditChef({ ...editChef, agency: e.target.value })} 
+                    required
+                  >
+                    {agenceOptions.map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                ) : (
+                  // For creating new agency manager - show text input with auto-generation
+                  <input 
+                    type="text" 
+                    className="border border-gray-300 rounded-md px-3 py-2 w-full focus:outline-none focus:ring-1 focus:ring-blue-500 bg-gray-50" 
+                    value={editChef.agency || ''} 
+                    onChange={e => setEditChef({ ...editChef, agency: e.target.value })} 
+                    required
+                    placeholder="Nom de l'agence (généré automatiquement)"
+                  />
+                )}
+                <p className="text-xs text-gray-500 mt-1">
+                  {editChef.id 
+                    ? '💡 Sélectionnez l\'agence existante pour ce chef d\'agence'
+                    : '💡 Le nom de l\'agence est généré automatiquement selon le gouvernorat. Vous pouvez le modifier si nécessaire.'
+                  }
+                </p>
               </div>
             </div>
             <div className="flex justify-end space-x-3 mt-6">

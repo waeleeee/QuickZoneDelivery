@@ -9,12 +9,13 @@ const Modal = ({ isOpen, onClose, title, children, size = "md", className = "" }
     lg: "max-w-2xl",
     xl: "max-w-4xl",
     xxl: "max-w-screen-2xl w-full", // Make xxl truly massive, nearly full screen
-    "75": "w-3/4 h-3/4 max-w-none max-h-none", // 75% of screen size
+    "75": "w-11/12 max-w-7xl max-h-[90vh]", // Better centered 75% size
+    "full": "w-full h-full max-w-none max-h-none", // Full screen
   };
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+      <div className="flex items-center justify-center min-h-screen p-4 text-center">
         {/* Background overlay */}
         <div
           className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
@@ -22,11 +23,11 @@ const Modal = ({ isOpen, onClose, title, children, size = "md", className = "" }
         ></div>
 
         {/* Modal panel */}
-        <div className={`inline-block align-bottom bg-white text-right overflow-hidden shadow-xl transform transition-all sm:align-middle sm:w-full ${sizeClasses[size]} ${size === '75' ? 'rounded-lg my-4' : 'rounded-lg sm:my-8'} ${className}`}>
+        <div className={`relative inline-block w-full max-h-full bg-white text-right overflow-hidden shadow-xl transform transition-all rounded-lg ${sizeClasses[size]} ${className}`}>
           {/* Header */}
-          <div className={`bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4 ${size === '75' ? 'h-full overflow-y-auto' : ''}`}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg leading-6 font-medium text-gray-900">
+          <div className={`bg-white px-6 pt-6 pb-6 sm:p-8 sm:pb-6 ${size === '75' || size === 'full' ? 'h-full overflow-y-auto' : ''}`}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl leading-6 font-semibold text-gray-900">
                 {title}
               </h3>
               <button

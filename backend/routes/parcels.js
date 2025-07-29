@@ -258,8 +258,10 @@ router.get('/expediteur/:email/stats', async (req, res) => {
         data: {
           totalParcels: 0,
           totalRevenue: 0,
+          balance: 0,
           currentMonth: 0,
           deliveredThisMonth: 0,
+          paidDelivered: 0,
           complaintsCount: 0,
           monthlyChanges: { parcels: 0, delivered: 0 },
           statusStats: {}
@@ -275,14 +277,7 @@ router.get('/expediteur/:email/stats', async (req, res) => {
       FROM parcels 
       WHERE shipper_id = $1
     `, [expediteur.id]);
-    
-    // Get total revenue
-    const totalRevenueResult = await db.query(`
-      SELECT COALESCE(SUM(price), 0) as total
-      FROM parcels 
-      WHERE shipper_id = $1
-    `, [expediteur.id]);
-    
+
     // Get current month parcels
     const currentMonthResult = await db.query(`
       SELECT COUNT(*) as total
@@ -290,17 +285,73 @@ router.get('/expediteur/:email/stats', async (req, res) => {
       WHERE shipper_id = $1 
       AND created_at >= DATE_TRUNC('month', CURRENT_DATE)
     `, [expediteur.id]);
-    
+
     // Get delivered this month
     const deliveredThisMonthResult = await db.query(`
       SELECT COUNT(*) as total
       FROM parcels 
       WHERE shipper_id = $1 
-      AND status IN ('lives', 'lives_payes')
+      AND status IN ('Livrés', 'Livrés payés')
       AND updated_at >= DATE_TRUNC('month', CURRENT_DATE)
     `, [expediteur.id]);
+
+    // Get paid delivered parcels (Livrés payés)
+    const paidDeliveredResult = await db.query(`
+      SELECT COUNT(*) as total
+      FROM parcels 
+      WHERE shipper_id = $1 
+      AND status = 'Livrés payés'
+    `, [expediteur.id]);
+
+    // Get total revenue from delivered parcels only
+    const deliveredRevenueResult = await db.query(`
+      SELECT COALESCE(SUM(price), 0) as total
+      FROM parcels 
+      WHERE shipper_id = $1 
+      AND status IN ('Livrés', 'Livrés payés')
+    `, [expediteur.id]);
+
+    // Get total revenue from delivered but NOT paid parcels (Solde - money owed)
+    // Formula: Balance = Total price of parcels with status "Livrés" (delivered but not paid)
+    const unpaidDeliveredRevenueResult = await db.query(`
+      SELECT COALESCE(SUM(price), 0) as total
+      FROM parcels 
+      WHERE shipper_id = $1 
+      AND status = 'Livrés'
+    `, [expediteur.id]);
+
+    // Get complaints count for this expediteur
+    let complaintsCount = 0;
+    try {
+      const complaintsResult = await db.query(`
+        SELECT COUNT(*) as total
+        FROM complaints 
+        WHERE shipper_id = $1
+      `, [expediteur.id]);
+      complaintsCount = parseInt(complaintsResult.rows[0].total);
+    } catch (complaintsError) {
+      console.log('⚠️ Complaints table not available or different structure:', complaintsError.message);
+      complaintsCount = 0;
+    }
     
-    // Get status statistics
+    // Define all possible statuses that should be included
+    const allPossibleStatuses = [
+      'En attente',
+      'À enlever', 
+      'Enlevé',
+      'Au dépôt',
+      'En cours',
+      'RTN dépôt',
+      'Livrés',
+      'Livrés payés',
+      'Retour définitif',
+      'RTN client agence',
+      'Retour Expéditeur',
+      'Retour En Cours',
+      'Retour reçu'
+    ];
+    
+    // Get status statistics for this expediteur
     const statusStatsResult = await db.query(`
       SELECT status, COUNT(*) as count
       FROM parcels 
@@ -308,18 +359,64 @@ router.get('/expediteur/:email/stats', async (req, res) => {
       GROUP BY status
     `, [expediteur.id]);
     
+    // Create statusStats with all possible statuses (including 0 counts)
     const statusStats = {};
+    const expediteurStatusCounts = {};
+    
+    // First, get the counts for this expediteur
     statusStatsResult.rows.forEach(row => {
-      statusStats[row.status] = parseInt(row.count);
+      expediteurStatusCounts[row.status] = parseInt(row.count);
     });
+    
+    // Then, include all possible statuses with their counts (0 if not present)
+    allPossibleStatuses.forEach(status => {
+      statusStats[status] = expediteurStatusCounts[status] || 0;
+    });
+    
+    // Get parcels in transit (En cours)
+    const inTransitResult = await db.query(`
+      SELECT COUNT(*) as total
+      FROM parcels 
+      WHERE shipper_id = $1 
+      AND status = 'En cours'
+    `, [expediteur.id]);
+    
+    // Calculate monthly changes (compare with last month)
+    const lastMonthParcelsResult = await db.query(`
+      SELECT COUNT(*) as total
+      FROM parcels 
+      WHERE shipper_id = $1 
+      AND created_at >= DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month')
+      AND created_at < DATE_TRUNC('month', CURRENT_DATE)
+    `, [expediteur.id]);
+    
+    const lastMonthDeliveredResult = await db.query(`
+      SELECT COUNT(*) as total
+      FROM parcels 
+      WHERE shipper_id = $1 
+      AND status IN ('Livrés', 'Livrés payés')
+      AND updated_at >= DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month')
+      AND updated_at < DATE_TRUNC('month', CURRENT_DATE)
+    `, [expediteur.id]);
+    
+    const currentMonthParcels = parseInt(currentMonthResult.rows[0].total);
+    const lastMonthParcels = parseInt(lastMonthParcelsResult.rows[0].total);
+    const currentMonthDelivered = parseInt(deliveredThisMonthResult.rows[0].total);
+    const lastMonthDelivered = parseInt(lastMonthDeliveredResult.rows[0].total);
     
     const stats = {
       totalParcels: parseInt(totalParcelsResult.rows[0].total),
-      totalRevenue: parseFloat(totalRevenueResult.rows[0].total),
-      currentMonth: parseInt(currentMonthResult.rows[0].total),
-      deliveredThisMonth: parseInt(deliveredThisMonthResult.rows[0].total),
-      complaintsCount: 0, // TODO: Implement complaints
-      monthlyChanges: { parcels: 0, delivered: 0 }, // TODO: Calculate changes
+      totalRevenue: parseFloat(deliveredRevenueResult.rows[0].total),
+      balance: parseFloat(unpaidDeliveredRevenueResult.rows[0].total), // Solde from unpaid delivered parcels
+      currentMonth: currentMonthParcels,
+      deliveredThisMonth: currentMonthDelivered,
+      paidDelivered: parseInt(paidDeliveredResult.rows[0].total),
+      inTransit: parseInt(inTransitResult.rows[0].total),
+      complaintsCount: parseInt(complaintsCount),
+      monthlyChanges: { 
+        parcels: currentMonthParcels - lastMonthParcels, 
+        delivered: currentMonthDelivered - lastMonthDelivered 
+      },
       statusStats: statusStats
     };
     
@@ -334,6 +431,221 @@ router.get('/expediteur/:email/stats', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch expediteur stats'
+    });
+  }
+});
+
+// Get expediteur delivery history for charts
+router.get('/expediteur/:email/delivery-history', async (req, res) => {
+  try {
+    const { email } = req.params;
+    
+    console.log('📊 Fetching delivery history for expediteur:', email);
+    
+    // First, find the expediteur by email
+    const expediteurResult = await db.query(`
+      SELECT id, name, email
+      FROM shippers 
+      WHERE email = $1
+    `, [email]);
+    
+    if (expediteurResult.rows.length === 0) {
+      console.log('❌ No expediteur found for email:', email);
+      return res.json({
+        success: true,
+        data: {
+          deliveryHistory: [],
+          geographicalData: []
+        }
+      });
+    }
+    
+    const expediteur = expediteurResult.rows[0];
+    
+    // Get delivery history (last 7 days)
+    const deliveryHistoryResult = await db.query(`
+      SELECT 
+        DATE(created_at) as date,
+        COUNT(*) as count,
+        SUM(CASE WHEN status IN ('Livrés', 'Livrés payés') THEN 1 ELSE 0 END) as delivered
+      FROM parcels 
+      WHERE shipper_id = $1 
+      AND created_at >= CURRENT_DATE - INTERVAL '7 days'
+      GROUP BY DATE(created_at)
+      ORDER BY date
+    `, [expediteur.id]);
+    
+    // Get geographical data (by recipient governorate)
+    const geographicalResult = await db.query(`
+      SELECT 
+        recipient_governorate as region,
+        COUNT(*) as count
+      FROM parcels 
+      WHERE shipper_id = $1 
+      AND recipient_governorate IS NOT NULL
+      GROUP BY recipient_governorate
+      ORDER BY count DESC
+      LIMIT 5
+    `, [expediteur.id]);
+    
+    const deliveryHistory = deliveryHistoryResult.rows.map(row => ({
+      date: row.date,
+      total: parseInt(row.count),
+      delivered: parseInt(row.delivered)
+    }));
+    
+    const geographicalData = geographicalResult.rows.map(row => ({
+      region: row.region,
+      count: parseInt(row.count)
+    }));
+    
+    const chartData = {
+      deliveryHistory,
+      geographicalData
+    };
+    
+    console.log('📊 Chart data for expediteur:', chartData);
+    
+    res.json({
+      success: true,
+      data: chartData
+    });
+  } catch (error) {
+    console.error('Get expediteur chart data error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch expediteur chart data'
+    });
+  }
+});
+
+// Get expediteur chart data
+router.get('/expediteur/:email/chart-data', async (req, res) => {
+  try {
+    const { email } = req.params;
+    
+    console.log('📊 Fetching chart data for expediteur:', email);
+    
+    // First, find the expediteur by email
+    const expediteurResult = await db.query(`
+      SELECT id, name, email
+      FROM shippers 
+      WHERE email = $1
+    `, [email]);
+    
+    if (expediteurResult.rows.length === 0) {
+      console.log('❌ No expediteur found for email:', email);
+      return res.json({
+        success: true,
+        data: {
+          deliveryHistory: [],
+          geographicalData: []
+        }
+      });
+    }
+    
+    const expediteur = expediteurResult.rows[0];
+    console.log('✅ Found expediteur:', expediteur);
+    
+    // Get delivery history for the last 30 days (more data for better visualization)
+    const deliveryHistoryResult = await db.query(`
+      SELECT 
+        DATE(p.created_at) as date,
+        COUNT(*) as delivered
+      FROM parcels p
+      WHERE p.shipper_id = $1 
+      AND p.status IN ('Livrés', 'Livrés payés')
+      AND p.created_at >= CURRENT_DATE - INTERVAL '30 days'
+      GROUP BY DATE(p.created_at)
+      ORDER BY date
+    `, [expediteur.id]);
+    
+    console.log('📈 Delivery history result:', deliveryHistoryResult.rows);
+    
+    // If no delivery history, try to get any parcels from the last 30 days
+    let deliveryHistory = deliveryHistoryResult.rows.map(row => ({
+      date: row.date,
+      delivered: parseInt(row.delivered)
+    }));
+    
+    if (deliveryHistory.length === 0) {
+      console.log('📊 No delivered parcels found, getting all parcels from last 30 days');
+      const allParcelsResult = await db.query(`
+        SELECT 
+          DATE(p.created_at) as date,
+          COUNT(*) as total
+        FROM parcels p
+        WHERE p.shipper_id = $1 
+        AND p.created_at >= CURRENT_DATE - INTERVAL '30 days'
+        GROUP BY DATE(p.created_at)
+        ORDER BY date
+      `, [expediteur.id]);
+      
+      deliveryHistory = allParcelsResult.rows.map(row => ({
+        date: row.date,
+        delivered: parseInt(row.total)
+      }));
+    }
+    
+    // If still no data, return empty array (no sample data)
+    if (deliveryHistory.length === 0) {
+      console.log('📊 No parcel data found, returning empty delivery history');
+    }
+    
+    // Get geographical data (parcels by destination)
+    const geographicalDataResult = await db.query(`
+      SELECT 
+        CASE 
+          WHEN p.destination LIKE '%,%' THEN 
+            TRIM(SPLIT_PART(p.destination, ',', 2))
+          ELSE 
+            COALESCE(p.destination, 'Non spécifié')
+        END as region,
+        COUNT(*) as count
+      FROM parcels p
+      WHERE p.shipper_id = $1
+      AND p.destination IS NOT NULL
+      AND p.destination != ''
+      GROUP BY 
+        CASE 
+          WHEN p.destination LIKE '%,%' THEN 
+            TRIM(SPLIT_PART(p.destination, ',', 2))
+          ELSE 
+            COALESCE(p.destination, 'Non spécifié')
+        END
+      ORDER BY count DESC
+      LIMIT 10
+    `, [expediteur.id]);
+    
+    console.log('🌍 Geographical data result:', geographicalDataResult.rows);
+    
+    const geographicalData = geographicalDataResult.rows.map(row => ({
+      region: row.region,
+      count: parseInt(row.count)
+    }));
+    
+    // If no geographical data, return empty array (no sample data)
+    if (geographicalData.length === 0) {
+      console.log('🌍 No geographical data found, returning empty geographical data');
+    }
+    
+    const result = {
+      deliveryHistory,
+      geographicalData
+    };
+    
+    console.log('📊 Final chart data:', result);
+    
+    res.json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    console.error('Get expediteur chart data error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch expediteur chart data',
+      error: error.message
     });
   }
 });
@@ -588,136 +900,7 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-// Get expediteur dashboard statistics (MUST come before /expediteur/:email)
-router.get('/expediteur/:email/stats', async (req, res) => {
-  try {
-    const { email } = req.params;
-    
-    // Get total parcels count
-    const totalParcelsResult = await db.query(`
-      SELECT COUNT(*) as total
-      FROM parcels p
-      LEFT JOIN shippers s ON p.shipper_id = s.id
-      WHERE s.email = $1
-    `, [email]);
-    
-    // Get parcels by status
-    const statusStatsResult = await db.query(`
-      SELECT 
-        p.status,
-        COUNT(*) as count
-      FROM parcels p
-      LEFT JOIN shippers s ON p.shipper_id = s.id
-      WHERE s.email = $1
-      GROUP BY p.status
-    `, [email]);
-    
-    // Get total revenue (sum of prices)
-    const revenueResult = await db.query(`
-      SELECT COALESCE(SUM(p.price), 0) as total_revenue
-      FROM parcels p
-      LEFT JOIN shippers s ON p.shipper_id = s.id
-      WHERE s.email = $1
-    `, [email]);
-    
-    // Get parcels created this month
-    const currentMonthResult = await db.query(`
-      SELECT COUNT(*) as current_month
-      FROM parcels p
-      LEFT JOIN shippers s ON p.shipper_id = s.id
-      WHERE s.email = $1 
-      AND p.created_at >= DATE_TRUNC('month', CURRENT_DATE)
-    `, [email]);
-    
-    // Get parcels delivered this month
-    const deliveredThisMonthResult = await db.query(`
-      SELECT COUNT(*) as delivered_this_month
-      FROM parcels p
-      LEFT JOIN shippers s ON p.shipper_id = s.id
-      WHERE s.email = $1 
-      AND p.status IN ('delivered', 'delivered_paid')
-      AND p.updated_at >= DATE_TRUNC('month', CURRENT_DATE)
-    `, [email]);
-    
-    // Get complaints count (placeholder - you can add complaints table later)
-    const complaintsCount = 0; // TODO: Add complaints table and query
-    
-    // Calculate monthly changes
-    const lastMonthResult = await db.query(`
-      SELECT COUNT(*) as last_month
-      FROM parcels p
-      LEFT JOIN shippers s ON p.shipper_id = s.id
-      WHERE s.email = $1 
-      AND p.created_at >= DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month')
-      AND p.created_at < DATE_TRUNC('month', CURRENT_DATE)
-    `, [email]);
-    
-    const lastMonthDeliveredResult = await db.query(`
-      SELECT COUNT(*) as last_month_delivered
-      FROM parcels p
-      LEFT JOIN shippers s ON p.shipper_id = s.id
-      WHERE s.email = $1 
-      AND p.status IN ('delivered', 'delivered_paid')
-      AND p.updated_at >= DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month')
-      AND p.updated_at < DATE_TRUNC('month', CURRENT_DATE)
-    `, [email]);
-    
-    // Calculate changes
-    const currentMonth = parseInt(currentMonthResult.rows[0].current_month);
-    const lastMonth = parseInt(lastMonthResult.rows[0].last_month);
-    const deliveredThisMonth = parseInt(deliveredThisMonthResult.rows[0].delivered_this_month);
-    const lastMonthDelivered = parseInt(lastMonthDeliveredResult.rows[0].last_month_delivered);
-    
-    const totalParcels = parseInt(totalParcelsResult.rows[0].total);
-    const totalRevenue = parseFloat(revenueResult.rows[0].total_revenue);
-    
-    // Create status mapping
-    const statusMap = {
-      'pending': 'En attente',
-      'to_pickup': 'À enlever',
-      'picked_up': 'Enlevé',
-      'at_warehouse': 'Au dépôt',
-      'in_transit': 'En cours',
-      'return_to_warehouse': 'RTN dépôt',
-      'delivered': 'Livrés',
-      'delivered_paid': 'Livrés payés',
-      'definitive_return': 'Retour définitif',
-      'return_to_client_agency': 'RTN client agence',
-      'return_to_sender': 'Retour Expéditeur',
-      'return_in_transit': 'Retour En Cours',
-      'return_received': 'Retour reçu'
-    };
-    
-    // Transform status stats
-    const statusStats = {};
-    statusStatsResult.rows.forEach(row => {
-      const frenchStatus = statusMap[row.status] || row.status;
-      statusStats[frenchStatus] = parseInt(row.count);
-    });
-    
-    res.json({
-      success: true,
-      data: {
-        totalParcels,
-        totalRevenue,
-        currentMonth,
-        deliveredThisMonth,
-        complaintsCount,
-        monthlyChanges: {
-          parcels: currentMonth - lastMonth,
-          delivered: deliveredThisMonth - lastMonthDelivered
-        },
-        statusStats
-      }
-    });
-  } catch (error) {
-    console.error('Get expediteur stats error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch expediteur statistics'
-    });
-  }
-});
+
 
 // Get parcels for a specific expéditeur (by email)
 router.get('/expediteur/:email', async (req, res) => {
@@ -998,6 +1181,60 @@ router.delete('/:id', async (req, res) => {
     res.status(500).json({ 
       success: false, 
       message: errorMessage,
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// Update parcel status only
+router.put('/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    
+    console.log('📦 Updating parcel status:', { id, status });
+    
+    if (!status) {
+      return res.status(400).json({
+        success: false,
+        message: 'Status is required'
+      });
+    }
+    
+    // Update only the status
+    const result = await db.query(`
+      UPDATE parcels 
+      SET status = $1, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $2
+      RETURNING id, tracking_number, status, updated_at
+    `, [status, id]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Parcel not found'
+      });
+    }
+    
+    const updatedParcel = result.rows[0];
+    console.log('✅ Parcel status updated successfully:', updatedParcel);
+    
+    res.json({
+      success: true,
+      message: 'Parcel status updated successfully',
+      data: updatedParcel
+    });
+    
+  } catch (error) {
+    console.error('❌ Error updating parcel status:', error);
+    console.error('❌ Error details:', {
+      message: error.message,
+      stack: error.stack
+    });
+    
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update parcel status',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }

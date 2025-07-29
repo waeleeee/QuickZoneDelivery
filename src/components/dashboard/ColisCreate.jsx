@@ -101,24 +101,24 @@ function calcFraisLivraison(baseFrais, poids) {
   const base = parseFloat(baseFrais);
   if (!base) return "";
   
-  // 0-10.99kg: prix fixe
-  if (!p || p <= 10.99) return base.toFixed(2);
+  // 0-10kg: prix fixe (8 DT)
+  if (!p || p <= 10) return base.toFixed(2);
   
-  // 11-15kg: +0.9DT/kg
-  if (p > 10.99 && p <= 15) {
-    const surcharge = (p - 10.99) * 0.9;
+  // 11kg+: +0.9DT/kg pour chaque kg supplémentaire
+  if (p > 10) {
+    const extraKilos = p - 10;
+    const surcharge = extraKilos * 0.9;
     return (base + surcharge).toFixed(2);
   }
-  
-  // 16kg+: prix x2
-  if (p >= 16) return (base * 2).toFixed(2);
   
   return base.toFixed(2);
 }
 
-const ColisCreate = () => {
+const ColisCreate = ({ onClose }) => {
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [userCoordinates, setUserCoordinates] = useState(null);
+  const [coordinatesLoading, setCoordinatesLoading] = useState(false);
   const [colis, setColis] = useState({
     // Expéditeur
     dateCollecte: "",
@@ -144,6 +144,34 @@ const ColisCreate = () => {
     remarque: "",
     code: generateCode(),
   });
+
+  // Function to get user coordinates
+  const getUserCoordinates = () => {
+    if (!navigator.geolocation) {
+      alert('La géolocalisation n\'est pas supportée par votre navigateur');
+      return;
+    }
+
+    setCoordinatesLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        setUserCoordinates({ latitude, longitude });
+        setCoordinatesLoading(false);
+        console.log('📍 User coordinates:', { latitude, longitude });
+      },
+      (error) => {
+        console.error('❌ Error getting coordinates:', error);
+        setCoordinatesLoading(false);
+        alert('Impossible d\'obtenir votre position. Vérifiez que vous avez autorisé la géolocalisation.');
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 300000 // 5 minutes
+      }
+    );
+  };
 
   // Load user data when component mounts
   useEffect(() => {
@@ -244,6 +272,11 @@ const ColisCreate = () => {
       if (result.success) {
         const clientCode = result.client_code || "N/A";
         alert(`Colis créé avec succès !\n\nCode Client: ${clientCode}\n\nPartagez ce code avec votre client pour la vérification lors de la livraison.`);
+        
+        // Close the modal if onClose is provided
+        if (onClose) {
+          onClose();
+        }
         
         // Reset form with user data
         if (userData) {
@@ -367,6 +400,25 @@ const ColisCreate = () => {
                 <label className="block text-base font-semibold text-gray-700 mb-1 text-left">Adresse</label>
                 <input type="text" name="expediteurAdresse" value={colis.expediteurAdresse} readOnly disabled className="w-full px-4 py-3 border border-gray-200 bg-gray-50 rounded-lg text-lg text-gray-500" />
               </div>
+              <div>
+                <label className="block text-base font-semibold text-gray-700 mb-1 text-left">Coordonnées GPS</label>
+                <div className="flex items-center space-x-2">
+                  <button
+                    type="button"
+                    onClick={getUserCoordinates}
+                    disabled={coordinatesLoading}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm"
+                  >
+                    {coordinatesLoading ? '📍 Récupération...' : '📍 Obtenir ma position'}
+                  </button>
+                  {userCoordinates && (
+                    <span className="text-sm text-gray-600">
+                      {userCoordinates.latitude.toFixed(6)}, {userCoordinates.longitude.toFixed(6)}
+                    </span>
+                  )}
+                </div>
+                <small className="text-xs text-gray-500">Cliquez pour obtenir vos coordonnées GPS actuelles</small>
+              </div>
             </div>
           </div>
         </div>
@@ -436,7 +488,7 @@ const ColisCreate = () => {
               <div>
                 <label className="block text-base font-semibold text-gray-700 mb-1 text-left">Poids (kg)</label>
                 <input type="number" name="poids" value={colis.poids} onChange={handleChange} className="w-full px-4 py-3 border border-gray-300 rounded-lg text-lg" min="0.01" step="0.01" />
-                <small className="text-xs text-gray-500 block">0-10kg: prix fixe, 11-15kg: +0,9DT/kg, 16kg+: prix x2</small>
+                <small className="text-xs text-gray-500 block">0-10kg: prix fixe (8 DT), 11kg+: +0,9DT/kg supplémentaire</small>
               </div>
               <div>
                 <label className="block text-base font-semibold text-gray-700 mb-1 text-left">Nombre de pièce</label>
