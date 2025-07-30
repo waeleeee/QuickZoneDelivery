@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import html2pdf from "html2pdf.js";
+import ColisTimeline from "./common/ColisTimeline";
 
 const ExpediteurDetail = () => {
   const { id } = useParams();
@@ -9,6 +10,8 @@ const ExpediteurDetail = () => {
   const detailRef = useRef();
   const [shipper, setShipper] = useState(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [selectedParcel, setSelectedParcel] = useState(null);
+  const [showTimelineModal, setShowTimelineModal] = useState(false);
 
   useEffect(() => {
     // Récupérer les données de l'expéditeur depuis le state de navigation
@@ -126,6 +129,16 @@ const ExpediteurDetail = () => {
         {status}
       </span>
     );
+  };
+
+  const handleParcelClick = (parcel) => {
+    setSelectedParcel(parcel);
+    setShowTimelineModal(true);
+  };
+
+  const closeTimelineModal = () => {
+    setShowTimelineModal(false);
+    setSelectedParcel(null);
   };
 
   if (!shipper) {
@@ -349,6 +362,7 @@ const ExpediteurDetail = () => {
           <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
             <span className="inline-block bg-orange-100 text-orange-700 rounded-full px-3 py-1 text-xs font-bold">Historique des colis</span>
             <span className="text-xs text-gray-400">({safeShipper.colis.length})</span>
+            <span className="text-xs text-orange-600 ml-auto">💡 Cliquez sur un colis pour voir sa timeline</span>
           </h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -365,7 +379,11 @@ const ExpediteurDetail = () => {
               </thead>
               <tbody>
                 {safeShipper.colis.map((colis) => (
-                  <tr key={colis.id} className="border-b border-orange-100">
+                  <tr 
+                    key={colis.id} 
+                    className="border-b border-orange-100 hover:bg-orange-50 cursor-pointer transition-colors"
+                    onClick={() => handleParcelClick(colis)}
+                  >
                     <td className="py-2 font-medium text-blue-700">{colis.id}</td>
                     <td className="py-2 text-gray-600">{colis.destination || "Non renseigné"}</td>
                     <td className="py-2 text-gray-600">{colis.type || "Standard"}</td>
@@ -426,6 +444,33 @@ const ExpediteurDetail = () => {
           </div>
         )}
       </div>
+
+      {/* Timeline Modal */}
+      {showTimelineModal && selectedParcel && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 p-6 rounded-t-xl">
+              <div className="flex justify-between items-center">
+                <h3 className="text-2xl font-bold text-gray-900">Timeline du Colis {selectedParcel.id}</h3>
+                <button 
+                  onClick={closeTimelineModal}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            
+            <div className="p-6">
+              <ColisTimeline parcel={selectedParcel} onClose={closeTimelineModal} />
+            </div>
+          </div>
+        </div>
+      )}
+
+
     </div>
   );
 };

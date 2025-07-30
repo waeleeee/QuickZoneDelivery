@@ -1375,7 +1375,7 @@ const Entrepots = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Client:</label>
-                  <p className="text-sm text-gray-900">{selectedParcel.expediteur}</p>
+                  <p className="text-sm text-gray-900">{selectedParcel.recipient_name || selectedParcel.expediteur}</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Montant:</label>
@@ -1383,21 +1383,31 @@ const Entrepots = () => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Téléphone:</label>
-                  <p className="text-sm text-gray-900">{selectedParcel.phone}</p>
+                  <p className="text-sm text-gray-900">{selectedParcel.recipient_phone || selectedParcel.phone}</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Adresse:</label>
-                  <p className="text-sm text-gray-900">{selectedParcel.adresse}</p>
+                  <p className="text-sm text-gray-900">{selectedParcel.recipient_address || selectedParcel.adresse}</p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Désignation:</label>
-                  <p className="text-sm text-gray-900">{selectedParcel.designation}</p>
+                  <label className="block text-sm font-medium text-gray-700">Gouvernorat:</label>
+                  <p className="text-sm text-gray-900">{selectedParcel.recipient_governorate || selectedParcel.governorate || "-"}</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Nombre des articles:</label>
-                  <p className="text-sm text-gray-900">{selectedParcel.nombre_articles}</p>
+                  <p className="text-sm text-gray-900">{selectedParcel.nb_pieces || selectedParcel.nombre_articles || 1}</p>
                 </div>
               </div>
+              
+              {/* Info Expéditeur (Sender) - Subtle */}
+              {selectedParcel.expediteur && (
+                <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-600">
+                  <div className="flex justify-between items-center">
+                    <span><b>Expéditeur:</b> {selectedParcel.expediteur}</span>
+                    <span>{selectedParcel.phone ? `📞 ${selectedParcel.phone}` : ''}</span>
+                  </div>
+                </div>
+              )}
               
               <div className="border-t pt-4">
                 <div className="flex items-center space-x-2">

@@ -1637,7 +1637,8 @@ export const {
   getComplaint,
   createComplaint,
   updateComplaint,
-  deleteComplaint
+  deleteComplaint,
+  getCommercialComplaints
 } = apiService;
 
 // Warehouses API functions

@@ -36,7 +36,7 @@ export const ROLE_PERMISSIONS = {
       livreurs: false
     },
     expediteur: true,
-    colis: false,
+    colis: true,
     pickup: false,
     secteurs: false,
     entrepots: false,
@@ -123,7 +123,7 @@ export const ROLE_PERMISSIONS = {
     pickup_client: true, // Can view and manage delivery missions
     secteurs: false, // Limited access
     entrepots: false, // Limited access
-    paiment_expediteur: false, // Limited access
+    paiment_expediteur: true, // Limited access
     reclamation: true // Full access to manage complaints
   },
 

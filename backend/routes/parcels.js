@@ -1071,7 +1071,7 @@ router.get('/:id/tracking-history', async (req, res) => {
       mission_id: row.mission_id,
       mission_number: row.mission_number,
       updated_by: 'Système',
-      location: row.location,
+      location: row.location || null,
       notes: row.notes,
       timestamp: row.created_at
     }));
@@ -1188,6 +1188,8 @@ router.delete('/:id', async (req, res) => {
 
 // Update parcel status only
 router.put('/:id/status', async (req, res) => {
+  const client = await db.connect();
+  
   try {
     const { id } = req.params;
     const { status } = req.body;
@@ -1201,23 +1203,72 @@ router.put('/:id/status', async (req, res) => {
       });
     }
     
-    // Update only the status
-    const result = await db.query(`
-      UPDATE parcels 
-      SET status = $1, updated_at = CURRENT_TIMESTAMP
-      WHERE id = $2
-      RETURNING id, tracking_number, status, updated_at
-    `, [status, id]);
+    await client.query('BEGIN');
     
-    if (result.rows.length === 0) {
+    // Get current parcel status before update
+    const currentParcelResult = await client.query(`
+      SELECT 
+        p.id, 
+        p.tracking_number, 
+        p.status as current_status,
+        p.recipient_governorate,
+        s.city as shipper_city
+      FROM parcels p
+      LEFT JOIN shippers s ON p.shipper_id = s.id
+      WHERE p.id = $1
+    `, [id]);
+    
+    if (currentParcelResult.rows.length === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({
         success: false,
         message: 'Parcel not found'
       });
     }
     
-    const updatedParcel = result.rows[0];
-    console.log('✅ Parcel status updated successfully:', updatedParcel);
+    const currentParcel = currentParcelResult.rows[0];
+    const previousStatus = currentParcel.current_status;
+    
+    // Update the parcel status
+    const updateResult = await client.query(`
+      UPDATE parcels 
+      SET status = $1, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $2
+      RETURNING id, tracking_number, status, updated_at
+    `, [status, id]);
+    
+    const updatedParcel = updateResult.rows[0];
+    
+    // Determine location based on status
+    let location = "Tunis"; // Default
+    if (["En attente", "À enlever", "Enlevé"].includes(status)) {
+      location = currentParcel.shipper_city || "Tunis";
+    } else if (["En cours", "Livrés", "Livrés payés"].includes(status)) {
+      location = currentParcel.recipient_governorate || "Tunis";
+    }
+    
+    // Record the status change in tracking history
+    await client.query(`
+      INSERT INTO parcel_tracking_history 
+      (parcel_id, status, previous_status, updated_by, location, notes, created_at) 
+      VALUES ($1, $2, $3, $4, $5, $6, NOW())
+    `, [
+      id,
+      status,
+      previousStatus,
+      req.user?.id || 1, // Use current user ID or default to 1
+      location,
+      `Status changed from ${previousStatus} to ${status}`
+    ]);
+    
+    await client.query('COMMIT');
+    
+    console.log('✅ Parcel status updated and tracked successfully:', {
+      parcel: updatedParcel,
+      previousStatus,
+      newStatus: status,
+      location
+    });
     
     res.json({
       success: true,
@@ -1226,6 +1277,7 @@ router.put('/:id/status', async (req, res) => {
     });
     
   } catch (error) {
+    await client.query('ROLLBACK');
     console.error('❌ Error updating parcel status:', error);
     console.error('❌ Error details:', {
       message: error.message,
@@ -1237,6 +1289,8 @@ router.put('/:id/status', async (req, res) => {
       message: 'Failed to update parcel status',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
+  } finally {
+    client.release();
   }
 });
 

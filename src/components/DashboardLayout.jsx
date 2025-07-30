@@ -15,10 +15,16 @@ const DashboardLayout = () => {
   const location = useLocation();
 
   useEffect(() => {
-    if (location.state && location.state.quick && quickToKey[location.state.quick]) {
+    // Read from URL query parameters
+    const urlParams = new URLSearchParams(location.search);
+    const keyParam = urlParams.get('key');
+    
+    if (keyParam) {
+      setSelectedKey(keyParam);
+    } else if (location.state && location.state.quick && quickToKey[location.state.quick]) {
       setSelectedKey(quickToKey[location.state.quick]);
     }
-  }, [location.state]);
+  }, [location.search, location.state]);
 
   return (
     <div className="dashboard-container">

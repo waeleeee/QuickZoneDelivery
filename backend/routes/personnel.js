@@ -146,7 +146,7 @@ router.post('/agency-managers', async (req, res) => {
     if (agencyExists.rows.length === 0) {
       // Create new agency
       console.log(`🏢 Creating new agency: ${agency} for governorate: ${governorate}`);
-      await client.query(`
+      await db.query(`
         INSERT INTO agencies (name, governorate, address, phone, email, status)
         VALUES ($1, $2, $3, $4, $5, 'active')
       `, [agency, governorate, address || '', phone || '', email || '']);

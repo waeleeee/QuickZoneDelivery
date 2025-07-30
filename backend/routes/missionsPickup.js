@@ -339,17 +339,38 @@ router.put('/:id', async (req, res) => {
               
               console.log(`📦 Parcel update result:`, parcelUpdateResult.rows[0]);
               
+              // Get parcel location information for tracking history
+              const parcelLocationQuery = `
+                SELECT 
+                  p.recipient_governorate,
+                  s.city as shipper_city
+                FROM parcels p
+                LEFT JOIN shippers s ON p.shipper_id = s.id
+                WHERE p.id = $1
+              `;
+              const locationResult = await client.query(parcelLocationQuery, [row.parcel_id]);
+              const parcelLocation = locationResult.rows[0];
+              
+              // Determine location based on status
+              let location = "Tunis"; // Default
+              if (["En attente", "À enlever", "Enlevé"].includes(parcelStatus)) {
+                location = parcelLocation?.shipper_city || "Tunis";
+              } else if (["En cours", "Livrés", "Livrés payés"].includes(parcelStatus)) {
+                location = parcelLocation?.recipient_governorate || "Tunis";
+              }
+              
               // Log status change in tracking history
               await client.query(
                 `INSERT INTO parcel_tracking_history 
-                (parcel_id, status, previous_status, mission_id, updated_by, notes, created_at) 
-                VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+                (parcel_id, status, previous_status, mission_id, updated_by, location, notes, created_at) 
+                VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
                 [
                   row.parcel_id,
                   parcelStatus,
                   previousStatus,
                   req.params.id,
                   1, // Default user ID for now
+                  location,
                   `Status updated via mission ${req.params.id}`
                 ]
               );
@@ -433,6 +454,46 @@ router.put('/:id', async (req, res) => {
       
       // Update each parcel's status in the mission_parcels table
       for (const parcel of parcels) {
+        // Get current parcel status before update
+        const currentParcelResult = await pool.query(
+          'SELECT status FROM parcels WHERE id = $1',
+          [parcel.id]
+        );
+        const previousStatus = currentParcelResult.rows[0]?.status;
+        
+        // Get parcel location for tracking history
+        const parcelLocationResult = await pool.query(`
+          SELECT 
+            p.recipient_governorate,
+            s.city as shipper_city
+          FROM parcels p
+          LEFT JOIN shippers s ON p.shipper_id = s.id
+          WHERE p.id = $1
+        `, [parcel.id]);
+        const parcelLocation = parcelLocationResult.rows[0];
+        
+        // Determine location based on status
+        let location = "Tunis"; // Default
+        if (["En attente", "À enlever", "Enlevé"].includes(parcel.status)) {
+          location = parcelLocation?.shipper_city || "Tunis";
+        } else if (["En cours", "Livrés", "Livrés payés"].includes(parcel.status)) {
+          location = parcelLocation?.recipient_governorate || "Tunis";
+        }
+        
+        // Record status change in tracking history
+        await pool.query(`
+          INSERT INTO parcel_tracking_history 
+          (parcel_id, status, previous_status, updated_by, location, notes, created_at) 
+          VALUES ($1, $2, $3, $4, $5, $6, NOW())
+        `, [
+          parcel.id,
+          parcel.status,
+          previousStatus,
+          req.user?.id || 1,
+          location,
+          `Status updated via mission ${req.params.id}`
+        ]);
+        
         await pool.query(
           'UPDATE mission_parcels SET status = $1 WHERE mission_id = $2 AND parcel_id = $3',
           [parcel.status, req.params.id, parcel.id]

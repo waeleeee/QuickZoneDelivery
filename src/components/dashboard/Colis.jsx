@@ -41,7 +41,7 @@ const Colis = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [pagination, setPagination] = useState({
     page: 1,
-    limit: 100,
+    limit: currentUser?.role === 'Commercial' ? 10 : 100,
     total: 0,
     pages: 0
   });
@@ -106,7 +106,7 @@ const Colis = () => {
   const exportToCSV = () => {
     const headers = [
       'N° Colis', 'N° Suivi', 'Expéditeur', 'Code Expéditeur', 'Destination', 'Statut',
-      'Poids (kg)', 'Type', 'Prix (DT)', 'Frais Livraison', 'Frais Retour',
+      'Poids (kg)', 'Prix (DT)', 'Frais Livraison', 'Frais Retour',
       'Date de création', 'Date estimée', 'Date réelle', 'Téléphone', 'Email', 'Société'
     ];
     
@@ -120,7 +120,6 @@ const Colis = () => {
         parcel.destination,
         parcel.status,
         parcel.weight,
-        parcel.type,
         parcel.price,
         parcel.delivery_fees,
         parcel.return_fees,
@@ -205,23 +204,6 @@ const Colis = () => {
       header: "Poids (kg)",
       minWidth: "100px",
       render: (value) => <span className="font-mono">{value ? `${value} kg` : '-'}</span>
-    },
-    { 
-      key: "type", 
-      header: "Type",
-      minWidth: "100px",
-      render: (value) => {
-        const typeColors = {
-          "Standard": "bg-gray-100 text-gray-700",
-          "Express": "bg-blue-100 text-blue-700",
-          "Premium": "bg-purple-100 text-purple-700"
-        };
-        return (
-          <span className={`px-2 py-1 text-xs rounded ${typeColors[value] || "bg-gray-100 text-gray-700"}`}>
-            {value || '-'}
-          </span>
-        );
-      }
     },
     { 
       key: "price", 
@@ -393,6 +375,25 @@ const Colis = () => {
     });
   }, [parcelsData, searchTerm, advancedFilters, currentUser, userAgency, shippersByAgency]);
 
+  // Paginated parcels
+  const paginatedParcels = useMemo(() => {
+    const startIndex = (pagination.page - 1) * pagination.limit;
+    const endIndex = startIndex + pagination.limit;
+    return filteredParcels.slice(startIndex, endIndex);
+  }, [filteredParcels, pagination.page, pagination.limit]);
+
+  // Update pagination when filtered parcels change
+  useEffect(() => {
+    const total = filteredParcels.length;
+    const pages = Math.ceil(total / pagination.limit);
+    setPagination(prev => ({
+      ...prev,
+      total,
+      pages,
+      page: prev.page > pages ? 1 : prev.page
+    }));
+  }, [filteredParcels, pagination.limit]);
+
   const handleAdd = () => {
     setEditingParcel(null);
     reset();
@@ -465,15 +466,17 @@ const Colis = () => {
             }
           </p>
         </div>
-        <div className="flex space-x-3">
-          <button
-            onClick={() => setIsCreateModalOpen(true)}
-            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
-          >
-            <span>+</span>
-            <span>Créer un colis</span>
-          </button>
-        </div>
+        {currentUser?.role !== 'Commercial' && (
+          <div className="flex space-x-3">
+            <button
+              onClick={() => setIsCreateModalOpen(true)}
+              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
+            >
+              <span>+</span>
+              <span>Créer un colis</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Summary Statistics */}
@@ -544,15 +547,17 @@ const Colis = () => {
       {/* Controls */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div className="flex flex-col sm:flex-row gap-4">
-          <button
-            onClick={() => setIsCreateModalOpen(true)}
-            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors flex items-center gap-2"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-            </svg>
-            Créer un colis
-          </button>
+          {currentUser?.role !== 'Commercial' && (
+            <button
+              onClick={() => setIsCreateModalOpen(true)}
+              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors flex items-center gap-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+              Créer un colis
+            </button>
+          )}
           
           <button
             onClick={exportToCSV}
@@ -564,15 +569,17 @@ const Colis = () => {
             Exporter CSV
           </button>
           
-          <button
-            onClick={() => setPagination(prev => ({ ...prev, limit: 1000, page: 1 }))}
-            className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 transition-colors flex items-center gap-2"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-            </svg>
-            Afficher Tout
-          </button>
+          {currentUser?.role !== 'Commercial' && (
+            <button
+              onClick={() => setPagination(prev => ({ ...prev, limit: 1000, page: 1 }))}
+              className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 transition-colors flex items-center gap-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+              </svg>
+              Afficher Tout
+            </button>
+          )}
         </div>
         
         <div className="flex items-center gap-2">
@@ -645,19 +652,15 @@ const Colis = () => {
         )}
       </div>
 
-      {/* Debug Info */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="bg-yellow-100 p-2 rounded mb-4 text-xs">
-          Debug: User Role: {currentUser?.role}, Can Edit: {canEdit ? 'Yes' : 'No'}
-        </div>
-      )}
+
 
       {/* Data Table */}
       <DataTable
-        data={filteredParcels}
+        data={paginatedParcels}
         columns={columns}
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
+        showSearch={true}
         showActions={canEdit}
         onRowClick={handleRowClick}
         onEdit={canEdit ? handleEdit : undefined}

@@ -6,37 +6,85 @@ const router = express.Router();
 // Get dashboard statistics
 router.get('/stats', async (req, res) => {
   try {
-    // Get total users
-    const usersResult = await db.query(`
-      SELECT COUNT(*) as total_users,
-             COUNT(CASE WHEN created_at >= DATE_TRUNC('month', CURRENT_DATE) THEN 1 END) as new_users_this_month
-      FROM users WHERE is_active = true
-    `);
+    const user = req.user;
+    console.log('🔍 User requesting dashboard stats:', user.email, 'Role:', user.role);
+    
+    // Build commercial filtering condition
+    let commercialFilter = '';
+    let commercialParams = [];
+    
+    if (user.role === 'Commercial') {
+      commercialFilter = `
+        AND p.shipper_id IN (
+          SELECT s.id FROM shippers s 
+          JOIN commercials c ON s.commercial_id = c.id 
+          WHERE c.email = $1
+        )
+      `;
+      commercialParams = [user.email];
+    }
+    
+    // Get total users (only for admin)
+    let usersResult;
+    if (user.role === 'Administrator') {
+      usersResult = await db.query(`
+        SELECT COUNT(*) as total_users,
+               COUNT(CASE WHEN created_at >= DATE_TRUNC('month', CURRENT_DATE) THEN 1 END) as new_users_this_month
+        FROM users WHERE is_active = true
+      `);
+    } else {
+      usersResult = { rows: [{ total_users: 0, new_users_this_month: 0 }] };
+    }
 
-    // Get total parcels
+    // Get total parcels (filtered by commercial if applicable)
     const parcelsResult = await db.query(`
       SELECT COUNT(*) as total_parcels,
              COUNT(CASE WHEN created_date >= DATE_TRUNC('month', CURRENT_DATE) THEN 1 END) as new_parcels_this_month,
              COUNT(CASE WHEN status = 'Livrés' THEN 1 END) as delivered_parcels,
              COUNT(CASE WHEN status = 'Livrés' AND actual_delivery_date >= DATE_TRUNC('month', CURRENT_DATE) THEN 1 END) as delivered_this_month
-      FROM parcels
-    `);
+      FROM parcels p
+      WHERE 1=1 ${commercialFilter}
+    `, commercialParams);
 
-    // Get total shippers
-    const shippersResult = await db.query(`
-      SELECT COUNT(*) as total_shippers,
-             COUNT(CASE WHEN created_at >= DATE_TRUNC('month', CURRENT_DATE) THEN 1 END) as new_shippers_this_month
-      FROM shippers WHERE status = 'Actif'
-    `);
+    // Get total shippers (filtered by commercial if applicable)
+    let shippersResult;
+    if (user.role === 'Commercial') {
+      shippersResult = await db.query(`
+        SELECT COUNT(*) as total_shippers,
+               COUNT(CASE WHEN created_at >= DATE_TRUNC('month', CURRENT_DATE) THEN 1 END) as new_shippers_this_month
+        FROM shippers s
+        JOIN commercials c ON s.commercial_id = c.id
+        WHERE s.status = 'Actif' AND c.email = $1
+      `, [user.email]);
+    } else {
+      shippersResult = await db.query(`
+        SELECT COUNT(*) as total_shippers,
+               COUNT(CASE WHEN created_at >= DATE_TRUNC('month', CURRENT_DATE) THEN 1 END) as new_shippers_this_month
+        FROM shippers WHERE status = 'Actif'
+      `);
+    }
 
-    // Get monthly revenue
-    const revenueResult = await db.query(`
-      SELECT COALESCE(SUM(amount), 0) as monthly_revenue,
-             COALESCE(SUM(CASE WHEN date >= DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month') THEN amount END), 0) as last_month_revenue
-      FROM payments WHERE status = 'Payé'
-    `);
+    // Get monthly revenue (filtered by commercial if applicable)
+    let revenueResult;
+    if (user.role === 'Commercial') {
+      revenueResult = await db.query(`
+        SELECT COALESCE(SUM(py.amount), 0) as monthly_revenue,
+               COALESCE(SUM(CASE WHEN py.date >= DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month') THEN py.amount END), 0) as last_month_revenue
+        FROM payments py
+        JOIN parcels p ON py.parcel_id = p.id
+        JOIN shippers s ON p.shipper_id = s.id
+        JOIN commercials c ON s.commercial_id = c.id
+        WHERE py.status = 'Payé' AND c.email = $1
+      `, [user.email]);
+    } else {
+      revenueResult = await db.query(`
+        SELECT COALESCE(SUM(amount), 0) as monthly_revenue,
+               COALESCE(SUM(CASE WHEN date >= DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month') THEN amount END), 0) as last_month_revenue
+        FROM payments WHERE status = 'Payé'
+      `);
+    }
 
-    // Get delivery performance
+    // Get delivery performance (filtered by commercial if applicable)
     const performanceResult = await db.query(`
       SELECT 
         COUNT(*) as total_deliveries,
@@ -44,31 +92,34 @@ router.get('/stats', async (req, res) => {
         ROUND(
           (COUNT(CASE WHEN status = 'Livrés' THEN 1 END)::DECIMAL / COUNT(*)) * 100, 2
         ) as success_rate
-      FROM parcels 
+      FROM parcels p
       WHERE created_date >= DATE_TRUNC('month', CURRENT_DATE - INTERVAL '3 months')
-    `);
+      ${commercialFilter}
+    `, commercialParams);
 
-    // Get geographic distribution
+    // Get geographic distribution (filtered by commercial if applicable)
     const geoResult = await db.query(`
       SELECT 
         destination,
         COUNT(*) as parcel_count
-      FROM parcels 
+      FROM parcels p
       WHERE created_date >= DATE_TRUNC('month', CURRENT_DATE)
+      ${commercialFilter}
       GROUP BY destination 
       ORDER BY parcel_count DESC 
       LIMIT 5
-    `);
+    `, commercialParams);
 
-    // Get parcel status distribution
+    // Get parcel status distribution (filtered by commercial if applicable)
     const statusResult = await db.query(`
       SELECT 
         status,
         COUNT(*) as count
-      FROM parcels 
+      FROM parcels p
+      WHERE 1=1 ${commercialFilter}
       GROUP BY status 
       ORDER BY count DESC
-    `);
+    `, commercialParams);
 
     // Calculate growth percentages
     const users = usersResult.rows[0];

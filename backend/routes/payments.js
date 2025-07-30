@@ -5,12 +5,34 @@ const db = require('../config/database');
 // Get all payments
 router.get('/', async (req, res) => {
   try {
-    const result = await db.query(`
+    const user = req.user;
+    console.log('🔍 User requesting payments:', user.email, 'Role:', user.role);
+    
+    let query = `
       SELECT p.*, s.name as shipper_name
       FROM payments p
       LEFT JOIN shippers s ON p.shipper_id = s.id
-      ORDER BY p.created_at DESC
-    `);
+      WHERE 1=1
+    `;
+    const queryParams = [];
+    
+    // Filter by commercial user's assigned shippers
+    if (user.role === 'Commercial') {
+      console.log('🔍 Filtering payments for commercial user:', user.email);
+      query += ` AND s.commercial_id IN (
+        SELECT c.id FROM commercials c WHERE c.email = $${queryParams.length + 1}
+      )`;
+      queryParams.push(user.email);
+    }
+    
+    query += ` ORDER BY p.created_at DESC`;
+    
+    console.log('🔍 Final payments query:', query);
+    console.log('🔍 Query params:', queryParams);
+    
+    const result = await db.query(query, queryParams);
+    
+    console.log('🔍 Found', result.rows.length, 'payments for user', user.email);
     
     res.json({
       success: true,

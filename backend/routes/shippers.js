@@ -26,6 +26,10 @@ router.get('/', async (req, res) => {
   try {
     const { page = 1, limit = 10, search = '' } = req.query;
     const offset = (page - 1) * limit;
+    const user = req.user;
+    
+    console.log('🔍 User requesting shippers:', user.email, 'Role:', user.role);
+    
     let query = `
       SELECT s.*,
              CASE WHEN s.password IS NOT NULL THEN true ELSE false END as has_password,
@@ -53,12 +57,26 @@ router.get('/', async (req, res) => {
       WHERE 1=1
     `;
     const queryParams = [];
+    
+    // Filter by commercial user's assigned shippers
+    if (user.role === 'Commercial') {
+      console.log('🔍 Filtering shippers for commercial user:', user.email);
+      query += ` AND s.commercial_id IN (
+        SELECT c.id FROM commercials c WHERE c.email = $${queryParams.length + 1}
+      )`;
+      queryParams.push(user.email);
+    }
+    
     if (search) {
-      query += ` AND (s.name ILIKE $1 OR s.email ILIKE $1 OR s.code ILIKE $1)`;
+      query += ` AND (s.name ILIKE $${queryParams.length + 1} OR s.email ILIKE $${queryParams.length + 1} OR s.code ILIKE $${queryParams.length + 1})`;
       queryParams.push(`%${search}%`);
     }
     query += ` ORDER BY s.created_at DESC LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
     queryParams.push(limit, offset);
+    
+    console.log('🔍 Final shippers query:', query);
+    console.log('🔍 Query params:', queryParams);
+    
     const result = await db.query(query, queryParams);
     
     // Debug: Log the results to see if parcel statistics are included
@@ -77,10 +95,19 @@ router.get('/', async (req, res) => {
     }
     
     // Get total count
-    let countQuery = `SELECT COUNT(*) FROM shippers WHERE 1=1`;
+    let countQuery = `SELECT COUNT(*) FROM shippers s WHERE 1=1`;
     const countParams = [];
+    
+    // Apply same commercial filtering to count query
+    if (user.role === 'Commercial') {
+      countQuery += ` AND s.commercial_id IN (
+        SELECT c.id FROM commercials c WHERE c.email = $${countParams.length + 1}
+      )`;
+      countParams.push(user.email);
+    }
+    
     if (search) {
-      countQuery += ` AND (name ILIKE $1 OR email ILIKE $1 OR code ILIKE $1)`;
+      countQuery += ` AND (s.name ILIKE $${countParams.length + 1} OR s.email ILIKE $${countParams.length + 1} OR s.code ILIKE $${countParams.length + 1})`;
       countParams.push(`%${search}%`);
     }
     const countResult = await db.query(countQuery, countParams);

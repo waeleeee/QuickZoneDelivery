@@ -265,19 +265,29 @@ const ColisTimeline = ({ parcel, onClose }) => {
           </div>
         </div>
       )}
-      {/* Carte infos colis */}
-      <div className="bg-white rounded-xl shadow-lg p-6 mb-8 flex flex-wrap justify-between items-center gap-4">
+      {/* Carte infos colis - Client (Recipient) */}
+      <div className="bg-white rounded-xl shadow-lg p-6 mb-4 flex flex-wrap justify-between items-center gap-4">
         <div className="text-sm text-gray-700 min-w-[180px]">
-          <div><b>Client:</b> {parcel?.shipper || parcel?.shipper_name || "-"}</div>
+          <div><b>Client:</b> {parcel?.recipient_name || parcel?.shipper || parcel?.shipper_name || "-"}</div>
           <div><b>Montant:</b> {parcel?.price ? `${parcel.price} DT` : "-"}</div>
-          <div><b>Téléphone:</b> {parcel?.shipper_phone || "N/A"}</div>
+          <div><b>Téléphone:</b> {parcel?.recipient_phone || parcel?.shipper_phone || "N/A"}</div>
         </div>
-        <div className="text-sm text-gray-700 text-right min-w-[180px]">
-          <div><b>Adresse:</b> {parcel?.destination || "-"}</div>
-          <div><b>Désignation:</b> {parcel?.type || "Colis"}</div>
-          <div><b>Nombre des articles:</b> 1</div>
-        </div>
+                  <div className="text-sm text-gray-700 text-right min-w-[180px]">
+            <div><b>Adresse:</b> {parcel?.recipient_address || parcel?.destination || "-"}</div>
+            <div><b>Gouvernorat:</b> {parcel?.recipient_governorate || parcel?.governorate || "-"}</div>
+            <div><b>Nombre des articles:</b> {parcel?.nb_pieces || 1}</div>
+          </div>
       </div>
+      
+      {/* Info Expéditeur (Sender) - Subtle */}
+      {(parcel?.shipper_name || parcel?.shipper) && (
+        <div className="bg-gray-50 rounded-lg p-3 mb-6 text-xs text-gray-600">
+          <div className="flex justify-between items-center">
+            <span><b>Expéditeur:</b> {parcel?.shipper_name || parcel?.shipper}</span>
+            <span>{parcel?.shipper_phone ? `📞 ${parcel.shipper_phone}` : ''}</span>
+          </div>
+        </div>
+      )}
       {/* Timeline centrée premium */}
       <div className="flex justify-center">
         <div className="relative flex flex-col items-center w-full max-w-lg">

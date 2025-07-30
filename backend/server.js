@@ -99,14 +99,14 @@ app.use('/api/auth', authRoutes);
 app.use('/api/dashboard', authenticateToken, dashboardRoutes);
 // Temporarily disable auth for personnel routes for testing
 app.use('/api/personnel', personnelRoutes);
-app.use('/api/shippers', shippersRoutes);
-// Temporarily disable auth for parcels routes for testing expediteur parcels
-app.use('/api/parcels', parcelsRoutes);
+app.use('/api/shippers', authenticateToken, shippersRoutes);
+// Add authentication to parcels routes for commercial filtering
+app.use('/api/parcels', authenticateToken, parcelsRoutes);
 app.use('/api/missions', authenticateToken, missionsRoutes);
 app.use('/api/sectors', authenticateToken, sectorsRoutes);
 app.use('/api/warehouses', warehousesRoutes);
-// Temporarily disable auth for payments routes for testing expediteur payments
-app.use('/api/payments', paymentsRoutes);
+// Add authentication to payments routes for commercial filtering
+app.use('/api/payments', authenticateToken, paymentsRoutes);
 app.use('/api/complaints', complaintsRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/missions-pickup', missionsPickupRoutes);

@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import DataTable from "./common/DataTable";
 import Modal from "./common/Modal";
+import ColisTimeline from "./common/ColisTimeline";
 import html2pdf from "html2pdf.js";
 import { apiService } from "../../services/api";
 
@@ -11,7 +12,7 @@ const mockDrivers = [
   { id: 3, name: "Mohamed Ali", phone: "+33 1 11 22 33 44" },
 ];
 
-const Expediteur = () => {
+const Expediteur = ({ autoOpenAddForm = false, onClose }) => {
   const navigate = useNavigate();
   
   // Get current user to check role
@@ -41,6 +42,25 @@ const Expediteur = () => {
   const [selectedShipper, setSelectedShipper] = useState(null);
   const [shipperDetails, setShipperDetails] = useState(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
+  const [selectedParcel, setSelectedParcel] = useState(null);
+
+  // Handler for parcel click
+  const handleParcelClick = async (parcel) => {
+    try {
+      // Fetch complete parcel details from API
+      const response = await apiService.getParcel(parcel.id);
+      if (response) {
+        setSelectedParcel(response);
+      } else {
+        // Fallback to the parcel data we have
+        setSelectedParcel(parcel);
+      }
+    } catch (error) {
+      console.error('Error fetching parcel details:', error);
+      // Fallback to the parcel data we have
+      setSelectedParcel(parcel);
+    }
+  };
   const [isExporting, setIsExporting] = useState(false);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [advancedFilters, setAdvancedFilters] = useState({
@@ -88,11 +108,26 @@ const Expediteur = () => {
         let shippersData = [];
         
         if (isCommercialUser) {
-          // For commercial users, get only their shippers
+          // For commercial users, get all shippers first (like admin) then filter by commercial
+          console.log('🔍 User is Commercial, applying filtering...');
+          shippersData = await apiService.getShippers();
+          console.log('🔍 All shippers data before filtering:', shippersData);
+          
+          // Get the commercial's shippers by filtering
           const commercial = commercialsData.find(c => c.email === currentUser.email);
           if (commercial) {
-            shippersData = await apiService.getShippersByCommercial(commercial.id);
-            console.log('Commercial shippers data:', shippersData);
+            console.log('🔍 Commercial found:', commercial);
+            console.log('🔍 Commercial ID:', commercial.id);
+            
+            // Filter shippers by commercial_id
+            shippersData = shippersData.filter(shipper => {
+              console.log(`🔍 Checking shipper ${shipper.name}: shipper.commercial_id="${shipper.commercial_id}" vs commercial.id="${commercial.id}"`);
+              const matches = shipper.commercial_id === commercial.id;
+              console.log(`🔍 Match result: ${matches}`);
+              return matches;
+            });
+            console.log('🔍 Filtered shippers count:', shippersData.length);
+            console.log('🔍 Filtered shippers:', shippersData);
           } else {
             console.error('Commercial not found for user:', currentUser.email);
             shippersData = [];
@@ -142,13 +177,21 @@ const Expediteur = () => {
         
       } catch (error) {
         console.error('Error fetching data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+              } finally {
+          setLoading(false);
+        }
+      };
+      
+      fetchData();
+    }, [currentUser, isCommercialUser]);
 
-    fetchData();
-  }, [currentUser, isCommercialUser]);
+  // Auto-open add form if requested and data is loaded
+  useEffect(() => {
+    if (autoOpenAddForm && !loading && commercials.length > 0) {
+      handleAdd();
+    }
+  }, [autoOpenAddForm, loading, commercials]);
+
   const [editingPayment, setEditingPayment] = useState(null);
   const [colisFormData, setColisFormData] = useState({
     destination: "",
@@ -217,14 +260,14 @@ const Expediteur = () => {
       header: "Adresse",
       render: (value, row) => {
         // For individual expediteurs, show address
-        if (row.address) {
+        if (row.address && row.address.trim() !== "") {
           return row.address;
         }
         // For company expediteurs, show company_address
-        if (row.company_address) {
+        if (row.company_address && row.company_address.trim() !== "") {
           return row.company_address;
         }
-        return "-";
+        return "Non renseigné";
       }
     },
     { 
@@ -232,19 +275,31 @@ const Expediteur = () => {
       header: "Gouvernorat",
       render: (value, row) => {
         // For individual expediteurs, show governorate
-        if (row.governorate) {
+        if (row.governorate && row.governorate.trim() !== "") {
           return row.governorate;
         }
         // For company expediteurs, show company_governorate
-        if (row.company_governorate) {
+        if (row.company_governorate && row.company_governorate.trim() !== "") {
           return row.company_governorate;
         }
-        return "-";
+        return "Non renseigné";
       }
     },
-    { key: "total_parcels", header: "Total colis" },
-    { key: "delivered_parcels", header: "Colis livrés" },
-    { key: "returned_parcels", header: "Colis retournés" },
+    { 
+      key: "total_parcels", 
+      header: "Total colis",
+      render: (value) => value || "0"
+    },
+    { 
+      key: "delivered_parcels", 
+      header: "Colis livrés",
+      render: (value) => value || "0"
+    },
+    { 
+      key: "returned_parcels", 
+      header: "Colis retournés",
+      render: (value) => value || "0"
+    },
     { 
       key: "delivery_fees", 
       header: "Frais de livraison",
@@ -254,17 +309,6 @@ const Expediteur = () => {
       key: "return_fees", 
       header: "Frais de retour",
       render: (value) => `${parseFloat(value || 0).toFixed(2)} DT`
-    },
-    {
-      key: "has_password",
-      header: "MOT DE PASSE",
-      render: (value) => (
-        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-          value ? "bg-green-100 text-green-800" : "bg-orange-100 text-orange-800"
-        }`}>
-          {value ? "✅ Configuré" : "⚠️ Non configuré"}
-        </span>
-      )
     },
     { 
       key: "status", 
@@ -512,6 +556,8 @@ const Expediteur = () => {
   };
 
   const handleSubmit = async () => {
+    // If opened from quick action, close the modal after successful submission
+    const shouldClose = autoOpenAddForm && onClose;
     try {
       // Prepare form data for submission
       const submitData = new FormData();
@@ -731,6 +777,12 @@ const Expediteur = () => {
           window.dispatchEvent(new CustomEvent('shipper-updated', { 
             detail: { shipperId: result.data.id, action: 'created' } 
           }));
+          
+          // If opened from quick action, close the modal
+          if (shouldClose) {
+            onClose();
+            return;
+          }
         }
       }
       setIsAddModalOpen(false);
@@ -1271,15 +1323,15 @@ const Expediteur = () => {
                       </div>
                     </div>
                   </div>
-                  <div className="overflow-x-auto">
+                  <div className="overflow-x-auto border border-gray-200 rounded-lg">
                     <table className="min-w-full divide-y divide-gray-200">
                       <thead className="bg-gray-50">
                         <tr>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Montant</th>
+                          <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Montant</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Méthode</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Référence</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
+                          <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
@@ -1289,16 +1341,16 @@ const Expediteur = () => {
                           </td></tr>
                         ) : (
                           getFilteredPayments(shipperDetails?.payments || []).map(payment => (
-                            <tr key={payment.id}>
+                            <tr key={payment.id} className="hover:bg-gray-50">
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                 {payment.date ? new Date(payment.date).toLocaleDateString() : "N/A"}
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-green-700 font-semibold">
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-green-700 font-semibold text-right">
                                 {parseFloat(payment.amount || 0).toFixed(2)} DT
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{payment.payment_method || "N/A"}</td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{payment.reference || "N/A"}</td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm">
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 font-mono">{payment.reference || "N/A"}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
                                 <span className={`px-2 py-1 text-xs font-medium rounded-full ${payment.status === "paid" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}`}>
                                   {payment.status === "paid" ? "Payé" : "En attente"}
                                 </span>
@@ -1334,14 +1386,14 @@ const Expediteur = () => {
                       </div>
                     </div>
                   </div>
-                  <div className="overflow-x-auto">
+                  <div className="overflow-x-auto border border-gray-200 rounded-lg">
                     <table className="min-w-full divide-y divide-gray-200">
                       <thead className="bg-gray-50">
                         <tr>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
+                          <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Poids (kg)</th>
+                          <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Poids (kg)</th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
@@ -1351,23 +1403,30 @@ const Expediteur = () => {
                           </td></tr>
                         ) : (
                           getFilteredColis(shipperDetails?.parcels || []).map((colis) => (
-                            <tr key={colis.id}>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{colis.tracking_number || colis.id}</td>
-                              <td className="px-6 py-4 whitespace-nowrap">
+                            <tr 
+                              key={colis.id} 
+                              onClick={() => handleParcelClick(colis)}
+                              className="hover:bg-gray-50 cursor-pointer transition-colors duration-150"
+                            >
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 font-mono">{colis.tracking_number || colis.id}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-center">
                                 <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                                  colis.status === "delivered" ? "bg-green-100 text-green-800" :
-                                  colis.status === "in_transit" ? "bg-blue-100 text-blue-800" :
+                                  colis.status === "delivered" || colis.status === "Livrés" ? "bg-green-100 text-green-800" :
+                                  colis.status === "in_transit" || colis.status === "En cours" ? "bg-blue-100 text-blue-800" :
+                                  colis.status === "Livrés payés" ? "bg-emerald-100 text-emerald-800" :
+                                  colis.status === "Retour définitif" ? "bg-red-100 text-red-800" :
+                                  colis.status === "Au dépôt" ? "bg-purple-100 text-purple-800" :
                                   "bg-yellow-100 text-yellow-800"
                                 }`}>
-                                  {colis.status === "delivered" ? "Livés" :
-                                   colis.status === "in_transit" ? "En cours" :
-                                   colis.status === "pending" ? "En attente" : colis.status}
+                                  {colis.status === "delivered" || colis.status === "Livrés" ? "Livrés" :
+                                   colis.status === "in_transit" || colis.status === "En cours" ? "En cours" :
+                                   colis.status === "pending" || colis.status === "En attente" ? "En attente" : colis.status}
                                 </span>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                 {colis.created_date ? new Date(colis.created_date).toLocaleDateString() : "N/A"}
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{parseFloat(colis.weight || 0).toFixed(2)} kg</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">{parseFloat(colis.weight || 0).toFixed(2)} kg</td>
                             </tr>
                           ))
                         )}
@@ -1380,6 +1439,33 @@ const Expediteur = () => {
           </div>
         </Modal>
       )}
+
+      {/* Parcel Details Modal */}
+      <Modal
+        isOpen={!!selectedParcel}
+        onClose={() => setSelectedParcel(null)}
+        size="xl"
+      >
+        <div className="p-6">
+          <div className="flex justify-end mb-6">
+            <button
+              onClick={() => setSelectedParcel(null)}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          
+          {selectedParcel && (
+            <div>
+              {/* Parcel Timeline */}
+              <ColisTimeline parcel={selectedParcel} onClose={() => setSelectedParcel(null)} />
+            </div>
+          )}
+        </div>
+      </Modal>
 
       {/* Form Add/Edit */}
       <Modal
@@ -1407,6 +1493,10 @@ const Expediteur = () => {
             company_governorate: "",
             company_documents: null,
           });
+          // If opened from quick action, close the parent modal
+          if (autoOpenAddForm && onClose) {
+            onClose();
+          }
         }}
         title={editingShipper ? "Modifier l'expéditeur" : "Nouvel expéditeur"}
         size="xl"
@@ -1774,7 +1864,13 @@ const Expediteur = () => {
           <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200 mt-8">
             <button 
               type="button" 
-              onClick={() => setIsAddModalOpen(false)} 
+              onClick={() => {
+                setIsAddModalOpen(false);
+                // If opened from quick action, close the parent modal
+                if (autoOpenAddForm && onClose) {
+                  onClose();
+                }
+              }} 
               className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
             >
               Fermer

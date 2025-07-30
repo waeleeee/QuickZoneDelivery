@@ -107,9 +107,6 @@ const ChefAgence = () => {
   };
 
   const handleAddChef = () => {
-    const defaultGovernorate = 'Tunis';
-    const defaultAgency = generateUniqueAgencyName(defaultGovernorate);
-    
     setEditChef({
       id: '',
       name: '',
@@ -117,8 +114,8 @@ const ChefAgence = () => {
       password: '',
       phone: '',
       address: '',
-      agency: defaultAgency,
-      governorate: defaultGovernorate,
+      agency: '',
+      governorate: 'Tunis',
     });
     setShowEditModal(true);
   };
@@ -145,6 +142,10 @@ const ChefAgence = () => {
       }
       if (!editChef.id && !editChef.password.trim()) {
         alert('Le mot de passe est requis pour créer un nouveau chef d\'agence');
+        return;
+      }
+      if (!editChef.agency.trim()) {
+        alert('L\'agence est requise');
         return;
       }
       
@@ -436,12 +437,9 @@ const ChefAgence = () => {
                   className="border border-gray-300 rounded-md px-3 py-2 w-full focus:outline-none focus:ring-1 focus:ring-blue-500" 
                   value={editChef.governorate || 'Tunis'} 
                   onChange={e => {
-                    const newGovernorate = e.target.value;
-                    const newAgency = generateUniqueAgencyName(newGovernorate);
                     setEditChef({ 
                       ...editChef, 
-                      governorate: newGovernorate,
-                      agency: newAgency
+                      governorate: e.target.value
                     });
                   }} 
                   required
@@ -456,35 +454,20 @@ const ChefAgence = () => {
                 <input type="text" className="border border-gray-300 rounded-md px-3 py-2 w-full focus:outline-none focus:ring-1 focus:ring-blue-500" value={editChef.address || ''} onChange={e => setEditChef({ ...editChef, address: e.target.value })} placeholder="Adresse complète" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Agence</label>
-                {editChef.id ? (
-                  // For editing existing agency manager - show dropdown of existing agencies
-                  <select 
-                    className="border border-gray-300 rounded-md px-3 py-2 w-full focus:outline-none focus:ring-1 focus:ring-blue-500" 
-                    value={editChef.agency || ''} 
-                    onChange={e => setEditChef({ ...editChef, agency: e.target.value })} 
-                    required
-                  >
-                    {agenceOptions.map(opt => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                  </select>
-                ) : (
-                  // For creating new agency manager - show text input with auto-generation
-                  <input 
-                    type="text" 
-                    className="border border-gray-300 rounded-md px-3 py-2 w-full focus:outline-none focus:ring-1 focus:ring-blue-500 bg-gray-50" 
-                    value={editChef.agency || ''} 
-                    onChange={e => setEditChef({ ...editChef, agency: e.target.value })} 
-                    required
-                    placeholder="Nom de l'agence (généré automatiquement)"
-                  />
-                )}
+                <label className="block text-sm font-medium text-gray-700 mb-1 text-left">Lieu de travail</label>
+                <select 
+                  className="border border-gray-300 rounded-md px-3 py-2 w-full focus:outline-none focus:ring-1 focus:ring-blue-500" 
+                  value={editChef.agency || ''} 
+                  onChange={e => setEditChef({ ...editChef, agency: e.target.value })} 
+                  required
+                >
+                  <option value="">Sélectionnez une agence</option>
+                  {agenceOptions.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
                 <p className="text-xs text-gray-500 mt-1">
-                  {editChef.id 
-                    ? '💡 Sélectionnez l\'agence existante pour ce chef d\'agence'
-                    : '💡 Le nom de l\'agence est généré automatiquement selon le gouvernorat. Vous pouvez le modifier si nécessaire.'
-                  }
+                  💡 Sélectionnez l'agence pour ce chef d'agence parmi les 24 gouvernorats de Tunisie ou 'Siège'
                 </p>
               </div>
             </div>

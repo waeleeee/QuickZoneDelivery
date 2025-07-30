@@ -5,6 +5,11 @@ import DeliveryChart from "../charts/DeliveryChart";
 import GeoChart from "../charts/GeoChart";
 import StatusChart from "../charts/StatusChart";
 import ColisCreate from "./ColisCreate";
+import Expediteur from "./Expediteur";
+import PaimentExpediteur from "./PaimentExpediteur";
+import Reclamation from "./Reclamation";
+import CommercialPayments from "./CommercialPayments";
+import CommercialComplaints from "./CommercialComplaints";
 import { apiService } from "../../services/api";
 
 const DashboardHome = () => {
@@ -16,6 +21,7 @@ const DashboardHome = () => {
   const [expediteurChartData, setExpediteurChartData] = useState(null);
   const [adminChartData, setAdminChartData] = useState(null);
   const [chefAgenceStats, setChefAgenceStats] = useState(null);
+  const [commercialStats, setCommercialStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [paidParcels, setPaidParcels] = useState([]);
   
@@ -24,6 +30,11 @@ const DashboardHome = () => {
   const [showColisCreateModal, setShowColisCreateModal] = useState(false);
   const [showTrackParcelModal, setShowTrackParcelModal] = useState(false);
   const [showPaymentsModal, setShowPaymentsModal] = useState(false);
+  const [showExpediteurModal, setShowExpediteurModal] = useState(false);
+  const [showComplaintsModal, setShowComplaintsModal] = useState(false);
+  const [showPaymentsManagementModal, setShowPaymentsManagementModal] = useState(false);
+  const [showCommercialPaymentsModal, setShowCommercialPaymentsModal] = useState(false);
+  const [showCommercialComplaintsModal, setShowCommercialComplaintsModal] = useState(false);
   
   // Track parcel states
   const [trackingNumber, setTrackingNumber] = useState('');
@@ -52,6 +63,9 @@ const DashboardHome = () => {
       } else if (user.role === 'Chef d\'agence') {
         console.log('🔍 Dashboard - Fetching chef d\'agence stats');
         fetchChefAgenceStats(user.email);
+      } else if (user.role === 'Commercial') {
+        console.log('🔍 Dashboard - Fetching commercial stats');
+        fetchCommercialStats(user.email);
       } else {
         console.log('🔍 Dashboard - No specific data fetching for role:', user.role);
         setLoading(false);
@@ -62,12 +76,12 @@ const DashboardHome = () => {
     }
   }, []);
 
-  // Regenerate stats when expediteurStats, adminChartData, or chefAgenceStats changes
+  // Regenerate stats when expediteurStats, adminChartData, chefAgenceStats, or commercialStats changes
   useEffect(() => {
     if (currentUser && currentUser.role) {
       generateRoleSpecificStats(currentUser.role);
     }
-  }, [expediteurStats, adminChartData, chefAgenceStats, currentUser]);
+  }, [expediteurStats, adminChartData, chefAgenceStats, commercialStats, currentUser]);
 
   const fetchAdminChartData = async () => {
     try {
@@ -344,6 +358,272 @@ const DashboardHome = () => {
     }
   };
 
+  const fetchCommercialStats = async (email) => {
+    try {
+      console.log('🔍 fetchCommercialStats - Starting with email:', email);
+      setLoading(true);
+      
+      // Get commercial data by email
+      const commercials = await apiService.getCommercials();
+      const commercial = commercials.find(c => c.email === email);
+      
+      if (!commercial) {
+        console.error('❌ Commercial not found for email:', email);
+        setCommercialStats(null);
+        setLoading(false);
+        return;
+      }
+      
+      console.log('🔍 Commercial found:', commercial);
+      
+      // Get shippers for this commercial
+      const shippers = await apiService.getShippers();
+      const commercialShippers = shippers.filter(shipper => shipper.commercial_id === commercial.id);
+      
+      // Get parcels for this commercial's shippers
+      const parcels = await apiService.getParcels();
+      const commercialParcels = parcels.filter(parcel => {
+        return commercialShippers.some(shipper => 
+          shipper.id === parcel.shipper_id || 
+          shipper.name === parcel.shipper_name ||
+          shipper.code === parcel.shipper_code
+        );
+      });
+      
+      // Get commercial's own payments (commissions, salaries, bonuses)
+      const commercialOwnPayments = await apiService.getCommercialOwnPayments(commercial.id);
+      const commercialPayments = commercialOwnPayments.payments || [];
+      
+      // Get complaints for this commercial's shippers
+      const complaints = await apiService.getComplaints(1, 1000, {});
+      const commercialComplaints = complaints.complaints ? complaints.complaints.filter(complaint => {
+        return commercialShippers.some(shipper => 
+          shipper.email === complaint.client_email ||
+          shipper.name === complaint.client_name
+        );
+      }) : [];
+      
+      // Calculate statistics
+      const now = new Date();
+      const currentMonth = now.getMonth();
+      const currentYear = now.getFullYear();
+      const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+      const lastYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+      
+      // Active clients (shippers with recent activity)
+      const activeClients = commercialShippers.filter(shipper => {
+        const shipperParcels = commercialParcels.filter(p => 
+          p.shipper_id === shipper.id || 
+          p.shipper_name === shipper.name ||
+          p.shipper_code === shipper.code
+        );
+        return shipperParcels.length > 0;
+      });
+      
+      const lastMonthActiveClients = commercialShippers.filter(shipper => {
+        const shipperParcels = commercialParcels.filter(p => {
+          const parcelDate = new Date(p.created_at);
+          return (p.shipper_id === shipper.id || 
+                  p.shipper_name === shipper.name ||
+                  p.shipper_code === shipper.code) &&
+                 parcelDate.getMonth() === lastMonth && 
+                 parcelDate.getFullYear() === lastYear;
+        });
+        return shipperParcels.length > 0;
+      });
+      
+      const activeClientsGrowth = lastMonthActiveClients.length > 0 
+        ? Math.round(((activeClients.length - lastMonthActiveClients.length) / lastMonthActiveClients.length) * 100)
+        : activeClients.length;
+      
+      // Total payments
+      const totalPayments = commercialPayments.reduce((sum, payment) => sum + (parseFloat(payment.amount) || 0), 0);
+      
+      const lastMonthPayments = commercialPayments.filter(payment => {
+        const paymentDate = new Date(payment.created_at);
+        return paymentDate.getMonth() === lastMonth && paymentDate.getFullYear() === lastYear;
+      });
+      
+      const lastMonthTotalPayments = lastMonthPayments.reduce((sum, payment) => sum + (parseFloat(payment.amount) || 0), 0);
+      
+      const totalPaymentsGrowth = lastMonthTotalPayments > 0 
+        ? Math.round(((totalPayments - lastMonthTotalPayments) / lastMonthTotalPayments) * 100)
+        : totalPayments > 0 ? 100 : 0;
+      
+      // Total complaints
+      const totalComplaints = commercialComplaints.length;
+      
+      const lastMonthComplaints = commercialComplaints.filter(complaint => {
+        const complaintDate = new Date(complaint.created_at);
+        return complaintDate.getMonth() === lastMonth && complaintDate.getFullYear() === lastYear;
+      });
+      
+      const totalComplaintsGrowth = lastMonthComplaints.length > 0 
+        ? Math.round(((totalComplaints - lastMonthComplaints.length) / lastMonthComplaints.length) * 100)
+        : totalComplaints > 0 ? 100 : 0;
+      
+      // New clients (shippers created this month)
+      const newClients = commercialShippers.filter(shipper => {
+        const shipperDate = new Date(shipper.created_at);
+        return shipperDate.getMonth() === currentMonth && shipperDate.getFullYear() === currentYear;
+      });
+      
+      const lastMonthNewClients = commercialShippers.filter(shipper => {
+        const shipperDate = new Date(shipper.created_at);
+        return shipperDate.getMonth() === lastMonth && shipperDate.getFullYear() === lastYear;
+      });
+      
+      const newClientsGrowth = lastMonthNewClients.length > 0 
+        ? Math.round(((newClients.length - lastMonthNewClients.length) / lastMonthNewClients.length) * 100)
+        : newClients.length > 0 ? 100 : 0;
+      
+      // Generate chart data for Commercial dashboard
+      const chartData = {
+        // Client evolution data (last 7 days)
+        clientEvolution: generateClientEvolutionData(commercialShippers, commercialParcels),
+        // Client distribution by region/governorate
+        clientDistribution: generateClientDistributionData(commercialShippers, commercialParcels),
+        // Parcel status distribution
+        parcelStatusStats: generateParcelStatusStats(commercialShippers, commercialParcels)
+      };
+      
+      console.log('🔍 Commercial chart data:', chartData);
+      
+      const stats = {
+        activeClients: activeClients.length,
+        activeClientsGrowth: activeClientsGrowth,
+        totalPayments: totalPayments,
+        totalPaymentsGrowth: totalPaymentsGrowth,
+        totalComplaints: totalComplaints,
+        totalComplaintsGrowth: totalComplaintsGrowth,
+        newClients: newClients.length,
+        newClientsGrowth: newClientsGrowth,
+        chartData: chartData
+      };
+      
+      console.log('✅ Commercial stats calculated:', stats);
+      setCommercialStats(stats);
+      
+    } catch (error) {
+      console.error('❌ fetchCommercialStats - Error:', error);
+      setCommercialStats(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Generate client evolution data for Commercial dashboard
+  const generateClientEvolutionData = (shippers, parcels) => {
+    const last7Days = [];
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      last7Days.push(date);
+    }
+
+    return last7Days.map(date => {
+      const dateStr = date.toISOString().split('T')[0];
+      
+      // Filter parcels from this Commercial's expediteurs only
+      const dayParcels = parcels.filter(parcel => {
+        const parcelDate = new Date(parcel.created_at);
+        const isFromCommercialExpediteurs = shippers.some(shipper => 
+          shipper.id === parcel.shipper_id || 
+          shipper.name === parcel.shipper_name ||
+          shipper.code === parcel.shipper_code
+        );
+        return parcelDate.toISOString().split('T')[0] === dateStr && isFromCommercialExpediteurs;
+      });
+      
+      // Count unique expediteurs for this day
+      const uniqueExpediteurs = new Set(dayParcels.map(p => p.shipper_id || p.shipper_name || p.shipper_code));
+      
+      return {
+        date: date.toISOString().split('T')[0],
+        clients: uniqueExpediteurs.size
+      };
+    });
+  };
+
+  // Generate client distribution data for Commercial dashboard
+  const generateClientDistributionData = (shippers, parcels) => {
+    const distribution = {};
+    
+    // Group parcels by governorate/region - ONLY from this Commercial's expediteurs
+    parcels.forEach(parcel => {
+      // Check if this parcel is from one of the Commercial's expediteurs
+      const isFromCommercialExpediteurs = shippers.some(shipper => 
+        shipper.id === parcel.shipper_id || 
+        shipper.name === parcel.shipper_name ||
+        shipper.code === parcel.shipper_code
+      );
+      
+      if (isFromCommercialExpediteurs) {
+        const region = parcel.recipient_governorate || parcel.governorate || 'Autre';
+        if (!distribution[region]) {
+          distribution[region] = 0;
+        }
+        distribution[region]++;
+      }
+    });
+    
+    // Convert to chart format
+    return Object.entries(distribution).map(([region, count]) => ({
+      region: region,
+      count: count
+    }));
+  };
+
+  // Generate parcel status data for Commercial dashboard
+  const generateParcelStatusStats = (shippers, parcels) => {
+    console.log('🔍 generateParcelStatusStats - Shippers:', shippers.length, 'Parcels:', parcels.length);
+    
+    const statusCounts = {};
+    
+    // Count parcels by status - ONLY from this Commercial's expediteurs
+    parcels.forEach(parcel => {
+      // Check if this parcel is from one of the Commercial's expediteurs
+      const isFromCommercialExpediteurs = shippers.some(shipper => 
+        shipper.id === parcel.shipper_id || 
+        shipper.name === parcel.shipper_name ||
+        shipper.code === parcel.shipper_code
+      );
+      
+      if (isFromCommercialExpediteurs) {
+        const status = parcel.status || 'En attente';
+        if (!statusCounts[status]) {
+          statusCounts[status] = 0;
+        }
+        statusCounts[status]++;
+      }
+    });
+    
+    console.log('🔍 Status counts:', statusCounts);
+    
+    // Convert to chart format with colors
+    const statusColors = {
+      'En attente': '#f97316', // Orange
+      'À enlever': '#fbbf24', // Yellow
+      'Enlevé': '#ea580c', // Dark Orange
+      'Au dépôt': '#3b82f6', // Blue
+      'En cours': '#8b5cf6', // Purple
+      'Livrés': '#10b981', // Teal/Green
+      'Livrés payés': '#059669', // Dark Green
+      'Retour définitif': '#ef4444' // Red
+    };
+    
+    const result = Object.entries(statusCounts).map(([status, count]) => ({
+      status: status,
+      count: count,
+      color: statusColors[status] || '#6b7280' // Gray as fallback
+    }));
+    
+    console.log('🔍 Final parcel status stats:', result);
+    console.log('🔍 Result length:', result.length);
+    console.log('🔍 Result content:', JSON.stringify(result, null, 2));
+    return result;
+  };
+
   // Function to render professional SVG icons
   const renderIcon = (iconType) => {
     const iconSize = "w-8 h-8";
@@ -495,10 +775,34 @@ const DashboardHome = () => {
         title: "Tableau de Bord Commercial",
         subtitle: "Gestion des clients, paiements et réclamations",
         cards: [
-          { title: "Clients Actifs", value: "234", change: "+18%", color: "blue", icon: "users" },
-          { title: "Paiements Reçus", value: "45,230 DT", change: "+19%", color: "green", icon: "card" },
-          { title: "Réclamations", value: "12", change: "-5%", color: "orange", icon: "warning" },
-          { title: "Nouveaux Clients", value: "23", change: "+25%", color: "purple", icon: "new" }
+          { 
+            title: "Clients Actifs", 
+            value: commercialStats ? commercialStats.activeClients.toString() : "0", 
+            change: commercialStats ? (commercialStats.activeClientsGrowth >= 0 ? `+${commercialStats.activeClientsGrowth}%` : `${commercialStats.activeClientsGrowth}%`) : "0%", 
+            color: "blue", 
+            icon: "users" 
+          },
+          { 
+            title: "Paiements Reçus", 
+            value: commercialStats ? `${commercialStats.totalPayments.toLocaleString()} DT` : "0 DT", 
+            change: commercialStats ? (commercialStats.totalPaymentsGrowth >= 0 ? `+${commercialStats.totalPaymentsGrowth}%` : `${commercialStats.totalPaymentsGrowth}%`) : "0%", 
+            color: "green", 
+            icon: "card" 
+          },
+          { 
+            title: "Réclamations", 
+            value: commercialStats ? commercialStats.totalComplaints.toString() : "0", 
+            change: commercialStats ? (commercialStats.totalComplaintsGrowth >= 0 ? `+${commercialStats.totalComplaintsGrowth}%` : `${commercialStats.totalComplaintsGrowth}%`) : "0%", 
+            color: "orange", 
+            icon: "warning" 
+          },
+          { 
+            title: "Nouveaux Clients", 
+            value: commercialStats ? commercialStats.newClients.toString() : "0", 
+            change: commercialStats ? (commercialStats.newClientsGrowth >= 0 ? `+${commercialStats.newClientsGrowth}%` : `${commercialStats.newClientsGrowth}%`) : "0%", 
+            color: "purple", 
+            icon: "new" 
+          }
         ]
       },
       'Finance': {
@@ -644,6 +948,51 @@ const DashboardHome = () => {
       setPaidParcels([]);
     }
     setShowPaymentsModal(true);
+  };
+
+  // Commercial user action functions
+  const handleNewClient = () => {
+    // For Commercial users, directly open the expediteur form
+    if (currentUser?.role === 'Commercial') {
+      setShowExpediteurModal(true);
+    } else {
+      // For other users, show expediteur management in a compact modal
+      setShowExpediteurModal(true);
+    }
+  };
+
+  const handleManagePayments = () => {
+    // For Commercial users, show their own payments
+    if (currentUser?.role === 'Commercial') {
+      setShowCommercialPaymentsModal(true);
+    } else {
+      // For other users, show payments management in a compact modal
+      setShowPaymentsManagementModal(true);
+    }
+  };
+
+  const handleManageComplaints = () => {
+    // For Commercial users, show their own complaints
+    if (currentUser?.role === 'Commercial') {
+      setShowCommercialComplaintsModal(true);
+    } else {
+      // For other users, show complaints management in a compact modal
+      setShowComplaintsModal(true);
+    }
+  };
+
+  // Admin/Default user action functions
+  const handleNewParcelAdmin = () => {
+    setShowColisCreateModal(true);
+  };
+
+  const handleNewExpediteur = () => {
+    setShowExpediteurModal(true);
+  };
+
+  const handleGenerateReport = () => {
+    // Navigate to reports or analytics section
+    navigate('/dashboard?key=dashboard');
   };
 
   const handleSearchParcel = async () => {
@@ -799,6 +1148,13 @@ const DashboardHome = () => {
                   value: item.delivered
                 }))}
               />
+            ) : currentUser?.role === 'Commercial' && commercialStats?.chartData?.clientEvolution ? (
+              <DeliveryChart 
+                deliveryData={commercialStats.chartData.clientEvolution.map(item => ({
+                  label: new Date(item.date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }),
+                  value: item.clients
+                }))}
+              />
             ) : currentUser?.role === 'Expéditeur' ? (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center">
@@ -845,6 +1201,13 @@ const DashboardHome = () => {
                   value: item.count
                 }))}
               />
+            ) : currentUser?.role === 'Commercial' && commercialStats?.chartData?.clientDistribution ? (
+              <GeoChart 
+                geoData={commercialStats.chartData.clientDistribution.map(item => ({
+                  label: item.region,
+                  value: item.count
+                }))}
+              />
             ) : currentUser?.role === 'Expéditeur' ? (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center">
@@ -875,7 +1238,7 @@ const DashboardHome = () => {
           <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
           </svg>
-          {currentUser?.role === 'Commercial' ? 'Statut des Paiements' : 'Statut des Colis'}
+          {currentUser?.role === 'Commercial' ? 'Statut des Colis' : 'Statut des Colis'}
         </h3>
         <div className="h-96">
           {currentUser?.role === 'Expéditeur' && expediteurStats?.statusStats ? (
@@ -894,6 +1257,38 @@ const DashboardHome = () => {
                 <p className="text-gray-400 text-xs mt-1">Les données apparaîtront ici une fois que vous aurez des colis</p>
               </div>
             </div>
+          ) : currentUser?.role === 'Commercial' ? (
+            (() => {
+              console.log('🔍 Commercial chart condition check:');
+              console.log('🔍 commercialStats:', commercialStats);
+              console.log('🔍 chartData:', commercialStats?.chartData);
+              console.log('🔍 parcelStatusStats:', commercialStats?.chartData?.parcelStatusStats);
+              console.log('🔍 parcelStatusStats length:', commercialStats?.chartData?.parcelStatusStats?.length);
+              
+              if (commercialStats?.chartData?.parcelStatusStats && commercialStats.chartData.parcelStatusStats.length > 0) {
+                // Convert array format to object format for StatusChart
+                const statusStatsObject = {};
+                commercialStats.chartData.parcelStatusStats.forEach(item => {
+                  statusStatsObject[item.status] = item.count;
+                });
+                console.log('🔍 Converted statusStatsObject:', statusStatsObject);
+                return <StatusChart statusStats={statusStatsObject} />;
+              } else {
+                return (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-center">
+                      <div className="text-gray-400 mb-2">
+                        <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                      </div>
+                      <p className="text-gray-500 text-sm">Aucun colis disponible</p>
+                      <p className="text-gray-400 text-xs mt-1">Les données apparaîtront ici une fois que vos expéditeurs auront des colis</p>
+                    </div>
+                  </div>
+                );
+              }
+            })()
           ) : (currentUser?.role === 'Administration' || currentUser?.role === 'Admin') && adminChartData?.statusStats ? (
             <StatusChart 
               statusStats={adminChartData.statusStats}
@@ -917,7 +1312,10 @@ const DashboardHome = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {currentUser?.role === 'Commercial' ? (
             <>
-              <button className="group flex items-center justify-center p-6 border-2 border-dashed border-gray-300 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all duration-300 transform hover:scale-105">
+              <button 
+                onClick={handleNewClient}
+                className="group flex items-center justify-center p-6 border-2 border-dashed border-gray-300 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all duration-300 transform hover:scale-105 cursor-pointer"
+              >
                 <div className="text-center">
                   <div className="mb-3 group-hover:scale-110 transition-transform">
                     <svg className="w-12 h-12 text-blue-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -928,7 +1326,10 @@ const DashboardHome = () => {
                   <p className="text-sm text-gray-500 mt-1">Ajouter un expéditeur</p>
                 </div>
               </button>
-              <button className="group flex items-center justify-center p-6 border-2 border-dashed border-gray-300 rounded-xl hover:border-green-500 hover:bg-green-50 transition-all duration-300 transform hover:scale-105">
+              <button 
+                onClick={handleManagePayments}
+                className="group flex items-center justify-center p-6 border-2 border-dashed border-gray-300 rounded-xl hover:border-green-500 hover:bg-green-50 transition-all duration-300 transform hover:scale-105 cursor-pointer"
+              >
                 <div className="text-center">
                   <div className="mb-3 group-hover:scale-110 transition-transform">
                     <svg className="w-12 h-12 text-green-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -939,7 +1340,10 @@ const DashboardHome = () => {
                   <p className="text-sm text-gray-500 mt-1">Gérer les paiements</p>
                 </div>
               </button>
-              <button className="group flex items-center justify-center p-6 border-2 border-dashed border-gray-300 rounded-xl hover:border-orange-500 hover:bg-orange-50 transition-all duration-300 transform hover:scale-105">
+              <button 
+                onClick={handleManageComplaints}
+                className="group flex items-center justify-center p-6 border-2 border-dashed border-gray-300 rounded-xl hover:border-orange-500 hover:bg-orange-50 transition-all duration-300 transform hover:scale-105 cursor-pointer"
+              >
                 <div className="text-center">
                   <div className="mb-3 group-hover:scale-110 transition-transform">
                     <svg className="w-12 h-12 text-orange-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -998,7 +1402,10 @@ const DashboardHome = () => {
             </>
           ) : (
             <>
-              <button className="group flex items-center justify-center p-6 border-2 border-dashed border-gray-300 rounded-xl hover:border-red-500 hover:bg-red-50 transition-all duration-300 transform hover:scale-105">
+              <button 
+                onClick={handleNewParcelAdmin}
+                className="group flex items-center justify-center p-6 border-2 border-dashed border-gray-300 rounded-xl hover:border-red-500 hover:bg-red-50 transition-all duration-300 transform hover:scale-105 cursor-pointer"
+              >
                 <div className="text-center">
                   <div className="mb-3 group-hover:scale-110 transition-transform">
                     <svg className="w-12 h-12 text-red-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1009,7 +1416,10 @@ const DashboardHome = () => {
                   <p className="text-sm text-gray-500 mt-1">Créer un nouveau colis</p>
                 </div>
               </button>
-              <button className="group flex items-center justify-center p-6 border-2 border-dashed border-gray-300 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all duration-300 transform hover:scale-105">
+              <button 
+                onClick={handleNewExpediteur}
+                className="group flex items-center justify-center p-6 border-2 border-dashed border-gray-300 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all duration-300 transform hover:scale-105 cursor-pointer"
+              >
                 <div className="text-center">
                   <div className="mb-3 group-hover:scale-110 transition-transform">
                     <svg className="w-12 h-12 text-blue-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1020,7 +1430,10 @@ const DashboardHome = () => {
                   <p className="text-sm text-gray-500 mt-1">Ajouter un expéditeur</p>
                 </div>
               </button>
-              <button className="group flex items-center justify-center p-6 border-2 border-dashed border-gray-300 rounded-xl hover:border-green-500 hover:bg-green-50 transition-all duration-300 transform hover:scale-105">
+              <button 
+                onClick={handleGenerateReport}
+                className="group flex items-center justify-center p-6 border-2 border-dashed border-gray-300 rounded-xl hover:border-green-500 hover:bg-green-50 transition-all duration-300 transform hover:scale-105 cursor-pointer"
+              >
                 <div className="text-center">
                   <div className="mb-3 group-hover:scale-110 transition-transform">
                     <svg className="w-12 h-12 text-green-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1318,6 +1731,134 @@ const DashboardHome = () => {
                   )}
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Expediteur Management Modal */}
+      {showExpediteurModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-7xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 p-6 rounded-t-xl">
+              <div className="flex justify-between items-center">
+                <h3 className="text-2xl font-bold text-gray-900">Gestion des Expéditeurs</h3>
+                <button 
+                  onClick={() => setShowExpediteurModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            
+            <div className="p-6">
+              <Expediteur 
+                autoOpenAddForm={currentUser?.role === 'Commercial'} 
+                onClose={() => setShowExpediteurModal(false)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Payments Management Modal */}
+      {showPaymentsManagementModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-7xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 p-6 rounded-t-xl">
+              <div className="flex justify-between items-center">
+                <h3 className="text-2xl font-bold text-gray-900">Gestion des Paiements</h3>
+                <button 
+                  onClick={() => setShowPaymentsManagementModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            
+            <div className="p-6">
+              <PaimentExpediteur />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Complaints Management Modal */}
+      {showComplaintsModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-7xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 p-6 rounded-t-xl">
+              <div className="flex justify-between items-center">
+                <h3 className="text-2xl font-bold text-gray-900">Gestion des Réclamations</h3>
+                <button 
+                  onClick={() => setShowComplaintsModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            
+            <div className="p-6">
+              <Reclamation />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Commercial Payments Modal */}
+      {showCommercialPaymentsModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-7xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 p-6 rounded-t-xl">
+              <div className="flex justify-between items-center">
+                <h3 className="text-2xl font-bold text-gray-900">Mes Paiements</h3>
+                <button 
+                  onClick={() => setShowCommercialPaymentsModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            
+            <div className="p-6">
+              <CommercialPayments />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Commercial Complaints Modal */}
+      {showCommercialComplaintsModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-7xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 p-6 rounded-t-xl">
+              <div className="flex justify-between items-center">
+                <h3 className="text-2xl font-bold text-gray-900">Gestion des réclamations</h3>
+                <button 
+                  onClick={() => setShowCommercialComplaintsModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            
+            <div className="p-6">
+              <CommercialComplaints />
             </div>
           </div>
         </div>

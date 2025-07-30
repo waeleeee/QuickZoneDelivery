@@ -411,6 +411,31 @@ router.post('/:id/deliver', async (req, res) => {
     
     // Check security code
     if (security_code === parcel.client_code) {
+      // Get parcel location for tracking history
+      const parcelLocationResult = await client.query(`
+        SELECT 
+          p.recipient_governorate,
+          s.city as shipper_city
+        FROM parcels p
+        LEFT JOIN shippers s ON p.shipper_id = s.id
+        WHERE p.id = $1
+      `, [parcel_id]);
+      const parcelLocation = parcelLocationResult.rows[0];
+      
+      // Record status change in tracking history before update
+      await client.query(`
+        INSERT INTO parcel_tracking_history 
+        (parcel_id, status, previous_status, updated_by, location, notes, created_at) 
+        VALUES ($1, $2, $3, $4, $5, $6, NOW())
+      `, [
+        parcel_id,
+        'Livrés',
+        parcel.status,
+        req.user?.id || 1,
+        parcelLocation?.recipient_governorate || 'Tunis',
+        'Parcel delivered successfully via delivery mission'
+      ]);
+      
       // Successful delivery
       await client.query(`
         UPDATE parcels 
@@ -435,6 +460,31 @@ router.post('/:id/deliver', async (req, res) => {
         status: 'Livrés'
       });
     } else if (security_code === parcel.failed_code) {
+      // Get parcel location for tracking history
+      const parcelLocationResult = await client.query(`
+        SELECT 
+          p.recipient_governorate,
+          s.city as shipper_city
+        FROM parcels p
+        LEFT JOIN shippers s ON p.shipper_id = s.id
+        WHERE p.id = $1
+      `, [parcel_id]);
+      const parcelLocation = parcelLocationResult.rows[0];
+      
+      // Record status change in tracking history before update
+      await client.query(`
+        INSERT INTO parcel_tracking_history 
+        (parcel_id, status, previous_status, updated_by, location, notes, created_at) 
+        VALUES ($1, $2, $3, $4, $5, $6, NOW())
+      `, [
+        parcel_id,
+        'RTN dépot',
+        parcel.status,
+        req.user?.id || 1,
+        parcelLocation?.shipper_city || 'Tunis',
+        'Parcel returned to depot - delivery failed'
+      ]);
+      
       // Failed delivery - return to depot
       await client.query(`
         UPDATE parcels 
